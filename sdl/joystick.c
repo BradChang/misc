@@ -1,4 +1,5 @@
 #include "SDL/SDL.h"
+#define JOYAXIS_MAX 32768
 
 int main(int argc, char *argv[]) {
   int i, n, a,b,l, w;
@@ -28,7 +29,11 @@ int main(int argc, char *argv[]) {
 
     switch (e.type) {
     case SDL_JOYAXISMOTION: 
-      fprintf(stderr,"axis %d motion\n", e.jaxis.axis);
+      if ((e.jaxis.value < -3200) || (e.jaxis.value > 3200)) // reduce tweakiness
+        fprintf(stderr,"axis %d (%s) motion: %d%%\n", e.jaxis.axis, 
+          (e.jaxis.axis==0?"left-right":
+          ((e.jaxis.axis==1?"up-down":"other"))),
+          (int)(e.jaxis.value*100.0/JOYAXIS_MAX));
       break;
 
     case SDL_JOYBUTTONDOWN: 
