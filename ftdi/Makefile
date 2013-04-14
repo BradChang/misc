@@ -1,5 +1,4 @@
 EXES=rgb
-all: $(EXES)
 
 CFLAGS=-g
 CFLAGS+=-I/usr/include/libftdi1

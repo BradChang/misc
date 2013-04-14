@@ -1,0 +1,3 @@
+build, then run as below, then move the joystick axes (four) to adjust RGB and dimness
+
+./track | sudo ./jrgb
