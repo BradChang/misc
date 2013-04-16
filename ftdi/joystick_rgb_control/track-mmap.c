@@ -1,16 +1,46 @@
 #include "SDL/SDL.h"
 #include "assert.h"
-#include "tpl.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <ftdi.h>
+
 #define JOYAXIS_MAX 32768
 
 unsigned char R,G,B,D;
 
 int main(int argc, char *argv[]) {
   int i, n, a,b,l, w, p;
-  SDL_Joystick *j;
+  SDL_Joystick *j=NULL;
   SDL_Event e;
-  tpl_node *tn;
-  tn = tpl_map("cccc",&R,&G,&B,&D);
+  char *file;
+  char *text=NULL;
+  size_t text_sz=4;
+  int fd=-1;
+
+  if (argc > 1) file=argv[1];
+  else {fprintf(stderr,"path required\n"); return -1;}
+  if ( (fd = open(file, O_RDWR|O_CREAT, 0777)) == -1) {
+    fprintf(stderr,"can't open %s: %s\n", file, strerror(errno));
+    goto done;
+  }
+  if (ftruncate(fd, text_sz) == -1) {
+    fprintf(stderr,"can't ftruncate %s: %s\n", file, strerror(errno));
+    goto done;
+  }
+  text = mmap(0, text_sz, PROT_WRITE, MAP_SHARED, fd, 0);
+  if (text == MAP_FAILED) {
+    close(fd); fd = -1;
+    fprintf(stderr,"Failed to mmap %s: %s\n", file, strerror(errno));
+    goto done;
+  }
 
   if (SDL_Init(SDL_INIT_EVERYTHING) == -1) {
     fprintf(stderr,"SDL init failed: %s\n", SDL_GetError());
@@ -36,9 +66,10 @@ int main(int argc, char *argv[]) {
          case 3: /* throttle */ D = p; break;
          default: break;
          }
-        assert(R>=0 && R<256); assert(G>=0 && G<256); assert(B>=0 && B<256); assert(D>=0 && D<256);
-        tpl_pack(tn, 0);
-        tpl_dump(tn,TPL_FD,1);
+        text[0] = R;
+        text[1] = G;
+        text[2] = B;
+        text[3] = D;
       }
       break;
 
@@ -48,6 +79,7 @@ int main(int argc, char *argv[]) {
   }
 
  done:
-  tpl_free(tn);
-  SDL_JoystickClose(j);
+  if (j) SDL_JoystickClose(j);
+  if (text) munmap(text, text_sz);
+  if (fd != -1) close(fd);
 }

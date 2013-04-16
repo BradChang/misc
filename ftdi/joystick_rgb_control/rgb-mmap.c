@@ -31,9 +31,15 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <signal.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <ftdi.h>
-#include "tpl.h"
 
 char enttec_msg[] = {
   0x7e,  // start of message delimiter (Enttec USB Pro API)
@@ -52,46 +58,71 @@ char enttec_msg[] = {
   0xe7,  // end of message delimiter (Enttec USB Pro API)
 };
 
-unsigned char R,G,B,D;
-
 int main(int argc, char **argv)
 {
-    struct ftdi_context *ftdi;
+    struct ftdi_context *ftdi=NULL;
+    struct stat stat_buf;
+    unsigned char R,G,B,D;
     int f = 0;
     int vid = 0x403;  /* USB vendor ID  -- use 'lsusb' to see */
     int pid = 0x6001; /* USB product ID */
-    tpl_node *tn;
-    tn = tpl_map("cccc",&R,&G,&B,&D);
+    char *file;
+    char *text=NULL;
+    size_t text_sz;
+    int fd=-1;
+
+    if (argc > 1) file=argv[1];
+    else {fprintf(stderr,"path required\n"); return -1;}
+    if ( (fd = open(file, O_RDONLY)) == -1) {
+      fprintf(stderr,"can't open %s: %s\n", file, strerror(errno));
+      goto done;
+    }
+    if ( fstat(fd, &stat_buf) == -1) {
+      close(fd); fd = -1;
+      fprintf(stderr,"Couldn't stat file %s: %s\n", file, strerror(errno));
+      goto done;
+    }
+
+    text_sz = stat_buf.st_size;
+    text = mmap(0, text_sz, PROT_READ, MAP_SHARED, fd, 0);
+    if (text == MAP_FAILED) {
+      close(fd); fd = -1;
+      fprintf(stderr,"Failed to mmap %s: %s\n", file, strerror(errno));
+      goto done;
+    }
 
     if ((ftdi = ftdi_new()) == 0) {
-        fprintf(stderr, "ftdi_new failed\n");
-        return -1;
+      fprintf(stderr, "ftdi_new failed\n");
+      goto done;
     }
 
     ftdi_set_interface(ftdi, INTERFACE_ANY);
     f = ftdi_usb_open(ftdi, vid, pid);
     if (f < 0)
     {
-        fprintf(stderr, "unable to open ftdi device: %d (%s)\n", f, ftdi_get_error_string(ftdi));
-        fprintf(stderr, "you may need to run as root\n");
-        return -1;
+      fprintf(stderr, "unable to open ftdi device: %d (%s)\n", f, ftdi_get_error_string(ftdi));
+      fprintf(stderr, "you may need to run as root\n");
+      goto done;
     }
 
-    f = ftdi_write_data(ftdi, enttec_msg, sizeof(enttec_msg));
-    while(tpl_load(tn, TPL_FD, 0) == 0) {
-      tpl_unpack(tn,0);
-      fprintf(stderr,"writing %d %d %d %d\n", R,G,B,D);
+    while(1) {
+      R = text[0]; 
+      G = text[1];
+      B = text[2];
+      D = text[3];
       enttec_msg[6] = R;
       enttec_msg[7] = G;
       enttec_msg[8] = B;
       enttec_msg[9] = 0;
       enttec_msg[10] = D;
-      ftdi_write_data(ftdi, enttec_msg, sizeof(enttec_msg));
+      f = ftdi_write_data(ftdi, enttec_msg, sizeof(enttec_msg));
+      sleep(1); // TODO catch signal, goto done
     }
 
-
-    ftdi_usb_close(ftdi);
-    ftdi_free(ftdi);
-    tpl_free(tn);
+   done:
+    if (text) munmap(text, text_sz);
+    if (fd != -1) close(fd);
+    if (ftdi) ftdi_usb_close(ftdi);
+    if (ftdi) ftdi_free(ftdi);
     return 0;
 }

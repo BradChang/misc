@@ -1,3 +1,12 @@
+
+1. version 1 (uses tpl passed over stdout/stdin pipe)
+
 build, then run as below, then move the joystick axes (four) to adjust RGB and dimness
 
 ./track | sudo ./jrgb
+
+2. version 2 (uses four bytes in a shared, mmap'd file)
+
+./track-mmap /tmp/blah
+sudo ./rgb-mmap /tmp/blah
+
