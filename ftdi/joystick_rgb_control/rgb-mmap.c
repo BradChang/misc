@@ -110,6 +110,12 @@ int main(int argc, char **argv)
       G = text[1];
       B = text[2];
       D = text[3];
+
+      /* choose dominant color to amplify effect */
+      if (R > G) {G=0; B=0; D=0;} // just red (bright)
+      else if (B > G) {G=0; R=0; D=0;} // just blue (bright)
+      else { R=B=0; } // just green
+
       enttec_msg[6] = R;
       enttec_msg[7] = G;
       enttec_msg[8] = B;
