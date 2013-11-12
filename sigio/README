@@ -19,17 +19,18 @@ of this document is concerned only with asynchronous notification and not I/O.
 * sigio1 - using SIGIO to be notified when one descriptor is ready
 * sigio2 - using RT signals to be notified when any of "n" descriptors are ready
 * sigio3 - a rewrite of sigio2 using sigwaitinfo instead of a signal handler
+* sigio4 - using inotify with SIGIO notification 
+* sigio5 - using inotify with SIGRT notification 
+* sigio6 - using inotify with SIGIO and sigwaitinfo 
+
 
 [NOTE]
-.Broken in Linux kernel 2.6.32
-Note that per inotify(7) "kernels since 2.6.25 support signal-driven I/O
-notification when using inotify file descriptors". Nevertheless sigio4 though
-sigio6 do not work when tested on Linux 2.6.32.  Their failure is apparently
-due to a kernel bug. (References found online suggest patch was in Dec 2010).
-
-* sigio4 - using inotify with SIGIO notification (does not work)
-* sigio5 - using inotify with SIGRT notification (does not work)
-* sigio6 - using inotify with SIGIO and sigwaitinfo (does not work)
+The sigio4, sigio5 and sigio6 programs require a Linux kernel newer than 2.6.32.
+References suggest a kernel patch in Dec. 2010 corrected the issue although the
+version in which the fix was merged is not known to me.  While inotify(7)
+states that "kernels since 2.6.25 support signal-driven I/O notification when
+using inotify file descriptors", these sigio4-sigio6 programs did not work when
+tested on Linux 2.6.32, but work when tested on kernel 3.8.0.
 
 SIGIO with one file descriptor (sigio1.c)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
