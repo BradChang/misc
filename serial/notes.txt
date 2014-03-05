@@ -1,4 +1,5 @@
 read_serial: reads from the device named on the first argument (9600 baud)
+read_serial.js: a javascript version written for node.js
 
 Relation of libftdi to serial
 ===========================================================================

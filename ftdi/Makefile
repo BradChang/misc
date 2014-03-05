@@ -2,8 +2,8 @@ EXES=rgb
 all: $(EXES)
 
 CFLAGS=-g
-CFLAGS+=-I/usr/include/libftdi1
-LDFLAGS=-lftdi1
+CFLAGS+=-I/usr/include/libftdi
+LDFLAGS=-lftdi
 
 $(EXES): %: %.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
