@@ -67,6 +67,7 @@ Examples of using common libraries and other reusable bits:
 | {t}qcp[qcp]          | quick copy files from client to server without authentication | C
 | {t}ftdi[ftdi]        | example of using libftdi | C
 | {t}sdl[sdl]          | example of using libsdl | C
+| {t}serial[serial]    | example of using serial port communication | C, node.js
 |=================================================================================================================
 
 :i: http://troydhanson.wordpress.com/2012/08/21/minimal-sysvinit-launchd-and-upstart/
