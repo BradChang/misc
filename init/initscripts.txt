@@ -3,8 +3,6 @@ A quick sampler of initscripts
 Troy D. Hanson <tdh@tkhanson.net>
 v1.1, March 2014
 
-Back to http://troydhanson.github.io/[my GitHub page]
-
 include::twitter.inc[]
 
 Initscripts::
@@ -60,6 +58,7 @@ Mac uses "launchd" to start daemons.
 
 Resources
 ---------
-The author's http://tkhanson.net/blog[blog], and twitter https://twitter.com/troydhanson[@troydhanson].
+* back to http://troydhanson.github.io/[my GitHub page].
+* author's http://tkhanson.net/blog[blog], and twitter https://twitter.com/troydhanson[@troydhanson].
 
 // vim: set tw=80 wm=2 syntax=asciidoc: 
