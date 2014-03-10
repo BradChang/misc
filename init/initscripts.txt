@@ -3,6 +3,8 @@ A quick sampler of initscripts
 Troy D. Hanson <tdh@tkhanson.net>
 v1.1, March 2014
 
+include::twitter.inc[]
+
 Initscripts::
    a general term for the scripts that start and stop daemon (server)
    processes on Unix-style OS's. Often used to start processes at boot.

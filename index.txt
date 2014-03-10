@@ -12,8 +12,8 @@ Back to http://tkhanson.net[tkhanson.net main page].
 
 About
 ~~~~~
-These are miscellaneous small scripts and snippets that I've written on Linux
-and OS X.  These are all placed in the public domain. 
+These are miscellaneous small scripts and snippets that I've written on Linux.
+These are all placed in the public domain. 
 
 Download options
 ~~~~~~~~~~~~~~~~
@@ -68,16 +68,17 @@ Examples of using common libraries and other reusable bits:
 | {t}ftdi[ftdi]        | example of using libftdi | C
 | {t}sdl[sdl]          | example of using libsdl | C
 | {t}serial[serial]    | example of using serial port communication | C, node.js
+| {t}init[init]         | initscripts to start daemons on RedHat/CentOS, Ubuntu, Debian, Mac OS X {i}[notes]| text
 |=================================================================================================================
 
-:i: http://troydhanson.wordpress.com/2012/08/21/minimal-sysvinit-launchd-and-upstart/
+:i: http://troydhanson.github.io/misc/initscripts.html
 :f: http://troydhanson.github.com/misc/fifor.html
 :r: http://troydhanson.github.com/misc/remember.html
 :m: http://troydhanson.github.com/misc/md5watch.html
 :v: http://troydhanson.github.com/misc/virtual_memory.pdf
 
-Scripts
-~~~~~~~
+Other
+~~~~~
 [width="90%",cols="10^m,70,5",grid="none"]
 |=================================================================================================================
 | {b}setup[setup]       | configure some of my preferences in .bash_profile, .gdbinit, .vimrc and .inputrc | sh
@@ -88,7 +89,6 @@ Scripts
 | {b}bin2hex[bin2hex]   | convert stdin to hex bytes | Perl
 | {b}hex2bin[hex2bin]   | convert hex args to binary bytes on stdout | Perl
 | {b}downsample[downsample] |  reduce a text file to x% of its lines (default 10%) | Perl
-| {t}init[init]         | initscripts to start daemons on RHEL/CentOS, Ubuntu, Debian, Mac OS X {i}[notes]| text
 | {t}md5watch[md5watch] | list files changed since last run {m}[notes] | Perl
 | {b}mailpl[mailpl]     | send email with attachments, configurable from address, etc | Perl
 |=================================================================================================================
