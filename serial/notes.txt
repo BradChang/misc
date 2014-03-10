@@ -1,0 +1,11 @@
+read_serial: reads from the device named on the first argument (9600 baud)
+read_serial.js: a javascript version written for node.js
+
+Relation of libftdi to serial
+===========================================================================
+Today computers often use USB-to-serial interfaces rather than having hard-
+wired serial devices. The USB-to-serial communication is often handled by
+the FTDI chipset. The drivers for FTDI create a serial device e.g. /dev/ttyusb0
+which can be used just like a conventional serial device. However it's also
+possible to use libftdi to interact with the chip at a lower and more flexible
+level. For an example of using libftdi to write data see the ../ftdi directory.

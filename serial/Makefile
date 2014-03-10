@@ -1,9 +1,8 @@
-EXES=rgb 
+EXES=read_serial
 all: $(EXES)
 
 CFLAGS=-g
-CFLAGS+=-I/usr/include/libftdi
-LDFLAGS=-lftdi
+LDFLAGS=
 
 $(EXES): %: %.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
