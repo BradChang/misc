@@ -3,6 +3,8 @@ A quick sampler of initscripts
 Troy D. Hanson <tdh@tkhanson.net>
 v1.1, March 2014
 
+Back to http://troydhanson.github.io/[my GitHub page]
+
 include::twitter.inc[]
 
 Initscripts::
@@ -20,10 +22,11 @@ Initscripts vary by OS.  Here's a quick sample of initscripts on four platforms:
 
 These examples show how to run an imaginary daemon, `exd`, at boot.
 
-[NOTE]
 .An easier way?
+*****************************************************************************
 You might find my http://troydhanson.github.io/pmtr[pmtr tool] much easier to
 use than writing an initscript. 
+*****************************************************************************
 
 These initscripts expect the daemon to stay in the foreground.
 
@@ -54,5 +57,9 @@ Mac uses "launchd" to start daemons.
 
 1. Place https://github.com/troydhanson/misc/blob/master/init/mac-exd.plist[this file] in `/Library/LaunchDaemons/exd.plist`
 2. Load and start it using, `launchctl load /Library/LaunchDaemons/exd.plist`
+
+Resources
+---------
+The author's http://tkhanson.net/blog[blog], and twitter https://twitter.com/troydhanson[@troydhanson].
 
 // vim: set tw=80 wm=2 syntax=asciidoc: 
