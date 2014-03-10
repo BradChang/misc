@@ -7,8 +7,8 @@ Initscripts::
    a general term for the scripts that start and stop daemon (server)
    processes on Unix-style OS's. Often used to start processes at boot.
 
-Initscripts: Ubuntu, Redhat/Centos, Debian, Mac OS X
------------------------------------------------------
+initscripts
+-----------
 Initscripts vary by OS.  Here's a quick sample of initscripts on four platforms:
 
 * Ubuntu
@@ -52,9 +52,5 @@ Mac uses "launchd" to start daemons.
 
 1. Place https://github.com/troydhanson/misc/blob/master/init/mac-exd.plist[this file] in `/Library/LaunchDaemons/exd.plist`
 2. Load and start it using, `launchctl load /Library/LaunchDaemons/exd.plist`
-
-That's it
-~~~~~~~~~
-That's a minimalistic look at initscripts on four platforms.
 
 // vim: set tw=80 wm=2 syntax=asciidoc: 
