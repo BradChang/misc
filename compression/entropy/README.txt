@@ -1,3 +1,5 @@
+For further information see http://troydhanson.github.io/misc/Entropy.html
+
 FILES
 -----
 
@@ -22,3 +24,4 @@ Calculate the limit to which a particular stream of 10000 bytes could be compres
   1.85 bits per byte
   This data can be reduced to 23% of its original size,
   from 10000 bytes to about 2312 bytes.
+
