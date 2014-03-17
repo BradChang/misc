@@ -4,12 +4,13 @@ Troy D. Hanson <tdh@tkhanson.net>
 v1.0 December 2010
 
 :l: https://github.com/troydhanson/misc/tree/master/text_handling/lemon
+:d: https://github.com/troydhanson/misc/blob/master/text_handling/lemon/lemon.txt
 
 The notes below refer to this {l}[example parser that I built using Lemon].
 
 Lemon parser generator
 ----------------------
-Lemon is a C parser generator by D. Richard Hipp. See the {l}[Lemon documentation].
+Lemon is a C parser generator by D. Richard Hipp. See the {d}[Lemon documentation].
 
 The grammar
 ~~~~~~~~~~~
