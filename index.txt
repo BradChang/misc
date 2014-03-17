@@ -107,14 +107,14 @@ Terminal I/O
 
 :t: https://github.com/troydhanson/misc/tree/master/av/
 
-DMX Lighting, Joysticks, Sound
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DMX Lighting, Sound, etc
+~~~~~~~~~~~~~~~~~~~~~~~~
 [width="50%",cols="10^m,50",grid="none"]
 |=================================================================================================================
 | {t}dmx_lighting/ftdi[ftdi]        | how to use libftdi to drive a DMX controller 
 | {t}dmx_lighting/artnet[artnet]    | how to talk to an ArtNet DMX device using UDP
-| {t}joystick/sdl[sdl]              | reading joystick axes and buttons in C using SDL
 | {t}sound[sound]                   | playing sound files with gstreamer
+| {t}joystick[joystick]             | use SDL to read joystick axes and buttons in C 
 |=================================================================================================================
 
 :t: https://github.com/troydhanson/misc/tree/master/scripts/
