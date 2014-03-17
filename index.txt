@@ -2,99 +2,142 @@ Scripts and Snippets
 --------------------
 Troy D. Hanson <tdh@tkhanson.net>
 
-ifdef::backend-xhtml11[]
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-<a style="float: right; padding-right: 50px" href="http://tkhanson.net/misc"><img style="border: 0" src="sslogo.png" alt="scripts and snippets" /></a>
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-endif::backend-xhtml11[]
+Back to http://troydhanson.github.io/[my main GitHub page].
 
-Back to http://tkhanson.net[tkhanson.net main page].
+include::twitter.txt[]
 
 About
 ~~~~~
-These are miscellaneous small scripts and snippets that I've written on Linux.
-These are all placed in the public domain. 
+These are miscellaneous small how-to's and usage examples for C programmers on Linux.
+These are all placed in the public domain.
+
+Here's a link to https://github.com/troydhanson/misc[this repo's Github page].
 
 Download options
 ~~~~~~~~~~~~~~~~
-* Download https://github.com/troydhanson/misc/archive/master.zip[misc-master.zip]
-* Browse https://github.com/troydhanson/misc[source tree]
-* Clone `git clone https://github.com/troydhanson/misc.git`
-
-For other downlink options, see https://github.com/troydhanson/misc[the Github page].
+* Here's a zipfile: https://github.com/troydhanson/misc/archive/master.zip[misc-master.zip]
+* or clone it: `git clone https://github.com/troydhanson/misc.git`
 
 // this defines an attribute called {t} used below
-//:t: https://github.com/troydhanson/tpl/raw/master/
-:t: https://github.com/troydhanson/misc/tree/master/
-:b: https://github.com/troydhanson/misc/blob/master/
+:t: https://github.com/troydhanson/misc/tree/master/network/
+
+// shortcuts to specific files. html subfiles get moved to toplevel in gh-pages
 :f: http://troydhanson.github.com/misc/Unix_domain_sockets.html
+
+Networking and communications
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[width="90%",cols="10^m,70,5",grid="none"]
+|=================================================================================================================
+| {t}tcp[tcp]          | TCP client and server in C 
+| {t}udp[udp]          | UDP client and server in C
+| {t}dns[dns]          | how to do a DNS lookup in C 
+| {t}pcap[pcap]        | using libpcap to capture packets in C 
+| {t}ifinfo[ifinfo]    | how to list network interfaces, IP addresses and MACs in C
+| {t}unixdomain[unixdomain]   | how to use UNIX domain sockets in C {f}[notes] 
+| {t}qcp[qcp]          | a utility to copy files across a network with no authentication 
+| {t}serial[serial]    | how to read the serial port in C and node.js
+|=================================================================================================================
+
+:t: https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/
+:s: https://github.com/troydhanson/uthash/blob/master/tests/hashscan.c
+
+C library, linker and kernel features
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[width="90%",cols="10^m,70,5",grid="none"]
+|=================================================================================================================
+| {t}sigio[sigio]      | signal driven I/O in C
+| {t}asm[asm]          | how to call into x86 assembly in C
+| {t}inotify[inotify]  | how to get file events from the kernel in C
+| {s}[peek]            | peek into virtual memory of another process in C 
+| {t}pexit[pexit]      | how to get a signal when parent process exits in C
+| {t}dlsym[dlsym]      | how to read symbol tables of shared libraries in C
+|=================================================================================================================
+
+:t: https://github.com/troydhanson/misc/tree/master/text_handling/
+
+Reading lines, reading files, parsing, and regular expression matching
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[width="90%",cols="10^m,70,5",grid="none"]
+|=================================================================================================================
+| {t}slurp[slurp]      | how to read a whole file in C 
+| {t}looper[looper]    | how to read a file line-by-line in C 
+| {t}pcre[pcre]        | how to use regular expressions in C
+| {t}lemon[lemon]      | how to use the Lemon parser generator in C
+| {t}unicode[unicode]  | Unicode handling in C, UTF conversion, etc
+|=================================================================================================================
+
+:t: https://github.com/troydhanson/misc/tree/master/compression/
 :e: http://troydhanson.github.com/misc/Entropy.html
+
+Compression and compressability
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[width="90%",cols="10^m,70,5",grid="none"]
+|=================================================================================================================
+| {t}zlib[zlib]        | how to use zlib in C to gzip or gunzip 
+| {t}entropy[entropy]  | how to measure entropy in C, {e}[notes] 
+| {t}bloom[bloom]      | how to build a Bloom filter in C from lines of text 
+|=================================================================================================================
+
+:t: https://github.com/troydhanson/misc/tree/master/server_tools/
 :i: http://troydhanson.github.io/misc/initscripts.html
 
-Snippets 
-~~~~~~~~
-Examples of using common libraries and other reusable bits:
+C server tools
+~~~~~~~~~~~~~~
 [width="90%",cols="10^m,70,5",grid="none"]
 |=================================================================================================================
-| {t}dlsym[dlsym]      | example of using dlsym() | C
-| {t}lemon[lemon]      | example of using the Lemon parser generator | C
-| {t}udp[udp]          | example of UDP client and server | C
-| {t}tcp[tcp]          | example of TCP client and server | C
-| {t}ifinfo[ifinfo]    | code to list network interfaces, their IPv4/v6 addresses and MACs | C
-| {t}dns[dns]          | example of doing DNS lookup | C
-| {t}sigio[sigio]      | example of signal driven I/O notification | C
-| {t}init[init]        | initscripts to start daemons on RedHat/CentOS, Ubuntu, Debian, Mac OS X {i}[notes]| text
-| {t}asm[asm]          | a few x86 assembly programs that call C library functions or are called from C | asm
-| {t}inotify[inotify]  | example of getting inotify file events (Linux 2.6.13 and higher) | C
-| {t}mworkers[mworkers]| example of a parent process managing multiple worker processes | C
-| {t}pcre[pcre]        | example of using pcre library | C
-| {t}pcap[pcap]        | example of using libpcap to capture packets | C
-| {t}readline[readline]| example of using readline library | C
-| {t}unixdomain[unixdomain]   | example of UNIX domain socket client and server {f}[notes] | C
-| {t}controlport[controlport] | a control port library: an administrative interface to a server | C
-| {t}bloom[bloom]      | builds a Bloom filter from lines of one text file, tests lines of another file on it | C
-| {t}ts[timeseries]    | a time series library, series comprised of arbitrary elements | C
-| {t}entropy[entropy]  | measuring entropy of a byte stream {e}[notes] | C
-| {t}zlib[zlib]        | example of implementing a simple gzip/gunzip using the zlib C API | C
-| {t}tconf[tconf]      | simple function to read key-value configuration file entries | C
-| {t}rw_wrap[rw_wrap]  | macros to wrap read/write, which loop until "len" bytes are read or written | C
-| {t}iconv[iconv]      | example of using the iconv library | C 
-| {t}iscan[iscan]      | an incremental grep that reads a stream piecemeal scanning for a pattern | C
-| {t}sized[sized]      | keep a flat directory under a certain size | C
-| {t}slurp[slurp]      | example of using `read` or `mmap` to "slurp" a whole file | C
-| {t}pexit[pexit]      | a C program that gets signalled when its parent exits using prctl | C
-| {t}utf8[utf8]        | macros for utf8 handling including character length, validity and utf32 conversion | C 
-| {t}looper[looper]    | example of iterating over lines of input from file or stdin using readline | C
-| {t}ncurses[ncurses]  | sliding bar charts and histograms using ncurses | C
-| {t}qcp[qcp]          | quick copy files from client to server without authentication | C
-| {t}ftdi[ftdi]        | example of using libftdi | C
-| {t}sdl[sdl]          | example of using libsdl | C
-| {t}serial[serial]    | example of using serial port communication | C, node.js
+| {t}init[init]        | initscripts samples for Linux and OS X. {i}[how to write an initscript] 
+| {t}tconf[tconf]      | library to read a key-value configuration file in C 
+| {t}controlport[controlport] | library to embed a control port into a C program
+| {t}ts[timeseries]    | a library to keep a rolling time series in C 
+| {t}tracker[tracker]  | a library to track top strings (URL's, etc) in a stream 
+| {t}mworkers[mworkers]| multi-process and multi-thread examples of managing workers in C
+| {t}sized[sized]      | a utility to keep a directory under a certain size in C
+| {t}rw_wrap[rw_wrap]  | macros to deal with partial writes and reads in C
 |=================================================================================================================
 
-:f: http://troydhanson.github.com/misc/fifor.html
-:r: http://troydhanson.github.com/misc/remember.html
-:m: http://troydhanson.github.com/misc/md5watch.html
-:v: http://troydhanson.github.com/misc/virtual_memory.pdf
+:t: https://github.com/troydhanson/misc/tree/master/terminal_io/
 
-Other
-~~~~~
+Terminal I/O
+~~~~~~~~~~~~
 [width="90%",cols="10^m,70,5",grid="none"]
 |=================================================================================================================
-| {b}setup[setup]       | configure some of my preferences in .bash_profile, .gdbinit, .vimrc and .inputrc | sh
-| {t}fifor[fifor]       | run commands whenever a fifo is readable (useful when triggered by a vim hotkey) {f}[notes] | Perl
-| {t}remember[remember] | type "remember", run some commands you want to remember, then "remember -s" to save them {r}[notes] | sh
-| {b}anb[anb]           | list lines in file A but not in file B | Perl
-| {b}fcut[fcut]         | print region (from position s of length l) from a file | Perl
-| {b}bin2hex[bin2hex]   | convert stdin to hex bytes | Perl
-| {b}hex2bin[hex2bin]   | convert hex args to binary bytes on stdout | Perl
-| {b}downsample[downsample] |  reduce a text file to x% of its lines (default 10%) | Perl
-| {t}md5watch[md5watch] | list files changed since last run {m}[notes] | Perl
-| {b}mailpl[mailpl]     | send email with attachments, configurable from address, etc | Perl
+| {t}ncurses[ncurses]  | how to use ncurses in C 
+| {t}readline[readline]| how to use readline in C 
+|=================================================================================================================
+
+:t: https://github.com/troydhanson/misc/tree/master/av/
+
+DMX Lighting, Joysticks, Sound
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[width="90%",cols="10^m,70,5",grid="none"]
+|=================================================================================================================
+| {t}dmx_lighting/ftdi[ftdi]        | how to use libftdi to drive a DMX controller 
+| {t}dmx_lighting/artnet[artnet]    | how to talk to an ArtNet DMX device using UDP
+| {t}joystick/sdl[sdl]              | reading joystick axes and buttons in C using SDL
+| {t}sound[sound]                   | playing sound files with gstreamer
+|=================================================================================================================
+
+:t: https://github.com/troydhanson/misc/tree/master/scripts/
+:b: https://github.com/troydhanson/misc/blob/master/scripts/
+
+Shell functions & scripts
+~~~~~~~~~~~~~~~~~~~~~~~~~
+[width="90%",cols="10^m,70,5",grid="none"]
+|=================================================================================================================
+| {t}fifor[fifor]       | trigger make from a vim keypress, among other uses. 
+| {b}anb[anb]           | list lines in file A missing in file B (anb is short for "a not b")
+| {b}bin2hex[bin2hex]   | read stdin, print as hex 
+| {b}hex2bin[hex2bin]   | take hex, emit as binary 
+| {b}fcut[fcut]         | print region of a file (given a byte position and length) 
+| {b}downsample[downsample] |  reduce a text file to x% of its lines (default 10%) 
+| {t}md5watch[md5watch] | list files changed since last run 
+| {b}mailpl[mailpl]     | send email with attachments in Perl
+| {t}remember[remember] | logs commands you want to remember
+| {b}setup[setup]       | configure my preferences for bash, etc
 |=================================================================================================================
 
 Other resources
 ~~~~~~~~~~~~~~~
-1. {v}[Virtual Memory in a Nutshell] slides I wrote in 2009.
+My other tools and notes are listed on http://troydhanson.github.io/[my main GitHub page].
 
 // vim: set tw=80 wm=2 nowrap syntax=asciidoc: 
