@@ -9,9 +9,8 @@ Back to http://troydhanson.github.io/[my main GitHub page].
 About
 ~~~~~
 These are miscellaneous examples and basic techniques for C programmers on Linux.
-These are all placed in the public domain.
-
-In addition to browsing these links, you can:
+These are all placed in the public domain.  In addition to browsing these links,
+you can:
 
 * visit https://github.com/troydhanson/misc[this repo's Github page].
 * download the repo: https://github.com/troydhanson/misc/archive/master.zip[misc-master.zip]
