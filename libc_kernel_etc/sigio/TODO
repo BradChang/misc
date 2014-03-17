@@ -1,4 +1,0 @@
-sigwaitinfo version of sigio2
-epoll example
-sigfd example
-self-pipe trick to 'translate' signal to a file descriptor

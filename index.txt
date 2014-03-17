@@ -23,12 +23,12 @@ In addition to browsing these links, you can:
 
 Networking and communications
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[width="90%",cols="10^m,70",grid="none"]
+[width="60%",cols="10^m,50",grid="none"]
 |=================================================================================================================
-| {t}tcp[tcp]          | TCP client and server in C 
-| {t}udp[udp]          | UDP client and server in C
+| {t}tcp/basic[tcp]    | TCP client and server in C 
+| {t}udp/basic[udp]    | UDP client and server in C
 | {t}dns[dns]          | how to do a DNS lookup in C 
-| {t}pcap[pcap]        | using libpcap to capture packets in C 
+| {t}pcap/basic[pcap]  | using libpcap to capture packets in C 
 | {t}ifinfo[ifinfo]    | how to list network interfaces, IP addresses and MACs in C
 | {t}unixdomain[unixdomain]   | how to use UNIX domain sockets in C {f}[notes] 
 | {t}qcp[qcp]          | a utility to copy files across a network with no authentication 
@@ -40,7 +40,7 @@ Networking and communications
 
 C library, linker and kernel features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[width="90%",cols="10^m,70",grid="none"]
+[width="60%",cols="10^m,50",grid="none"]
 |=================================================================================================================
 | {t}sigio[sigio]      | signal driven I/O in C
 | {t}asm[asm]          | how to call into x86 assembly in C
@@ -55,7 +55,7 @@ C library, linker and kernel features
 
 Reading lines, reading files, parsing, and regular expression matching
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[width="90%",cols="10^m,70",grid="none"]
+[width="60%",cols="10^m,50",grid="none"]
 |=================================================================================================================
 | {t}slurp[slurp]      | how to read a whole file in C 
 | {t}looper[looper]    | how to read a file line-by-line in C 
@@ -70,7 +70,7 @@ Reading lines, reading files, parsing, and regular expression matching
 
 Compression and compressability
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[width="90%",cols="10^m,70",grid="none"]
+[width="60%",cols="10^m,50",grid="none"]
 |=================================================================================================================
 | {t}zlib[zlib]        | how to use zlib in C to gzip or gunzip 
 | {t}entropy[entropy]  | how to measure entropy in C, {e}[notes] 
@@ -82,9 +82,9 @@ Compression and compressability
 
 C server tools
 ~~~~~~~~~~~~~~
-[width="90%",cols="10^m,70",grid="none"]
+[width="60%",cols="10^m,50",grid="none"]
 |=================================================================================================================
-| {t}init[init]        | initscripts samples for Linux and OS X. {i}[how to write an initscript] 
+| {t}init[init]        | initscripts samples for Linux and OS X. {i}[notes] 
 | {t}tconf[tconf]      | library to read a key-value configuration file in C 
 | {t}controlport[controlport] | library to embed a control port into a C program
 | {t}ts[timeseries]    | a library to keep a rolling time series in C 
@@ -98,7 +98,7 @@ C server tools
 
 Terminal I/O
 ~~~~~~~~~~~~
-[width="90%",cols="10^m,70",grid="none"]
+[width="60%",cols="10^m,50",grid="none"]
 |=================================================================================================================
 | {t}ncurses[ncurses]  | how to use ncurses in C 
 | {t}readline[readline]| how to use readline in C 
@@ -108,7 +108,7 @@ Terminal I/O
 
 DMX Lighting, Joysticks, Sound
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[width="90%",cols="10^m,70",grid="none"]
+[width="60%",cols="10^m,50",grid="none"]
 |=================================================================================================================
 | {t}dmx_lighting/ftdi[ftdi]        | how to use libftdi to drive a DMX controller 
 | {t}dmx_lighting/artnet[artnet]    | how to talk to an ArtNet DMX device using UDP
@@ -121,7 +121,7 @@ DMX Lighting, Joysticks, Sound
 
 Shell functions & scripts
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-[width="90%",cols="10^m,70",grid="none"]
+[width="60%",cols="10^m,50",grid="none"]
 |=================================================================================================================
 | {t}fifor[fifor]       | trigger make from a vim keypress, among other uses. 
 | {b}anb[anb]           | list lines in file A missing in file B (anb is short for "a not b")
