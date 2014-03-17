@@ -59,7 +59,7 @@ Reading lines, reading files, parsing, and regular expression matching
 | {t}slurp[slurp]      | how to read a whole file in C 
 | {t}looper[looper]    | how to read a file line-by-line in C 
 | {t}pcre[pcre]        | how to use regular expressions in C
-| {t}lemon[lemon]      | how to use the Lemon parser generator in C, {l}[notes]
+| {t}lemon[lemon]      | how to use the Lemon parser generator in C, {f}[notes]
 | {t}unicode[unicode]  | Unicode handling in C, UTF conversion, etc
 |=================================================================================================================
 
