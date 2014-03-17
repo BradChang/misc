@@ -1,6 +1,13 @@
-Notes on using the Lemon parser generator.
+Notes on using the Lemon parser generator
+-----------------------------------------
 Troy D. Hanson
 6 Dec 2010
+
+:l: https://github.com/troydhanson/misc/blob/master/text_handling/lemon/lemon.txt
+
+Lemon is a parser generator by D. Richard Hipp. See the {l}[Lemon documentation].
+These notes help me remember the basics, tips and techniques I used with Lemon.
+
 
 1.0 Write the grammar
 ================================================================================

@@ -54,6 +54,7 @@ C library, linker and kernel features
 |=================================================================================================================
 
 :t: https://github.com/troydhanson/misc/tree/master/text_handling/
+:f: http://troydhanson.github.com/misc/lemon_notes.html
 
 Reading lines, reading files, parsing, and regular expression matching
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -62,12 +63,13 @@ Reading lines, reading files, parsing, and regular expression matching
 | {t}slurp[slurp]      | how to read a whole file in C 
 | {t}looper[looper]    | how to read a file line-by-line in C 
 | {t}pcre[pcre]        | how to use regular expressions in C
-| {t}lemon[lemon]      | how to use the Lemon parser generator in C
+| {t}lemon[lemon]      | how to use the Lemon parser generator in C, {l}[notes]
 | {t}unicode[unicode]  | Unicode handling in C, UTF conversion, etc
 |=================================================================================================================
 
 :t: https://github.com/troydhanson/misc/tree/master/compression/
 :e: http://troydhanson.github.com/misc/Entropy.html
+:f: http://troydhanson.github.com/misc/bloom.html
 
 Compression and compressability
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -75,7 +77,7 @@ Compression and compressability
 |=================================================================================================================
 | {t}zlib[zlib]        | how to use zlib in C to gzip or gunzip 
 | {t}entropy[entropy]  | how to measure entropy in C, {e}[notes] 
-| {t}bloom[bloom]      | how to build a Bloom filter in C from lines of text 
+| {t}bloom[bloom]      | how to build a Bloom filter in C, {f}[notes]
 |=================================================================================================================
 
 :t: https://github.com/troydhanson/misc/tree/master/server_tools/

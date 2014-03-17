@@ -740,308 +740,118 @@ asciidoc.install();
 </div>
 <div id="content">
 <div class="sect1">
-<h2 id="_scripts_and_snippets">Scripts and Snippets</h2>
+<h2 id="_notes_on_using_the_lemon_parser_generator">Notes on using the Lemon parser generator</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>Troy D. Hanson &lt;<a href="mailto:tdh@tkhanson.net">tdh@tkhanson.net</a>&gt;</p></div>
-<div class="paragraph"><p>Back to <a href="http://troydhanson.github.io/">my main GitHub page</a>.</p></div>
-<div style="float:right">
-<a href="https://twitter.com/troydhanson" class="twitter-follow-button" data-show-count="false">Follow @troydhanson</a>
-<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
-<a href="https://twitter.com/share" class="twitter-share-button" data-via="troydhanson">Tweet</a>
-<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
-</div>
-<div class="sect2">
-<h3 id="_about">About</h3>
-<div class="paragraph"><p>These are miscellaneous small how-to&#8217;s and usage examples for C programmers on Linux.
-These are all placed in the public domain.</p></div>
-<div class="paragraph"><p>Here&#8217;s a link to <a href="https://github.com/troydhanson/misc">this repo&#8217;s Github page</a>.</p></div>
-</div>
-<div class="sect2">
-<h3 id="_download_options">Download options</h3>
-<div class="ulist"><ul>
-<li>
-<p>
-Here&#8217;s a zipfile: <a href="https://github.com/troydhanson/misc/archive/master.zip">misc-master.zip</a>
-</p>
-</li>
-<li>
-<p>
-or clone it: <tt>git clone https://github.com/troydhanson/misc.git</tt>
-</p>
-</li>
-</ul></div>
-</div>
-<div class="sect2">
-<h3 id="_networking_and_communications">Networking and communications</h3>
-<div class="tableblock">
-<table rules="none"
-width="90%"
-frame="border"
-cellspacing="0" cellpadding="4">
-<col width="11%" />
-<col width="82%" />
-<col width="5%" />
-<tbody>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/tcp">tcp</a></tt></p></td>
-<td align="left" valign="top"><p class="table">TCP client and server in C</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/network/udp">udp</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>UDP client and server in C</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/network/dns">dns</a></p></td>
-<td align="left" valign="top"><p class="table">how to do a DNS lookup in C</p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/pcap">pcap</a></tt></p></td>
-<td align="left" valign="top"><p class="table">using libpcap to capture packets in C</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/network/ifinfo">ifinfo</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>how to list network interfaces, IP addresses and MACs in C</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/network/unixdomain">unixdomain</a></p></td>
-<td align="left" valign="top"><p class="table">how to use UNIX domain sockets in C <a href="http://troydhanson.github.com/misc/Unix_domain_sockets.html">notes</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/qcp">qcp</a></tt></p></td>
-<td align="left" valign="top"><p class="table">a utility to copy files across a network with no authentication</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/network/serial">serial</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_c_library_linker_and_kernel_features">C library, linker and kernel features</h3>
-<div class="tableblock">
-<table rules="none"
-width="90%"
-frame="border"
-cellspacing="0" cellpadding="4">
-<col width="11%" />
-<col width="82%" />
-<col width="5%" />
-<tbody>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/sigio">sigio</a></tt></p></td>
-<td align="left" valign="top"><p class="table">signal driven I/O in C</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/asm">asm</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>how to call into x86 assembly in C</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/inotify">inotify</a></p></td>
-<td align="left" valign="top"><p class="table">how to get file events from the kernel in C</p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/uthash/blob/master/tests/hashscan.c">peek</a></tt></p></td>
-<td align="left" valign="top"><p class="table">peek into virtual memory of another process in C</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/pexit">pexit</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>how to get a signal when parent process exits in C</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/dlsym">dlsym</a></p></td>
-<td align="left" valign="top"><p class="table">how to read symbol tables of shared libraries in C</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_reading_lines_reading_files_parsing_and_regular_expression_matching">Reading lines, reading files, parsing, and regular expression matching</h3>
-<div class="tableblock">
-<table rules="none"
-width="90%"
-frame="border"
-cellspacing="0" cellpadding="4">
-<col width="11%" />
-<col width="82%" />
-<col width="5%" />
-<tbody>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/text_handling/slurp">slurp</a></tt></p></td>
-<td align="left" valign="top"><p class="table">how to read a whole file in C</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/text_handling/looper">looper</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>how to read a file line-by-line in C</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/text_handling/pcre">pcre</a></p></td>
-<td align="left" valign="top"><p class="table">how to use regular expressions in C</p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/text_handling/lemon">lemon</a></tt></p></td>
-<td align="left" valign="top"><p class="table"></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/text_handling/unicode">unicode</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_compression_and_compressability">Compression and compressability</h3>
-<div class="tableblock">
-<table rules="none"
-width="90%"
-frame="border"
-cellspacing="0" cellpadding="4">
-<col width="11%" />
-<col width="82%" />
-<col width="5%" />
-<tbody>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/compression/zlib">zlib</a></tt></p></td>
-<td align="left" valign="top"><p class="table">how to use zlib in C to gzip or gunzip</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/compression/entropy">entropy</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>how to measure entropy in C, <a href="http://troydhanson.github.com/misc/Entropy.html">notes</a></tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/compression/bloom">bloom</a></p></td>
-<td align="left" valign="top"><p class="table">how to build a Bloom filter in C, <a href="http://troydhanson.github.com/misc/bloom.html">notes</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_c_server_tools">C server tools</h3>
-<div class="tableblock">
-<table rules="none"
-width="90%"
-frame="border"
-cellspacing="0" cellpadding="4">
-<col width="11%" />
-<col width="82%" />
-<col width="5%" />
-<tbody>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/init">init</a></tt></p></td>
-<td align="left" valign="top"><p class="table">initscripts samples for Linux and OS X. <a href="http://troydhanson.github.io/misc/initscripts.html">how to write an initscript</a></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/server_tools/tconf">tconf</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>library to read a key-value configuration file in C</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/server_tools/controlport">controlport</a></p></td>
-<td align="left" valign="top"><p class="table">library to embed a control port into a C program</p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/ts">timeseries</a></tt></p></td>
-<td align="left" valign="top"><p class="table">a library to keep a rolling time series in C</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/server_tools/tracker">tracker</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>a library to track top strings (URL&#8217;s, etc) in a stream</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/server_tools/mworkers">mworkers</a></p></td>
-<td align="left" valign="top"><p class="table">multi-process and multi-thread examples of managing workers in C</p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/sized">sized</a></tt></p></td>
-<td align="left" valign="top"><p class="table">a utility to keep a directory under a certain size in C</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/server_tools/rw_wrap">rw_wrap</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_terminal_i_o">Terminal I/O</h3>
-<div class="tableblock">
-<table rules="none"
-width="90%"
-frame="border"
-cellspacing="0" cellpadding="4">
-<col width="11%" />
-<col width="82%" />
-<col width="5%" />
-<tbody>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/terminal_io/ncurses">ncurses</a></tt></p></td>
-<td align="left" valign="top"><p class="table">how to use ncurses in C</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/terminal_io/readline">readline</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_dmx_lighting_joysticks_sound">DMX Lighting, Joysticks, Sound</h3>
-<div class="tableblock">
-<table rules="none"
-width="90%"
-frame="border"
-cellspacing="0" cellpadding="4">
-<col width="11%" />
-<col width="82%" />
-<col width="5%" />
-<tbody>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/av/dmx_lighting/ftdi">ftdi</a></tt></p></td>
-<td align="left" valign="top"><p class="table">how to use libftdi to drive a DMX controller</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/av/dmx_lighting/artnet">artnet</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>how to talk to an ArtNet DMX device using UDP</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/av/joystick/sdl">sdl</a></p></td>
-<td align="left" valign="top"><p class="table">reading joystick axes and buttons in C using SDL</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_shell_functions_amp_scripts">Shell functions &amp; scripts</h3>
-<div class="tableblock">
-<table rules="none"
-width="90%"
-frame="border"
-cellspacing="0" cellpadding="4">
-<col width="11%" />
-<col width="82%" />
-<col width="5%" />
-<tbody>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/scripts/fifor">fifor</a></tt></p></td>
-<td align="left" valign="top"><p class="table">trigger make from a vim keypress, among other uses.</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/blob/master/scripts/anb">anb</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>list lines in file A missing in file B (anb is short for "a not b")</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/blob/master/scripts/bin2hex">bin2hex</a></p></td>
-<td align="left" valign="top"><p class="table">read stdin, print as hex</p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/blob/master/scripts/hex2bin">hex2bin</a></tt></p></td>
-<td align="left" valign="top"><p class="table">take hex, emit as binary</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/blob/master/scripts/fcut">fcut</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>print region of a file (given a byte position and length)</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/blob/master/scripts/downsample">downsample</a></p></td>
-<td align="left" valign="top"><p class="table">reduce a text file to x% of its lines (default 10%)</p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/scripts/md5watch">md5watch</a></tt></p></td>
-<td align="left" valign="top"><p class="table">list files changed since last run</p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/blob/master/scripts/mailpl">mailpl</a></p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt>send email with attachments in Perl</tt></p></td>
-<td align="left" valign="top"><p class="table"><a href="https://github.com/troydhanson/misc/tree/master/scripts/remember">remember</a></p></td>
-<td align="left" valign="top"><p class="table">logs commands you want to remember</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_other_resources">Other resources</h3>
-<div class="paragraph"><p>My other tools and notes are listed on <a href="http://troydhanson.github.io/">my main GitHub page</a>.</p></div>
-</div>
+<div class="paragraph"><p>Troy D. Hanson
+6 Dec 2010</p></div>
+<div class="paragraph"><p>Lemon is a parser generator by D. Richard Hipp. See the <a href="https://github.com/troydhanson/misc/blob/master/text_handling/lemon/lemon.txt">Lemon documentation</a>.
+These notes help me remember the basics, tips and techniques I used with Lemon.</p></div>
+<div class="paragraph"><p>1.0 Write the grammar</p></div>
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph"><p>The grammer goes in the ".y" file, which in our case is cfg.y. It&#8217;s a list of
+grammar rules from which the parse tree will be constructed when tokens are
+passed to the generated parser.  Some rules have actions in curly braces. The
+actions can refer to the terminal or non-terminals in the rule using a (SYMBOL)
+notation as you can see in cfg.y. When a line of grammar is recognized it is "reduced"
+and its rule is executed. (It&#8217;s "executed" by being literally present in the
+generated parser, in some sub-function of Parse, having access to the extra
+argument [read on], and with some way to set its own "non-terminal" value and
+access the "values" of the terminals and non-terminals on the right-hand-side of
+its rule). By the way that "extra argument" feature is a nice way to pass your
+whole parsing state between the main program and the generated parsing
+functions, without using globals (and thus enabling multiple instances of your
+parser to coexist if you keep everything clean). In our case we defined parse_t
+to hold the line number, file name, and a parsing status, as well as a pointer
+to the current top of our scratch space.</p></div>
+<div class="paragraph"><p>1.1 Bottom up parsing</p></div>
+<div class="listingblock">
+<div class="content">
+<pre><tt>Naturally the lower-level grammar rules contained within another grammar rule
+must be recognized first. So, from a parse tree viewpoint, the leaf nodes are
+created before the higher level grammatical nodes. This means the grammar actions
+must have a strategy for passing the leaf values up to the higher level nodes.
+This could be done by using a generic node structure that can be inserted as a
+child when a parent node is created. This is more complexity than we need for
+our example.
+
+1.2 Simplified fill-in parsing</tt></pre>
+</div></div>
+<div class="paragraph"><p>If what you&#8217;re parsing are essentially "records" (instead of some complicated
+tree structured input like a C program) you can use a simpler approach.</p></div>
+<div class="paragraph"><p>Just create a "scratch record" (your workspace). All the lower-level rules will
+just "fill in" their values in that scratch record, as their grammar action.
+When the higher level rule is reduced, that scratch record is just validated and
+pushed onto the list of parsed records.</p></div>
+<div class="paragraph"><p>In our example, the scratch record is just the top of the vector of servers. So
+at the program startup we push a scratch top (using the newtop macro). Whenever
+we finish parsing a record, we push a new top which is always the scratch space.
+At the end of parsing we throw away (pop) the top because it was our scratch
+space.</p></div>
+<div class="paragraph"><p>2.0 Lexical analyzer</p></div>
+</div></div>
+<div class="paragraph"><p>The first step to parsing anything is to break it into lexical tokens. You can
+do this in any way you want (Lemon does not help you here, it only produces a
+integer "token id", for each terminal in your grammar [see cfg.h]. It wants you
+to pass these id&#8217;s sequentially to represent the "token stream" being parsed).
+The lexer/tokenizer&#8217;s job is simple: produce a list of tokens. Each token is
+identified by its integer id. E.g. TOK_LCURLY, TOK_SERVER, etc. Each token a
+value in addition to its id. For example a token with id TOK_NUMBER might have
+the value "1234". The tokens (terminals) all have the same data type determined
+by the %token_type directive [default int]. In our example code we use a char*
+for our tokens.  Whenever a token is identified, we make a string from it and
+pass that char* and its associated integer token id into the lemon-generated
+Parse function.</p></div>
+<div class="paragraph"><p>2.1 PCRE</p></div>
+<div class="listingblock">
+<div class="content">
+<pre><tt>A nice way to tokenize the input would be to define a bunch of regular
+expressions and then apply them (in a specified order) til one hits. But this
+example doesn't need that complexity.
+
+2.2 Simple custom lexer</tt></pre>
+</div></div>
+<div class="paragraph"><p>See the tok.c file for our simple lexical analyzer. It just reads a minimal
+number of characters until a keyword is recognized or a whitespace-delimited
+number or dotted-alphanumeric string is found. As a bonus feature it also keeps
+track of our line number so that we can print nice error messages during
+lexing/parsing.</p></div>
+<div class="paragraph"><p>3.0 Careful memory management of the terminals</p></div>
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph"><p>This bit me once or twice while learning how to write parsers. Recognize that
+lemon has a stack internally that keeps its state as it shifts and reduces
+rules. The token that your lexer passes in to Parse, will persist on that Lemon
+stack (maybe a long time) while other tokens are shifted. So, whatever token
+values you pass in, <em>cannot</em> be overwritten or reused while parsing proceeds.</p></div>
+<div class="paragraph"><p>In other words, don&#8217;t just re-use the same char* as your token value and keep
+passing it into Lemon for each token-- you need a unique char* for each one. If
+you&#8217;re lazy you can just strndup() every token before calling Parse
+(and then you could define the %token_destructor to free() each one). There&#8217;s
+nothing wrong with that approach. I prefer a more visible approach so I strndup
+each token and throw it onto a vector of tokens before passing it into Parse. At
+the conclusion of parsing I iterate over that token vector and free all of them.</p></div>
+<div class="paragraph"><p>Within my grammar actions in cfg.y, the "value" of each terminal is a pointer
+to one of those strings in my token vector. I write my grammar actions so that
+they, in turn, make their own copies of any tokens (strings) they want to "keep
+around" for inclusion in the final parsing result. This way I can free my token
+vector without worrying about whether the parsing result has remaining pointers
+into the token vector.</p></div>
+<div class="paragraph"><p>4.0 Misc notes</p></div>
+</div></div>
+<div class="paragraph"><p>As a side note you could "lex" the whole input into tokens (keeping the string
+and the integer id for each token, and if you want to be friendly, the line
+number it was on) prior to doing any parsing at all. I.e. the parsing could be
+done in an entirely separate phase using the pre-prepared token vector.
+But doing the lexing and the parsing in concert means that you can avoid the
+cost of further lexical analysis if you encounter a grammar error.</p></div>
 </div>
 </div>
 </div>
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2014-03-16 23:44:42 EDT
+Last updated 2014-03-16 23:32:10 EDT
 </div>
 </div>
 </body>
