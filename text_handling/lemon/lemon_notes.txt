@@ -9,15 +9,10 @@ Lemon parser generator
 ----------------------
 Lemon is a parser generator by D. Richard Hipp. See the {l}[Lemon documentation].
 
-Using lemon
-~~~~~~~~~~~
-I wrote an {t}/lemon[example of using Lemon here], referred to in these notes.
-
-Grammar and parsing
-~~~~~~~~~~~~~~~~~~~
+NOTE: the notes below refer to this {t}/lemon[example of using Lemon].
 
 Write the grammar
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 The grammer goes in the ".y" file, which in our case is cfg.y. It's a list of
 grammar rules from which the parse tree will be constructed when tokens are 
 passed to the generated parser.  Some rules have actions in curly braces. The
@@ -34,11 +29,7 @@ parser to coexist if you keep everything clean). In our case we defined parse_t
 to hold the line number, file name, and a parsing status, as well as a pointer
 to the current top of our scratch space.
 
-Parsing: tree vs. records
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Building a tree, leaves to trunk
-++++++++++++++++++++++++++++++++
+.Bottom up parsing
 
 A lower-level grammar rule must reduce before a higher-level
 grammar rule in which it's contained.  So, from a parse tree viewpoint, the
@@ -48,8 +39,7 @@ higher level nodes.  This could be done by using a generic node structure;
 i.e. the earlier child node would get attached to the later parent node. This is
 more complexity than we need for our example. So we do it another way.
 
-Fill-in records
-++++++++++++++++
+.Simpler record parsing
 
 If what you're parsing are essentially "records" (instead of some complicated
 tree structured input like a C program) you can use a simpler approach.
@@ -81,14 +71,14 @@ for our tokens.  Whenever a token is identified, we make a string from it and
 pass that char* and its associated integer token id into the lemon-generated
 Parse function.
 
-Regular expressions
-^^^^^^^^^^^^^^^^^^^^
+.Regular expressions
+
 A nice way to tokenize the input would be to define a bunch of regular
 expressions (e.g. using PCRE) and then apply them in a specified order til one
 hits. But this example doesn't need that complexity.
 
-Simple custom lexer
-^^^^^^^^^^^^^^^^^^^
+.Simple custom lexer
+
 See the tok.c file for our simple lexical analyzer. It just reads a minimal
 number of characters until a keyword is recognized or a whitespace-delimited
 number or dotted-alphanumeric string is found. As a bonus feature it also keeps
@@ -98,8 +88,8 @@ lexing/parsing.
 Final thoughts
 ~~~~~~~~~~~~~~
 
-Careful memory management of the terminals!
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.Careful memory management of the terminals!
+
 This bit me once or twice while learning how to write parsers. Recognize that
 lemon has a stack internally that keeps its state as it shifts and reduces
 rules. The token that your lexer passes in to Parse, will persist on that Lemon
@@ -122,8 +112,8 @@ around" for inclusion in the final parsing result. This way I can free my token
 vector without worrying about whether the parsing result has remaining pointers
 into the token vector.
 
-Why lex and parse in unison?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.Why lex and parse in unison?
+
 As a side note you could "lex" the whole input into tokens (keeping the string
 and the integer id for each token, and if you want to be friendly, the line
 number it was on) prior to doing any parsing at all. I.e. the parsing could be
