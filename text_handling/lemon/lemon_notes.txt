@@ -3,16 +3,16 @@ Notes on using the Lemon parser generator
 Troy D. Hanson <tdh@tkhanson.net>
 v1.0 December 2010
 
-:l: https://github.com/troydhanson/misc/blob/master/text_handling/lemon/lemon.txt
+:l: https://github.com/troydhanson/misc/tree/master/text_handling/lemon
+
+The notes below refer to this {l}[example parser that I built using Lemon].
 
 Lemon parser generator
 ----------------------
-Lemon is a parser generator by D. Richard Hipp. See the {l}[Lemon documentation].
+Lemon is a C parser generator by D. Richard Hipp. See the {l}[Lemon documentation].
 
-NOTE: the notes below refer to this {t}/lemon[example of using Lemon].
-
-Write the grammar
-~~~~~~~~~~~~~~~~~
+The grammar
+~~~~~~~~~~~
 The grammer goes in the ".y" file, which in our case is cfg.y. It's a list of
 grammar rules from which the parse tree will be constructed when tokens are 
 passed to the generated parser.  Some rules have actions in curly braces. The
