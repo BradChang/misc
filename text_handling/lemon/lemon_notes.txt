@@ -9,16 +9,23 @@ Lemon parser generator
 ----------------------
 Lemon is a parser generator by D. Richard Hipp. See the {l}[Lemon documentation].
 
+Using lemon
+~~~~~~~~~~~
+I wrote an {t}/lemon[example of using Lemon here], referred to in these notes.
+
+Grammar and parsing
+~~~~~~~~~~~~~~~~~~~
+
 Write the grammar
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 The grammer goes in the ".y" file, which in our case is cfg.y. It's a list of
 grammar rules from which the parse tree will be constructed when tokens are 
 passed to the generated parser.  Some rules have actions in curly braces. The
 actions can refer to the terminal or non-terminals in the rule using a (SYMBOL)
 notation as you can see in cfg.y. When a line of grammar is recognized it is "reduced" 
-and its rule is executed. (It's "executed" by being literally present in the
+and its rule is executed. (It's "executed" by being literally copied into the
 generated parser, in some sub-function of Parse, having access to the extra
-argument [read on], and with some way to set its own "non-terminal" value and
+argument described below, and with some way to set its own "non-terminal" value and
 access the "values" of the terminals and non-terminals on the right-hand-side of
 its rule). By the way that "extra argument" feature is a nice way to pass your
 whole parsing state between the main program and the generated parsing
@@ -27,18 +34,23 @@ parser to coexist if you keep everything clean). In our case we defined parse_t
 to hold the line number, file name, and a parsing status, as well as a pointer
 to the current top of our scratch space.
 
-Bottom up parsing
-^^^^^^^^^^^^^^^^^
-Naturally the lower-level grammar rules contained within another grammar rule
-must be recognized first. So, from a parse tree viewpoint, the leaf nodes are
-created before the higher level grammatical nodes. This means the grammar actions
-must have a strategy for passing the leaf values up to the higher level nodes.
-This could be done by using a generic node structure that can be inserted as a 
-child when a parent node is created. This is more complexity than we need for
-our example.
+Parsing: tree vs. records
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Simpler "fill-in" parsing
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Building a tree, leaves to trunk
+++++++++++++++++++++++++++++++++
+
+A lower-level grammar rule must reduce before a higher-level
+grammar rule in which it's contained.  So, from a parse tree viewpoint, the
+leaf nodes are created before the higher level grammatical nodes. This means
+the grammar actions must have a strategy for passing the leaf values up to the
+higher level nodes.  This could be done by using a generic node structure;
+i.e. the earlier child node would get attached to the later parent node. This is
+more complexity than we need for our example. So we do it another way.
+
+Fill-in records
+++++++++++++++++
+
 If what you're parsing are essentially "records" (instead of some complicated
 tree structured input like a C program) you can use a simpler approach.
 
@@ -53,12 +65,13 @@ we finish parsing a record, we push a new top which is always the scratch space.
 At the end of parsing we throw away (pop) the top because it was our scratch
 space.
 
-Lexical analyzer
-~~~~~~~~~~~~~~~~
+Token recognition
+~~~~~~~~~~~~~~~~~
 The first step to parsing anything is to break it into lexical tokens. You can
-do this in any way you want (Lemon does not help you here, it only produces a
-integer "token id", for each terminal in your grammar [see cfg.h]. It wants you
-to pass these id's sequentially to represent the "token stream" being parsed).
+do this in any way you want. Lemon does not help you here, it only defines an
+integer "token id", for each terminal in your grammar, see cfg.h. It wants you
+to pass these id's in sequentially, to represent the "token stream" being parsed.
+
 The lexer/tokenizer's job is simple: produce a list of tokens. Each token is
 identified by its integer id. E.g. TOK_LCURLY, TOK_SERVER, etc. Each token a
 value in addition to its id. For example a token with id TOK_NUMBER might have
@@ -68,11 +81,11 @@ for our tokens.  Whenever a token is identified, we make a string from it and
 pass that char* and its associated integer token id into the lemon-generated
 Parse function.
 
-PCRE
-^^^^
+Regular expressions
+^^^^^^^^^^^^^^^^^^^^
 A nice way to tokenize the input would be to define a bunch of regular
-expressions and then apply them (in a specified order) til one hits. But this
-example doesn't need that complexity.
+expressions (e.g. using PCRE) and then apply them in a specified order til one
+hits. But this example doesn't need that complexity.
 
 Simple custom lexer
 ^^^^^^^^^^^^^^^^^^^
@@ -97,9 +110,10 @@ In other words, don't just re-use the same char* as your token value and keep
 passing it into Lemon for each token-- you need a unique char* for each one. If
 you're lazy you can just strndup() every token before calling Parse
 (and then you could define the %token_destructor to free() each one). There's
-nothing wrong with that approach. I prefer a more visible approach so I strndup
-each token and throw it onto a vector of tokens before passing it into Parse. At
-the conclusion of parsing I iterate over that token vector and free all of them.
+nothing wrong with that approach. I prefer a more manually-tracked approach so
+I strndup each token and throw it onto a vector of tokens before passing it
+into Parse. At the conclusion of parsing I iterate over that token vector and
+free all of them.
 
 Within my grammar actions in cfg.y, the "value" of each terminal is a pointer
 to one of those strings in my token vector. I write my grammar actions so that
