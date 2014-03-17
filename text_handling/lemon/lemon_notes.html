@@ -4,7 +4,7 @@
 <head>
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
 <meta name="generator" content="AsciiDoc 8.6.7" />
-<title></title>
+<title>Notes on using the Lemon parser generator</title>
 <style type="text/css">
 /* Shared CSS for AsciiDoc xhtml11 and html5 backends */
 
@@ -737,18 +737,18 @@ asciidoc.install();
 </head>
 <body class="article">
 <div id="header">
+<h1>Notes on using the Lemon parser generator</h1>
+<span id="author">Troy D. Hanson</span><br />
+<span id="email"><tt>&lt;<a href="mailto:tdh@tkhanson.net">tdh@tkhanson.net</a>&gt;</tt></span><br />
+<span id="revdate">v1.0 December 2010</span>
 </div>
 <div id="content">
 <div class="sect1">
-<h2 id="_notes_on_using_the_lemon_parser_generator">Notes on using the Lemon parser generator</h2>
+<h2 id="_lemon_parser_generator">Lemon parser generator</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>Troy D. Hanson
-6 Dec 2010</p></div>
-<div class="paragraph"><p>Lemon is a parser generator by D. Richard Hipp. See the <a href="https://github.com/troydhanson/misc/blob/master/text_handling/lemon/lemon.txt">Lemon documentation</a>.
-These notes help me remember the basics, tips and techniques I used with Lemon.</p></div>
-<div class="paragraph"><p>1.0 Write the grammar</p></div>
-<div class="exampleblock">
-<div class="content">
+<div class="paragraph"><p>Lemon is a parser generator by D. Richard Hipp. See the <a href="https://github.com/troydhanson/misc/blob/master/text_handling/lemon/lemon.txt">Lemon documentation</a>.</p></div>
+<div class="sect2">
+<h3 id="_write_the_grammar">Write the grammar</h3>
 <div class="paragraph"><p>The grammer goes in the ".y" file, which in our case is cfg.y. It&#8217;s a list of
 grammar rules from which the parse tree will be constructed when tokens are
 passed to the generated parser.  Some rules have actions in curly braces. The
@@ -764,19 +764,18 @@ functions, without using globals (and thus enabling multiple instances of your
 parser to coexist if you keep everything clean). In our case we defined parse_t
 to hold the line number, file name, and a parsing status, as well as a pointer
 to the current top of our scratch space.</p></div>
-<div class="paragraph"><p>1.1 Bottom up parsing</p></div>
-<div class="listingblock">
-<div class="content">
-<pre><tt>Naturally the lower-level grammar rules contained within another grammar rule
+<div class="sect3">
+<h4 id="_bottom_up_parsing">Bottom up parsing</h4>
+<div class="paragraph"><p>Naturally the lower-level grammar rules contained within another grammar rule
 must be recognized first. So, from a parse tree viewpoint, the leaf nodes are
 created before the higher level grammatical nodes. This means the grammar actions
 must have a strategy for passing the leaf values up to the higher level nodes.
 This could be done by using a generic node structure that can be inserted as a
 child when a parent node is created. This is more complexity than we need for
-our example.
-
-1.2 Simplified fill-in parsing</tt></pre>
-</div></div>
+our example.</p></div>
+</div>
+<div class="sect3">
+<h4 id="_simpler_fill_in_parsing">Simpler "fill-in" parsing</h4>
 <div class="paragraph"><p>If what you&#8217;re parsing are essentially "records" (instead of some complicated
 tree structured input like a C program) you can use a simpler approach.</p></div>
 <div class="paragraph"><p>Just create a "scratch record" (your workspace). All the lower-level rules will
@@ -788,8 +787,10 @@ at the program startup we push a scratch top (using the newtop macro). Whenever
 we finish parsing a record, we push a new top which is always the scratch space.
 At the end of parsing we throw away (pop) the top because it was our scratch
 space.</p></div>
-<div class="paragraph"><p>2.0 Lexical analyzer</p></div>
-</div></div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_lexical_analyzer">Lexical analyzer</h3>
 <div class="paragraph"><p>The first step to parsing anything is to break it into lexical tokens. You can
 do this in any way you want (Lemon does not help you here, it only produces a
 integer "token id", for each terminal in your grammar [see cfg.h]. It wants you
@@ -802,23 +803,25 @@ by the %token_type directive [default int]. In our example code we use a char*
 for our tokens.  Whenever a token is identified, we make a string from it and
 pass that char* and its associated integer token id into the lemon-generated
 Parse function.</p></div>
-<div class="paragraph"><p>2.1 PCRE</p></div>
-<div class="listingblock">
-<div class="content">
-<pre><tt>A nice way to tokenize the input would be to define a bunch of regular
+<div class="sect3">
+<h4 id="_pcre">PCRE</h4>
+<div class="paragraph"><p>A nice way to tokenize the input would be to define a bunch of regular
 expressions and then apply them (in a specified order) til one hits. But this
-example doesn't need that complexity.
-
-2.2 Simple custom lexer</tt></pre>
-</div></div>
+example doesn&#8217;t need that complexity.</p></div>
+</div>
+<div class="sect3">
+<h4 id="_simple_custom_lexer">Simple custom lexer</h4>
 <div class="paragraph"><p>See the tok.c file for our simple lexical analyzer. It just reads a minimal
 number of characters until a keyword is recognized or a whitespace-delimited
 number or dotted-alphanumeric string is found. As a bonus feature it also keeps
 track of our line number so that we can print nice error messages during
 lexing/parsing.</p></div>
-<div class="paragraph"><p>3.0 Careful memory management of the terminals</p></div>
-<div class="exampleblock">
-<div class="content">
+</div>
+</div>
+<div class="sect2">
+<h3 id="_final_thoughts">Final thoughts</h3>
+<div class="sect3">
+<h4 id="_careful_memory_management_of_the_terminals">Careful memory management of the terminals!</h4>
 <div class="paragraph"><p>This bit me once or twice while learning how to write parsers. Recognize that
 lemon has a stack internally that keeps its state as it shifts and reduces
 rules. The token that your lexer passes in to Parse, will persist on that Lemon
@@ -837,8 +840,9 @@ they, in turn, make their own copies of any tokens (strings) they want to "keep
 around" for inclusion in the final parsing result. This way I can free my token
 vector without worrying about whether the parsing result has remaining pointers
 into the token vector.</p></div>
-<div class="paragraph"><p>4.0 Misc notes</p></div>
-</div></div>
+</div>
+<div class="sect3">
+<h4 id="_why_lex_and_parse_in_unison">Why lex and parse in unison?</h4>
 <div class="paragraph"><p>As a side note you could "lex" the whole input into tokens (keeping the string
 and the integer id for each token, and if you want to be friendly, the line
 number it was on) prior to doing any parsing at all. I.e. the parsing could be
@@ -848,10 +852,12 @@ cost of further lexical analysis if you encounter a grammar error.</p></div>
 </div>
 </div>
 </div>
+</div>
+</div>
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2014-03-16 23:32:10 EDT
+Last updated 2014-03-17 00:36:51 EDT
 </div>
 </div>
 </body>
