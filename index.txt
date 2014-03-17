@@ -1,20 +1,22 @@
-Scripts and Snippets
---------------------
+C Miscellany
+------------
 Troy D. Hanson <tdh@tkhanson.net>
 
 include::twitter.txt[]
 
-Back to http://troydhanson.github.io/[my main GitHub page].
-
 About
 ~~~~~
 These are miscellaneous examples and basic techniques for C programmers on Linux.
-These are all placed in the public domain.  In addition to browsing these links,
-you can:
+These are all placed in the public domain.  
 
-* visit https://github.com/troydhanson/misc[this repo's Github page].
+.How to use
+
+* you can browse the links below, or
 * download the repo: https://github.com/troydhanson/misc/archive/master.zip[misc-master.zip]
 * clone it with git: `git clone https://github.com/troydhanson/misc.git`
+
+Here's a link to https://github.com/troydhanson/misc[this repo's Github page]
+and to my http://troydhanson.github.io/[main page].
 
 // this defines an attribute called {t} used below
 :t: https://github.com/troydhanson/misc/tree/master/network/
@@ -117,6 +119,8 @@ DMX Lighting, Joysticks, Sound
 
 :t: https://github.com/troydhanson/misc/tree/master/scripts/
 :b: https://github.com/troydhanson/misc/blob/master/scripts/
+
+These aren't in C, but they qualify as miscellany:
 
 Shell functions & scripts
 ~~~~~~~~~~~~~~~~~~~~~~~~~
