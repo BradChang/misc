@@ -1,4 +1,4 @@
-EXES=rgb 
+EXES=rgb rgb-mmap
 all: $(EXES)
 
 CFLAGS=-g
