@@ -743,20 +743,17 @@ asciidoc.install();
 <span id="revdate">v1.0 December 2010</span>
 </div>
 <div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph"><p>The notes below refer to this <a href="https://github.com/troydhanson/misc/tree/master/text_handling/lemon">example parser that I built using Lemon</a>.</p></div>
+</div>
+</div>
 <div class="sect1">
 <h2 id="_lemon_parser_generator">Lemon parser generator</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>Lemon is a parser generator by D. Richard Hipp. See the <a href="https://github.com/troydhanson/misc/blob/master/text_handling/lemon/lemon.txt">Lemon documentation</a>.</p></div>
-<div class="admonitionblock">
-<table><tr>
-<td class="icon">
-<div class="title">Note</div>
-</td>
-<td class="content"></td>
-</tr></table>
-</div>
+<div class="paragraph"><p>Lemon is a C parser generator by D. Richard Hipp. See the <a href="https://github.com/troydhanson/misc/tree/master/text_handling/lemon">Lemon documentation</a>.</p></div>
 <div class="sect2">
-<h3 id="_write_the_grammar">Write the grammar</h3>
+<h3 id="_the_grammar">The grammar</h3>
 <div class="paragraph"><p>The grammer goes in the ".y" file, which in our case is cfg.y. It&#8217;s a list of
 grammar rules from which the parse tree will be constructed when tokens are
 passed to the generated parser.  Some rules have actions in curly braces. The
@@ -848,7 +845,7 @@ cost of further lexical analysis if you encounter a grammar error.</p></div>
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2014-03-17 01:04:05 EDT
+Last updated 2014-03-17 01:10:05 EDT
 </div>
 </div>
 </body>
