@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <sys/types.h>
 #include <errno.h>
+#include <dirent.h>
 #include <sys/inotify.h>
 #include <signal.h>
 #include <limits.h>
@@ -12,6 +13,8 @@
 #include <setjmp.h>
 #include <assert.h>
 #include <pcap.h>
+#include "utarray.h"
+#include "utstring.h"
 
 struct {
   int verbose;
@@ -21,7 +24,7 @@ struct {
   char *file;
   char *filter;
   int fd,wd;
-  enum { none, sniff, one_file, watch_dir } mode;
+  enum { none, sniff, one_file, read_dir, watch_dir } mode;
   sigjmp_buf jmp;
   pcap_t *pcap;
   struct bpf_program fp;
@@ -48,6 +51,7 @@ void usage() {
   fprintf(stderr,"usage: %s [-v] -f <bpf-filter>                \n"
                  "               -i <eth>   (read from interface), or\n"
                  "               -r <file>  (read one pcap file),  or\n"
+                 "               -d <dir>   (read directory of pcaps),  or\n"
                  "               -w <dir>   (watch incoming pcap directory)*\n"
                  "\n"
                  " * -w mode is useful with externally-generated,\n"
@@ -109,20 +113,60 @@ void do_stats(void) {
   fprintf(stderr,"dropped: %u\n", ps.ps_drop);
 }
 
+static int name_sort(const void *_a, const void *_b) {
+  char **a = (char**)_a;
+  char **b = (char**)_b;
+  return strcmp(*a,*b);
+}
+static int get_files(char *dir, UT_array *filenames) {
+  int rc = -1, i;
+  struct dirent *dent;
+  struct stat sb;
+  char *name;
+  DIR *d;
+
+  UT_string *s; 
+  utstring_new(s);
+  utarray_clear(filenames);
+
+  if ( (d = opendir(dir)) == NULL) {
+    fprintf(stderr, "failed to opendir %s: %s\n", dir, strerror(errno));
+    goto done;
+  }
+
+  while ( (dent = readdir(d)) != NULL) {
+    if (dent->d_type != DT_REG) continue;
+    name = dent->d_name;
+    utstring_clear(s);
+    utstring_printf(s, "%s/%s", dir, name);
+    char *path = utstring_body(s);
+    utarray_push_back(filenames, &path);
+  }
+  utarray_sort(filenames, name_sort);
+  rc = 0;
+
+ done:
+  if (d) closedir(d);
+  utstring_free(s);
+  return rc;
+}
+
 int main(int argc, char *argv[]) {
   struct inotify_event *ev, *nx;
   int opt, rc, n, fl;
+  UT_array *filenames;
   size_t sz;
   cfg.prog = argv[0];
   sigs[0] = SIGRTMIN+0;  /* we'll choose this RT signal for I/O readiness */
 
-  while ( (opt=getopt(argc,argv,"vr:i:w:f:h")) != -1) {
+  while ( (opt=getopt(argc,argv,"vr:i:w:f:d:h")) != -1) {
     switch(opt) {
       case 'v': cfg.verbose++; break;
-      case 'r': {cfg.mode = one_file;  cfg.file=strdup(optarg); break;}
-      case 'i': {cfg.mode = sniff;     cfg.dev=strdup(optarg); break; }
-      case 'w': {cfg.mode = watch_dir; cfg.dir=strdup(optarg); break; }
-      case 'f': {cfg.filter=strdup(optarg); break; }
+      case 'r': cfg.mode = one_file;  cfg.file=strdup(optarg); break;
+      case 'i': cfg.mode = sniff;     cfg.dev=strdup(optarg); break; 
+      case 'w': cfg.mode = watch_dir; cfg.dir=strdup(optarg); break; 
+      case 'd': cfg.mode = read_dir;  cfg.dir=strdup(optarg); break; 
+      case 'f': cfg.filter=strdup(optarg); break; 
       case 'h': default: usage(); break;
     }
   }
@@ -182,6 +226,14 @@ int main(int argc, char *argv[]) {
       break;
     case one_file:
       ingest_pcap(cfg.file);
+      goto done;
+      break;
+    case read_dir:
+      utarray_new(filenames, &ut_str_icd);
+      get_files(cfg.dir, filenames);
+      char **f=NULL;
+      while( (f=(char**)utarray_next(filenames,f))) ingest_pcap(*f);
+      utarray_free(filenames);
       goto done;
       break;
     default: assert(0); break;

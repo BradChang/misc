@@ -1,5 +1,5 @@
-SRCS=$(wildcard *.c)
-OBJS=$(patsubst %.c,%,$(SRCS))
+OBJS=compile_filter decode_tcp_headers hardcoded_filter iface_stats \
+     pkt_lengths pkt_lengths_file signal_driven_capture multi_mode
 all: $(OBJS)
 LDFLAGS=-lpcap
 
@@ -15,8 +15,9 @@ hardcoded_filter: hardcoded_filter.c
 iface_stats: iface_stats.c
 	$(CC) -o $@ $< -lpcap
 
-multi_mode: multi_mode.c
-	$(CC) -o $@ $< -lpcap
+multi_mode: multi_mode.c 
+	$(CC) -c multi_mode.c
+	$(CC) -o $@ multi_mode.o -lpcap
 
 pkt_lengths: pkt_lengths.c
 	$(CC) -o $@ $< -lpcap
