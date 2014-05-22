@@ -1,4 +1,4 @@
-all: cli srv
+all: cli cli-iface srv
 
 clean:
-	rm -f *.o cli srv
+	rm -f *.o cli srv cli-iface
