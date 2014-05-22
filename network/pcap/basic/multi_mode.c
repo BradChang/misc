@@ -257,7 +257,8 @@ int main(int argc, char *argv[]) {
       }
       switch(cfg.mode) { /* SIGRTMIN+0 */
         case sniff:
-          rc = pcap_dispatch(cfg.pcap,-1,cb,NULL);
+          // only process up to 10000 packets between checking for interrupts
+          rc = pcap_dispatch(cfg.pcap,10000,cb,NULL); 
           if (rc<0) { pcap_perror(cfg.pcap,"pcap error: "); goto done; }
           break;
         case watch_dir:
