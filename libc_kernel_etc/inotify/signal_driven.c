@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <errno.h>
 #include <sys/inotify.h>
 #include <signal.h>
@@ -72,7 +73,7 @@ int read_events(int fd, struct inotify_event *eb) {
 }
 
 int main(int argc, char *argv[]) {
-  int fd, rc, n, signo;
+  int fd, rc, n, signo, num_bytes;
   struct inotify_event *eb;
 
   if (argc < 2) usage(argv[0]);
@@ -102,13 +103,26 @@ int main(int argc, char *argv[]) {
   setup_watch(argc,argv,fd,&eb);
 
   siginfo_t info;
+  alarm(1);
 
   while ( (signo = sigwaitinfo(&sw, &info)) > 0) {
     switch(signo) {
+      case SIGALRM:
+        alarm(1);
+        /* many kernels even into 3.x do not reliably generate
+         * the signal on inotify descriptors. so we check whether
+         * there are bytes available on that descriptor manually */
+        if (ioctl(fd,FIONREAD,&num_bytes) != 0) {
+          fprintf(stderr,"ioctl error %s\n",strerror(errno));
+          goto done;
+        }
+        if (num_bytes == 0) break;
+        fprintf(stderr,"unsignaled data on inotify descriptor (%u bytes)\n",num_bytes);
+        /* so, fall through */
       case SIGIO:
         rc = read_events(fd,eb);
         if (rc == 0) goto done;
-        if (rc == -1 && errno == EAGAIN) break; /* no data */ 
+        if ((rc == -1) && (errno == EAGAIN)) break; /* no data */
         if (rc == -1) {
           fprintf(stderr,"read error %s\n", strerror(errno));
           goto done;
