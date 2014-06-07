@@ -1,6 +1,6 @@
-all: dirwatch mv_on_close signal_driven
+all: dirwatch filewatch mv_on_close signal_driven
 
 .PHONY: clean
 
 clean:
-	rm -f dirwatch *.o mv_on_close signal_driven
+	rm -f dirwatch filewatch *.o mv_on_close signal_driven

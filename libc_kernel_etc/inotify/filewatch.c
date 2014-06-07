@@ -3,22 +3,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/* start this program with a directory argument.
- * then go into that directory and create, remove,
- * rename, or read and write to files and watch
+/* start this program with a file argument.
+ * then remove, rename or read and write to it
  * as inotify receives the event notifications.
  * Requires Linux 2.6.13 or higher */
 
 int main(int argc, char *argv[]) {
   int fd, wd, mask, rc;
-  char *dir, *name;
+  char *file, *name;
 
   if (argc != 2) {
-    fprintf(stderr,"usage: %s <dir>\n", argv[0]);
+    fprintf(stderr,"usage: %s <file>\n", argv[0]);
     exit(-1);
   }
 
-  dir = argv[1];
+  file = argv[1];
 
   if ( (fd = inotify_init()) == -1) {
     perror("inotify_init failed");
@@ -26,7 +25,7 @@ int main(int argc, char *argv[]) {
   }
 
   mask = IN_ALL_EVENTS;
-  if ( (wd = inotify_add_watch(fd, dir, mask)) == -1) {
+  if ( (wd = inotify_add_watch(fd, file, mask)) == -1) {
     perror("inotify_add_watch failed");
     exit(-1); 
   }
@@ -49,7 +48,7 @@ int main(int argc, char *argv[]) {
       nx = (struct inotify_event*)((char*)ev + sz);
       rc -= sz;
 
-      name = (ev->len ? ev->name : dir);
+      name = (ev->len ? ev->name : file);
       printf("%s ", name);
       if (ev->mask & IN_ACCESS) printf(" IN_ACCESS");
       if (ev->mask & IN_MODIFY) printf(" IN_MODIFY");
