@@ -1,3 +1,5 @@
+/* this program listens on a TCP port. when a client connects, it is sent
+ * the packet stream (each packet prefixed with a length int). */
 #define _GNU_SOURCE
 #include <sys/types.h>
 #include <errno.h>
@@ -162,6 +164,7 @@ int ingest_pcap(char *file) {
   if (cfg.pcap==NULL)  {fprintf(stderr,"can't open %s: %s\n", cfg.path, cfg.err); goto done;}
   if (set_filter()) goto done;
   rc = pcap_loop(cfg.pcap, 0, cb, NULL);  
+  pcap_close(cfg.pcap); cfg.pcap=NULL;
 
  done:
   return rc;
@@ -368,8 +371,8 @@ int main(int argc, char *argv[]) {
  }
 
 done:
-  if (cfg.pcap) pcap_close(cfg.pcap); // TODO for all modes?
-  if (cfg.fd != -1) close(cfg.fd); // TODO for all modes?
+  if (cfg.pcap) pcap_close(cfg.pcap);
+  if (cfg.fd > 0) close(cfg.fd);
   utarray_free(cfg.clients);
   if (cfg.listener_fd) close(cfg.listener_fd);
   return 0;

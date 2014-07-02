@@ -101,6 +101,7 @@ int ingest_pcap(char *file) {
   if (cfg.pcap==NULL)  {fprintf(stderr,"can't open %s: %s\n", cfg.path, cfg.err); goto done;}
   if (set_filter()) goto done;
   rc = pcap_loop(cfg.pcap, 0, cb, NULL);  
+  pcap_close(cfg.pcap); cfg.pcap=NULL;
 
  done:
   return rc;
@@ -300,7 +301,7 @@ int main(int argc, char *argv[]) {
    * one arrives we longjmp back to sigsetjmp! */
 
 done:
-  if (cfg.pcap) pcap_close(cfg.pcap); // TODO for all modes?
-  if (cfg.fd != -1) close(cfg.fd); // TODO for all modes?
+  if (cfg.pcap) pcap_close(cfg.pcap);
+  if (cfg.fd > 0) close(cfg.fd);
   return 0;
 }
