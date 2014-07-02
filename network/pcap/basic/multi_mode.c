@@ -13,6 +13,7 @@
 #include <setjmp.h>
 #include <assert.h>
 #include <pcap.h>
+#include <sys/ioctl.h>
 #include "utarray.h"
 #include "utstring.h"
 
@@ -32,6 +33,7 @@ struct {
   char path[PATH_MAX];
   int maxsz;
   int path_file_idx;
+  int ticks;
   size_t eb_sz;
   union {
     /* see inotify(7) as inotify_event has a trailing name
@@ -46,7 +48,7 @@ struct {
   .eb_sz = sizeof(struct inotify_event) + PATH_MAX,
 };
 
-#define tcpdump_cmd "tcpdump -G 10 -s 0 -w %Y%m%d%H%M%S.pcap"
+#define tcpdump_cmd "tcpdump -G 10 -C 10 -s 0 -w %Y%m%d%H%M%S.pcap"
 void usage() {
   fprintf(stderr,"usage: %s [-v] -f <bpf-filter>                \n"
                  "               -i <eth>   (read from interface), or\n"
@@ -153,7 +155,7 @@ static int get_files(char *dir, UT_array *filenames) {
 
 int main(int argc, char *argv[]) {
   struct inotify_event *ev, *nx;
-  int opt, rc, n, fl;
+  int opt, rc, n, fl, num_bytes;
   UT_array *filenames;
   size_t sz;
   cfg.prog = argv[0];
@@ -244,12 +246,21 @@ int main(int argc, char *argv[]) {
 
   switch (signo) {
     case 0:       /* initial setup. no signal yet */
-      alarm(10);
+      alarm(1);
       break;
     case SIGALRM: /* periodic work and reschedule */
-      do_stats();
-      alarm(10);
-      break;
+      if ((++cfg.ticks % 10) == 0) do_stats();
+      alarm(1);
+      if (cfg.mode != watch_dir) break;
+      /* in watch_Dir mode, check if there is data on inotify descriptor */
+      if (ioctl(cfg.fd,FIONREAD,&num_bytes) != 0) {
+        fprintf(stderr,"ioctl error %s\n",strerror(errno));
+        goto done;
+      }
+      if (num_bytes == 0) break;
+      fprintf(stderr,"unsignaled data on inotify descriptor (%u bytes)\n",num_bytes);
+      signo = sigs[0]; 
+      // fall through
     default:      /* SIGRTMIN+0 or other (ctrl-c, kill, etc) */
       if (signo != sigs[0]) {
         printf("got signal %d\n", signo);
