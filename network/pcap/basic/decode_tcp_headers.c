@@ -108,7 +108,7 @@ void cb(u_char *unused, const struct pcap_pkthdr *hdr, const u_char *pkt) {
     ip_tos = data + 1;
     ip_len = data + 2;
     ip_id =  data + 4;
-    ip_fo =  data + 6;
+    ip_fo =  data + 6;  /* TODO if fragmented, TCP/UDP header not repeated */
     ip_ttl = data + 8;
     ip_proto=data + 9;
     ip_sum = data + 10;
