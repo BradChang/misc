@@ -1,5 +1,5 @@
 CFLAGS = -g
-ASCIIDOC=/usr/local/bin/asciidoc
+ASCIIDOC=/usr/bin/asciidoc
 DOC = Unix_domain_sockets.html
 PROGS = cli srv
 

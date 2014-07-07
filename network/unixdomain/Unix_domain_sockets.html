@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
-<meta name="generator" content="AsciiDoc 8.6.8" />
+<meta name="generator" content="AsciiDoc 8.6.7" />
 <title>UNIX domain sockets</title>
 <style type="text/css">
 /* Shared CSS for AsciiDoc xhtml11 and html5 backends */
@@ -87,14 +87,10 @@ ul, ol, li > p {
 ul > li     { color: #aaa; }
 ul > li > * { color: black; }
 
-.monospaced, code, pre {
-  font-family: "Courier New", Courier, monospace;
-  font-size: inherit;
-  color: navy;
+pre {
   padding: 0;
   margin: 0;
 }
-
 
 #author {
   color: #527bbd;
@@ -223,7 +219,7 @@ div.exampleblock > div.content {
 }
 
 div.imageblock div.content { padding-left: 0; }
-span.image img { border-style: none; vertical-align: text-bottom; }
+span.image img { border-style: none; }
 a.image:visited { color: white; }
 
 dl {
@@ -419,6 +415,12 @@ div.unbreakable { page-break-inside: avoid; }
  *
  * */
 
+tt {
+  font-family: "Courier New", Courier, monospace;
+  font-size: inherit;
+  color: navy;
+}
+
 div.tableblock {
   margin-top: 1.0em;
   margin-bottom: 1.5em;
@@ -451,6 +453,12 @@ div.tableblock > table[frame="vsides"] {
  * html5 specific
  *
  * */
+
+.monospaced {
+  font-family: "Courier New", Courier, monospace;
+  font-size: inherit;
+  color: navy;
+}
 
 table.tableblock {
   margin-top: 1.0em;
@@ -531,8 +539,6 @@ body.manpage div.sectionbody {
 @media print {
   body.manpage div#toc { display: none; }
 }
-
-
 </style>
 <script type="text/javascript">
 /*<![CDATA[*/
@@ -733,7 +739,7 @@ asciidoc.install();
 <div id="header">
 <h1>UNIX domain sockets</h1>
 <span id="author">Troy D. Hanson</span><br />
-<span id="email"><code>&lt;<a href="mailto:tdh@tkhanson.net">tdh@tkhanson.net</a>&gt;</code></span><br />
+<span id="email"><tt>&lt;<a href="mailto:tdh@tkhanson.net">tdh@tkhanson.net</a>&gt;</tt></span><br />
 </div>
 <div id="content">
 <div class="sect1">
@@ -744,7 +750,7 @@ communicate. Communication is bidirectional with stream sockets
 and unidirectional with datagram sockets.</p></div>
 <div class="literalblock">
 <div class="content">
-<pre><code>fd = socket(AF_UNIX, SOCK_STREAM, 0);</code></pre>
+<pre><tt>fd = socket(AF_UNIX, SOCK_STREAM, 0);</tt></pre>
 </div></div>
 <div class="sect2">
 <h3 id="_identity">Identity</h3>
@@ -753,17 +759,17 @@ is known by a pathname. Obviously the client and server have to agree on the
 pathname for them to find each other. The server binds the pathname to the socket:</p></div>
 <div class="literalblock">
 <div class="content">
-<pre><code>struct sockaddr_un addr;
+<pre><tt>struct sockaddr_un addr;
 memset(&amp;addr, 0, sizeof(addr));
 addr.sun_family = AF_UNIX;
 strncpy(addr.sun_path, "socket", sizeof(addr.sun_path)-1);
-bind(fd, (struct sockaddr*)&amp;addr, sizeof(addr));</code></pre>
+bind(fd, (struct sockaddr*)&amp;addr, sizeof(addr));</tt></pre>
 </div></div>
 <div class="paragraph"><p>The resulting pathname is visible in the filesystem, like:</p></div>
 <div class="literalblock">
 <div class="content">
-<pre><code>% ls -l
-srwxr-xr-x 1 thanson thanson     0 2011-07-02 17:11 socket</code></pre>
+<pre><tt>% ls -l
+srwxr-xr-x 1 thanson thanson     0 2011-07-02 17:11 socket</tt></pre>
 </div></div>
 <div class="sect3">
 <h4 id="_unlink_before_bind">Unlink before bind</h4>
@@ -771,9 +777,9 @@ srwxr-xr-x 1 thanson thanson     0 2011-07-02 17:11 socket</code></pre>
 server exits. If the server subsequently restarts, the file prevents re-binding:</p></div>
 <div class="literalblock">
 <div class="content">
-<pre><code>% ./srv
+<pre><tt>% ./srv
 % ./srv
-bind error: Address already in use</code></pre>
+bind error: Address already in use</tt></pre>
 </div></div>
 <div class="paragraph"><p>So, servers should unlink the socket pathname prior to binding it.</p></div>
 </div>
@@ -810,7 +816,7 @@ Distinct clients
   distinguish the clients from each other-- the server has only one descriptor
   to read from the named pipe. Because the named pipe has only read descriptor
   and possibly-multiple writers, random interleaving can also occur if a client
-  writes more than <code>PIPE_BUF</code> bytes in one operation. Since pipes have these
+  writes more than <tt>PIPE_BUF</tt> bytes in one operation. Since pipes have these
   limitations, UNIX domain sockets should be used if there are multiple clients
   that need to be distinguishable or which write long messages to the server.
 </p>
@@ -820,10 +826,10 @@ Method of creating and opening
 </dt>
 <dd>
 <p>
-  Sockets are created using <code>socket</code> and assigned their identity via <code>bind</code>. Named
-  pipes are created using <code>mkfifo</code>. To connect to a UNIX domain socket the normal
-  <code>socket</code>/<code>connect</code> calls are used, but a named pipe is written using regular file
-  <code>open</code> and <code>write</code>. That makes them easier to use from a shell script for example.
+  Sockets are created using <tt>socket</tt> and assigned their identity via <tt>bind</tt>. Named
+  pipes are created using <tt>mkfifo</tt>. To connect to a UNIX domain socket the normal
+  <tt>socket</tt>/<tt>connect</tt> calls are used, but a named pipe is written using regular file
+  <tt>open</tt> and <tt>write</tt>. That makes them easier to use from a shell script for example.
 </p>
 </dd>
 </dl></div>
@@ -841,17 +847,17 @@ with regular UNIX domain sockets, the file persists after the server closes it.<
 <div class="sect1">
 <h2 id="_resources">Resources</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>Here are <a href="https://github.com/troydhanson/misc/tree/master/unixdomain">some C programs</a> that implement a UNIX domain socket client and
+<div class="paragraph"><p>Here are <a href="https://github.com/troydhanson/misc/tree/master/network/unixdomain">some C programs</a> that implement a UNIX domain socket client and
 server. These are placed in the public domain.</p></div>
 <div class="ulist"><ul>
 <li>
 <p>
-A <a href="https://github.com/troydhanson/misc/blob/master/unixdomain/srv.c">server</a> example
+A <a href="https://github.com/troydhanson/misc/blob/master/network/unixdomain/srv.c">server</a> example
 </p>
 </li>
 <li>
 <p>
-A <a href="https://github.com/troydhanson/misc/blob/master/unixdomain/cli.c">client</a> example
+A <a href="https://github.com/troydhanson/misc/blob/master/network/unixdomain/cli.c">client</a> example
 </p>
 </li>
 </ul></div>
@@ -861,7 +867,7 @@ A <a href="https://github.com/troydhanson/misc/blob/master/unixdomain/cli.c">cli
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2013-03-26 02:02:15 UTC
+Last updated 2014-07-07 18:03:52 EDT
 </div>
 </div>
 </body>
