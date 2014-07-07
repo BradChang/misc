@@ -258,8 +258,8 @@ version which only produces output when the kernel has sufficient entropy).
   ./entropy1 /tmp/rand
   8.00 bits per byte
 
-:t: https://github.com/troydhanson/misc/tree/master/entropy
-:b: https://github.com/troydhanson/misc/blob/master/entropy
+:t: https://github.com/troydhanson/misc/tree/master/compression/entropy
+:b: https://github.com/troydhanson/misc/blob/master/compression/entropy
 
 Resources
 ---------
