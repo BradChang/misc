@@ -58,13 +58,14 @@ struct {
 typedef struct {
   int freq;
   int amp;
-  int phase;
+  double phase; // radians
 } sine_t;
 
 UT_icd sines_icd = {.sz = sizeof(sine_t)};
 
 int main (int argc, char *argv[]) {
   char *exe = argv[0];
+  sine_t sine;
   int opt;
   utarray_new(cfg.sines, &sines_icd);
 
@@ -102,13 +103,10 @@ int main (int argc, char *argv[]) {
     phase = atoi(p);
 
    push:
-    /* normalize phase to radians */
-    phase = phase/360.0 * 2*pi;
-    sine_t s;
-    s.freq = freq;
-    s.amp = amp;
-    s.phase = phase;
-    utarray_push_back(cfg.sines, &s);
+    sine.freq = freq;
+    sine.amp = amp;
+    sine.phase = phase/360.0 * 2*pi; /* degrees to radians */
+    utarray_push_back(cfg.sines, &sine);
   }
 
   /* set up a memory buffer of the appropriate duration */
@@ -123,7 +121,7 @@ int main (int argc, char *argv[]) {
   sine_t *s=NULL;
   double sec_per_sample = 1.0/cfg.sample_rate;
   while ( (s=(sine_t*)utarray_next(cfg.sines,s))) {
-    fprintf(stderr,"amp: %d, freq: %d, phase: %d\n", s->amp, s->freq, s->phase);
+    fprintf(stderr,"amp: %d, freq: %d, phase: %.2f\n", s->amp, s->freq, s->phase);
     /* generate every sample. calculate the wave at each sample. */
     size_t i;
     for(i=0; i < cfg.duration*cfg.sample_rate; i++) {
