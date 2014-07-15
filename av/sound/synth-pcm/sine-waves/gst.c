@@ -3,10 +3,15 @@
 #include <gst/gst.h>
 #include <gio/gio.h>
 
-#define SAMPLE_RATE 22000
-#define FREQ 440
-#define DURATION 2
-#define LEN (SAMPLE_RATE * DURATION)
+/*
+ * The PCM synth example has a "frontend" and a "backend".
+ * This is the "backend" which takes an already-built PCM
+ * buffer and uses gstreamer to play it.
+ *
+ * entry point: play_pcm()
+ * 
+ * Troy D. Hanson, July 2014. 
+ */
 static gboolean 
 gst_bus_call(GstBus *bus,
          GstMessage *msg,
@@ -15,7 +20,7 @@ gst_bus_call(GstBus *bus,
   GMainLoop *loop = (GMainLoop*)data;
   switch (GST_MESSAGE_TYPE(msg)) {
     case GST_MESSAGE_EOS:
-      g_print("end of stream\n");
+      //g_print("end of stream\n");
       g_main_loop_quit(loop);
       break;
     case GST_MESSAGE_ERROR: {
@@ -34,16 +39,9 @@ gst_bus_call(GstBus *bus,
   return TRUE;
 }
 
-static int gst_timer_callback (const void *data)
+int play_pcm (int argc, char ** argv, int16_t *pcm, size_t pcmlen, 
+              int sample_rate, int verbose) 
 {
-  g_main_loop_quit ((GMainLoop *) data);
-  return FALSE;
-}
-
-int gst_main (int argc, char ** argv)
-{
-  int i;
-  uint8_t *wave;
   GMemoryInputStream *mistream;
   GstElement *source, *sink, *pipeline;
   GMainLoop *loop;
@@ -52,13 +50,12 @@ int gst_main (int argc, char ** argv)
 
   gst_init (&argc, &argv);
 
-  /* TODO wave from input params */
-  mistream = G_MEMORY_INPUT_STREAM(g_memory_input_stream_new_from_data(wave,
-                       LEN, (GDestroyNotify) g_free));
+  mistream = G_MEMORY_INPUT_STREAM(g_memory_input_stream_new_from_data(pcm,
+                       pcmlen, (GDestroyNotify) g_free));
 
   loop = g_main_loop_new (NULL, FALSE);
 
-  pipeline = gst_pipeline_new ("beep-player");
+  pipeline = gst_pipeline_new ("gst-player");
   bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
   bus_watch_id = gst_bus_add_watch(bus,gst_bus_call,loop);
   gst_object_unref(bus);
@@ -69,17 +66,14 @@ int gst_main (int argc, char ** argv)
   gst_bin_add_many (GST_BIN (pipeline), source, sink, NULL);
   
   GstCaps *caps = gst_caps_new_simple ("audio/x-raw",
-                 "format",   G_TYPE_STRING,   "U8",
-                 "rate",     G_TYPE_INT,      22000,
+                 "format",   G_TYPE_STRING,   "S16LE",
+                 "rate",     G_TYPE_INT,      sample_rate,
                  "channels", G_TYPE_INT,      1,
                  NULL);
   if (gst_element_link_filtered (source, sink, caps) == FALSE) g_printerr("link failed\n");
   gst_caps_unref(caps);
   
   gst_element_set_state (pipeline, GST_STATE_PLAYING);
-
-  g_timeout_add (2500, (GSourceFunc) gst_timer_callback, loop);
-  g_printerr("running main loop...\n");
   g_main_loop_run (loop);
 
   gst_element_set_state (pipeline, GST_STATE_NULL);
