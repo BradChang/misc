@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "utarray.h"
+#include "tpl.h"
 
 /* 
  * generate a sum of sine waves and play the waveform.
@@ -33,13 +34,14 @@ int play_pcm(int argc, char *argv[], int16_t *pcm, size_t pcmlen,
 static double pi = 3.14159;
 
 void usage(char *exe) {
-  fprintf(stderr,"usage: %s [-v] [-r <sample-rate>] [-s <seconds>] "
-                                 "freq/amp/phase [...] \n\n", exe);
-  fprintf(stderr,"freq/amp/phase specifies a sine wave(repeatable)\n\n");
-  fprintf(stderr,"sample rate (e.g. 44100)\n");
-  fprintf(stderr,"freq in hz (2-20000)\n");
-  fprintf(stderr,"amp (0-32767) max positive amplitude @16-bit\n");
-  fprintf(stderr,"phase (0-360) degrees to offset vs relative sines\n");
+  fprintf(stderr,"usage: %s [-v] [-r <sample-rate>] (in Hz, e.g. 44100) \n"
+                 "               [-s <seconds>]     (duration, seconds) \n"
+                 "               [-t <file>]        (dump PCM waveform) \n"
+                 "               freq[/amp[/phase]] (sine parameters, repeatable)\n"
+                 "\nSine parameters consist of:                         \n"
+                 "Frequency (hz)  (2-20000) this is thly required parameter\n"
+                 "Amplitude       (0-32767) max positive amplitude @16-bit\n"
+                 "Phase (degrees) (0-360)   offset vs relative sines\n", exe);
   exit(-1);
 }
 
@@ -49,6 +51,7 @@ struct {
   int sample_rate;  /* e.g. 44100 hz */
   int duration;     /* e.g. 10 seconds */
   int resolution;   /* e.g. 2 bytes (16-bit samples) */
+  char *pcm_file;   /* optional filename to write */
 } cfg = {
   .sample_rate=44100,
   .duration = 4, /* seconds of pcm audio to produce */
@@ -65,15 +68,17 @@ UT_icd sines_icd = {.sz = sizeof(sine_t)};
 
 int main (int argc, char *argv[]) {
   char *exe = argv[0];
+  int16_t *pcm=NULL;
   sine_t sine;
   int opt;
-  utarray_new(cfg.sines, &sines_icd);
 
-  while ( (opt = getopt(argc, argv, "s:r:v+h")) != -1) {
+  utarray_new(cfg.sines, &sines_icd);
+  while ( (opt = getopt(argc, argv, "s:r:t:v+h")) != -1) {
     switch (opt) {
       case 'v': cfg.verbose++; break;
       case 'r': cfg.sample_rate=atoi(optarg); break;
       case 's': cfg.duration=atoi(optarg); break;
+      case 't': cfg.pcm_file=strdup(optarg); break;
       case 'h': default: usage(exe); break;
     }
   }
@@ -111,8 +116,9 @@ int main (int argc, char *argv[]) {
 
   /* set up a memory buffer of the appropriate duration */
   // (samples/sec * bytes/sample * sec) = bytes
-  size_t pcmlen = cfg.sample_rate * cfg.resolution * cfg.duration;
-  int16_t *pcm = (int16_t*)malloc(pcmlen);
+  size_t nsamples = cfg.sample_rate * cfg.duration;
+  size_t pcmlen = cfg.resolution * nsamples;
+  pcm = (int16_t*)malloc(pcmlen);
   if (!pcm) {fprintf(stderr,"out of memory\n"); goto done;}
   memset(pcm, 0, pcmlen); 
 
@@ -132,10 +138,15 @@ int main (int argc, char *argv[]) {
       pcm[i] += A*sin(w*t + p);      // A*sin(ωt+ϕ)
     }
   }
+  /* write it out if requested */
+  if (cfg.pcm_file) tpl_jot( TPL_FILE, cfg.pcm_file, "iiij#", 
+    &cfg.sample_rate, &cfg.duration, &cfg.resolution, pcm, nsamples);
+
   /* hand it over to the gstreamer backend */
   play_pcm(argc, argv, pcm, pcmlen, cfg.sample_rate, cfg.verbose);
 
  done:
+  if (pcm) free(pcm);
   utarray_free(cfg.sines);
   return 0;
 }
