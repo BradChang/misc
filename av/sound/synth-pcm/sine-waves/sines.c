@@ -31,8 +31,6 @@
 int play_pcm(int argc, char *argv[], int16_t *pcm, size_t pcmlen, 
              int sample_rate, int verbose);
 
-static double pi = 3.14159;
-
 void usage(char *exe) {
   fprintf(stderr,"usage: %s [-v] [-r <sample-rate>] (in Hz, e.g. 44100) \n"
                  "               [-s <seconds>]     (duration, seconds) \n"
@@ -110,7 +108,7 @@ int main (int argc, char *argv[]) {
    push:
     sine.freq = freq;
     sine.amp = amp;
-    sine.phase = phase/360.0 * 2*pi; /* degrees to radians */
+    sine.phase = phase/360.0 * 2*M_PI; /* degrees to radians */
     utarray_push_back(cfg.sines, &sine);
   }
 
@@ -132,7 +130,7 @@ int main (int argc, char *argv[]) {
     size_t i;
     for(i=0; i < cfg.duration*cfg.sample_rate; i++) {
       double t = (i*sec_per_sample); // time of sample
-      double w = 2*pi*s->freq;       // ω (omega) angular freq (radians/sec)
+      double w = 2*M_PI*s->freq;     // ω (omega) angular freq (radians/sec)
       double p = s->phase;           // ϕ (phi) phase (radians)
       int    A = s->amp;             // amplitude 
       pcm[i] += A*sin(w*t + p);      // A*sin(ωt+ϕ)
