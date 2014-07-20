@@ -20,18 +20,11 @@
  *   frequency: in hz [2 - 20000 are reasonable values]
  *   amplitude: as the upper half of a 16-bit range [0-32767]
  *       phase: as an angle in degrees (0-360)
-
- * TODO generate image of waveform
- * TODO produce as streaming mp3
  * 
  */
-int play_pcm(int argc, char *argv[], int16_t *pcm, size_t pcmlen, 
-             int sample_rate, int verbose);
-
 void usage(char *exe) {
   fprintf(stderr,"usage: %s [-v] [-r <sample-rate>] (in Hz, e.g. 44100) \n"
                  "               [-s <seconds>]     (duration, seconds) \n"
-                 "               [-t <file>]        (dump PCM waveform) \n"
                  "               freq[/amp[/phase]] (sine parameters, repeatable)\n"
                  "\nSine parameters consist of:                         \n"
                  "Frequency (hz)  (2-20000) this is thly required parameter\n"
@@ -46,7 +39,6 @@ struct {
   int sample_rate;  /* e.g. 44100 hz */
   int duration;     /* e.g. 10 seconds */
   int resolution;   /* e.g. 2 bytes (16-bit samples) */
-  char *pcm_file;   /* optional filename to write */
 } cfg = {
   .sample_rate=44100,
   .duration = 4, /* seconds of pcm audio to produce */
@@ -68,12 +60,11 @@ int main (int argc, char *argv[]) {
   int opt;
 
   utarray_new(cfg.sines, &sines_icd);
-  while ( (opt = getopt(argc, argv, "s:r:t:v+h")) != -1) {
+  while ( (opt = getopt(argc, argv, "s:r:v+h")) != -1) {
     switch (opt) {
       case 'v': cfg.verbose++; break;
       case 'r': cfg.sample_rate=atoi(optarg); break;
       case 's': cfg.duration=atoi(optarg); break;
-      case 't': cfg.pcm_file=strdup(optarg); break;
       case 'h': default: usage(exe); break;
     }
   }
@@ -133,11 +124,11 @@ int main (int argc, char *argv[]) {
       pcm[i] += A*sin(w*t + p);      // A*sin(ωt+ϕ)
     }
   }
-  /* write it out if requested */
-  if (cfg.pcm_file) tpl_jot( TPL_FILE, cfg.pcm_file, "iiij#", 
+  /* write it out with basis parameters */
+  tpl_jot( TPL_FD, STDOUT_FILENO, "iiij#", 
     &cfg.sample_rate, &cfg.duration, &cfg.resolution, pcm, nsamples);
 
-  /* TODO write the file out */
+  /* TODO cycle if requested */
 
  done:
   if (pcm) free(pcm);
