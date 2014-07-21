@@ -164,9 +164,9 @@ int ingest_pcap(char *file) {
   if (cfg.pcap==NULL)  {fprintf(stderr,"can't open %s: %s\n", cfg.path, cfg.err); goto done;}
   if (set_filter()) goto done;
   rc = pcap_loop(cfg.pcap, 0, cb, NULL);  
-  pcap_close(cfg.pcap); cfg.pcap=NULL;
 
  done:
+  if (cfg.pcap) {pcap_close(cfg.pcap); cfg.pcap=NULL;}
   return rc;
 }
 
@@ -305,12 +305,10 @@ int main(int argc, char *argv[]) {
   }
 
 
+ alarm(1);
  while ( (signo = sigwaitinfo(&sw, &info)) > 0) {
 
   switch (signo) {
-    case 0:       /* initial setup. no signal yet */
-      alarm(1);
-      break;
     case SIGALRM: /* periodic work and reschedule */
       if ((++cfg.ticks % 10) == 0) do_stats();
       alarm(1);
@@ -323,6 +321,7 @@ int main(int argc, char *argv[]) {
       if (num_bytes == 0) break;
       fprintf(stderr,"unsignaled data on inotify descriptor (%u bytes)\n",num_bytes);
       signo = sigs[0]; 
+      info.si_fd = -1; 
       // fall through
     default:      /* SIGRTMIN+0 or other (ctrl-c, kill, etc) */
       if (signo != sigs[0]) {
