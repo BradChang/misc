@@ -836,14 +836,15 @@ Mac OS X
 <div class="paragraph"><p>You might find my <a href="http://troydhanson.github.io/pmtr">pmtr tool</a> much easier to
 use than writing an initscript.</p></div>
 </div></div>
-<div class="paragraph"><p>These initscripts expect the daemon to stay in the foreground.</p></div>
+<div class="paragraph"><p>These initscripts expect the daemon to stay in the <strong>foreground</strong>. For daemons
+that fork/detach into the background, modification would be necessary.</p></div>
 <div class="sect2">
 <h3 id="_ubuntu">Ubuntu</h3>
 <div class="paragraph"><p>On Ubuntu, the init system is called <em>upstart</em>. It&#8217;s quite nice and easy to use.</p></div>
 <div class="olist arabic"><ol class="arabic">
 <li>
 <p>
-Place <a href="https://github.com/troydhanson/misc/blob/master/init/ubuntu-exd.conf">this script</a> in <tt>/etc/init/exd.conf</tt>.
+Place <a href="https://github.com/troydhanson/misc/tree/master/server_tools/init/ubuntu-exd.conf">this script</a> in <tt>/etc/init/exd.conf</tt>.
 </p>
 </li>
 <li>
@@ -859,7 +860,7 @@ It&#8217;s all ready to go. Start it up using <tt>start exd</tt>
 <div class="olist arabic"><ol class="arabic">
 <li>
 <p>
-Place <a href="https://github.com/troydhanson/misc/blob/master/init/centos-exd">this script</a> in <tt>/etc/rc.d/init.d/exd</tt>.
+Place <a href="https://github.com/troydhanson/misc/tree/master/server_tools/init/centos-exd">this script</a> in <tt>/etc/rc.d/init.d/exd</tt>.
 </p>
 </li>
 <li>
@@ -879,7 +880,7 @@ Start it up using <tt>/etc/init.d/exd start</tt>.
 <div class="olist arabic"><ol class="arabic">
 <li>
 <p>
-Place <a href="https://github.com/troydhanson/misc/blob/master/init/debian-exd">this script</a> in <tt>/etc/init.d/exd</tt>
+Place <a href="https://github.com/troydhanson/misc/tree/master/server_tools/init/debian-exd">this script</a> in <tt>/etc/init.d/exd</tt>
 </p>
 </li>
 <li>
@@ -900,7 +901,7 @@ Start it: <tt>/usr/sbin/service exd start</tt>
 <div class="olist arabic"><ol class="arabic">
 <li>
 <p>
-Place <a href="https://github.com/troydhanson/misc/blob/master/init/mac-exd.plist">this file</a> in <tt>/Library/LaunchDaemons/exd.plist</tt>
+Place <a href="https://github.com/troydhanson/misc/tree/master/server_tools/init/mac-exd.plist">this file</a> in <tt>/Library/LaunchDaemons/exd.plist</tt>
 </p>
 </li>
 <li>
@@ -934,7 +935,7 @@ author&#8217;s <a href="http://tkhanson.net/blog">blog</a>, and twitter <a href=
 <div id="footer">
 <div id="footer-text">
 Version 1.1<br />
-Last updated 2014-03-09 22:34:44 EDT
+Last updated 2014-07-22 15:07:40 EDT
 </div>
 </div>
 </body>

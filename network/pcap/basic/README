@@ -6,4 +6,3 @@ decode_tcp_headers: decode link level, ip and udp or tcp header
 iface_stats: gather interface statistics periodically
 signal_driven_capture: use signal driven I/O with pcap socket, iface stats
 multi_mode: read from interface or one PCAP or watch incoming pcap directory
-proboscis: packet proxy that passes length-prefixed ethernet frames to clients
