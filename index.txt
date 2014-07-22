@@ -114,8 +114,10 @@ DMX Lighting, Sound, etc
 |=================================================================================================================
 | {t}dmx_lighting/ftdi[ftdi]        | how to use libftdi to drive a DMX controller 
 | {t}dmx_lighting/artnet[artnet]    | how to talk to an ArtNet DMX device using UDP
-| {t}sound[sound]                   | playing sound files with gstreamer
+| {t}sound[sound]                   | synthesizing sound (PCM) from sines, playing
 | {t}joystick[joystick]             | use SDL to read joystick axes and buttons in C 
+| {t}canvas/hexagons[hexagons]      | geometry of drawing hexagons (on HTML canvas)
+| {t}cairo[cairo]                   | a few basic examples of 2D drawing with Cairo
 |=================================================================================================================
 
 :t: https://github.com/troydhanson/misc/tree/master/scripts/
