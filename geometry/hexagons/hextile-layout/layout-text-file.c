@@ -19,7 +19,7 @@ void usage(char *prog) {
 }
  
 int main(int argc, char * argv[]) {
-  int opt,verbose=0, x, y;
+  int opt,verbose=0, dump_image=0, x, y;
   FILE *ifilef=stdin;
   char *ifile=NULL,line[100], *s;
  
@@ -27,9 +27,10 @@ int main(int argc, char * argv[]) {
   char *buf, *obuf;
   size_t sz,  osz;
 
-  while ( (opt = getopt(argc, argv, "v+")) != -1) {
+  while ( (opt = getopt(argc, argv, "v+i")) != -1) {
     switch (opt) {
       case 'v': verbose++; break;
+      case 'i': dump_image=1; break;
       default: usage(argv[0]); break;
     }
   }
@@ -57,10 +58,11 @@ int main(int argc, char * argv[]) {
   tn = tpl_map("A(sii)", &s, &x, &y);
   if (tpl_load(tn, TPL_MEM, obuf, osz)) exit(-1);
   while (tpl_unpack(tn,1) > 0) {
-    printf("%-5d %-5d    %s", x, y, s);
+    if (verbose) fprintf(stderr,"%-5d %-5d    %s", x, y, s);
     free(s);
   }
   tpl_free(tn);
+  if (dump_image) write(STDOUT_FILENO, obuf, osz);
   free(obuf);
 
   fclose(ifilef);
