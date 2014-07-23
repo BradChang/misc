@@ -32,11 +32,11 @@ int available(int /* item index */ pos,
               UT_array /* of int */*yv,
               int /* output coord*/*ox,
               int /* output coord*/*oy) {
-  int x = *(int*)utarray_eltptr(xv,pos);
-  int y = *(int*)utarray_eltptr(yv,pos);
-  get_hextile_neighbor(x,y,edge,ox,oy);
-  // scan through xv/yv to see if ox/oy used
-  while(--pos >= 0) {
+  int x = *(int*)utarray_eltptr(xv,pos); // own position: x
+  int y = *(int*)utarray_eltptr(yv,pos); // own position: y
+  get_hextile_neighbor(x,y,edge,ox,oy);  // neighbor[edge]=[ox,oy]
+  // scan through xv/yv to see if ox/oy used. TODO hash lookup.
+  for(pos=0; pos < utarray_len(xv); pos++) {
     x = *(int*)utarray_eltptr(xv,pos);
     y = *(int*)utarray_eltptr(yv,pos);
     if ((x == *ox) && (y == *oy)) return 0;
