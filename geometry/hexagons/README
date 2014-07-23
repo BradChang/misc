@@ -1,0 +1,6 @@
+This is a description of the geometry of hexagons, with sample
+code for drawing hexagons in an HTML canvas. There is also a
+"hextile" coordinate system for assigning x,y positions to 
+plane-tiling of hexagons, and a sample of laying out a data
+series (lines of a text file, in this case) as contiguous
+chained series of hexagons on the plane.
