@@ -43,13 +43,19 @@ typedef struct {
   int y;
 } hex_t;
 
+/* plumbing for utarray of hex_t */ 
 void hex_fin(hex_t *h) { if (h->id) free(h->id); }
-void hex_cpy(hex_t *dst,const hex_t *src) {dst->id=src->id?strdup(src->id):NULL;}
+void hex_cpy(hex_t *dst,const hex_t *src) {
+  dst->x = src->x;
+  dst->y = src->y;
+  dst->id = src->id ? strdup(src->id) : NULL;
+}
 const UT_icd hex_icd = {
   .sz = sizeof(hex_t), 
  .copy=(ctor_f*)hex_cpy, 
  .dtor=(dtor_f*)hex_fin
 };
+/* end plumbing */
 
 #define PADDING 10
 void find_bounds() {
@@ -83,6 +89,15 @@ void draw_hexagon(cairo_t *cr, hex_t *h) {
   get_hexagon_origin(h,&dx,&dy);
   cairo_translate(cr, dx, dy);
 
+  /* this is a hack that puts the hexagon's sequence number in */
+  static int num=0; char num_str[20];
+  fprintf(stderr,"drawing hexagon #%d@(%d,%d) at (%f,%f)\n",num,h->x,h->y,dx,dy);
+  cairo_move_to(cr, 0.5, 0.5);
+  sprintf(num_str,"%d",num++);
+  cairo_show_text(cr, num_str);
+  cairo_stroke(cr);
+
+  /* draw the hexagon proper */
   cairo_move_to(cr,     0,      0);
   cairo_line_to(cr, sq3/2, -1/2.0);
   cairo_line_to(cr,   sq3,      0);
@@ -125,6 +140,7 @@ void draw_image() {
 
   cairo_set_line_width(cr,0.1);
   cairo_set_source_rgb(cr, 0, 0, 1.0);
+  cairo_set_font_size(cr, 0.5);
   setup_transform(cr); 
 
   hex_t *h=NULL;

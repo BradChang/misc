@@ -35,12 +35,15 @@ int available(int /* item index */ pos,
   int x = *(int*)utarray_eltptr(xv,pos); // own position: x
   int y = *(int*)utarray_eltptr(yv,pos); // own position: y
   get_hextile_neighbor(x,y,edge,ox,oy);  // neighbor[edge]=[ox,oy]
+
   // scan through xv/yv to see if ox/oy used. TODO hash lookup.
-  for(pos=0; pos < utarray_len(xv); pos++) {
-    x = *(int*)utarray_eltptr(xv,pos);
-    y = *(int*)utarray_eltptr(yv,pos);
+  int p;
+  for(p=0; p < utarray_len(xv); p++) {
+    x = *(int*)utarray_eltptr(xv,p);
+    y = *(int*)utarray_eltptr(yv,p);
     if ((x == *ox) && (y == *oy)) return 0;
   }
+  fprintf(stderr,"attaching to pos:%d/%d\n",pos,edge);
   return 1;
 }
 
@@ -62,7 +65,9 @@ void place( int /* item index */ pos,
   for (p = pos-1; p >= 0; p--) { // hunt through predecessor chain
     for(e=0; e < 6; e++) {       // hunt through predecessor edges
       unsigned bond_edge = (my_hash + e) % EDGES;
+      fprintf(stderr," +trying %d/%d\n",p,bond_edge);
       if (available(p,bond_edge,xv,yv,&x,&y)) goto done;
+      fprintf(stderr," -taken, edge scanning\n");
     }
   }
   assert(0); // not reached. it's a math thing.
