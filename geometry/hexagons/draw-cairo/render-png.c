@@ -1,6 +1,5 @@
-/* take on stdin the tpl image with layout information
-   render png */
-
+/* ingest tpl buffer produced by the layout algorithm (../hextile-layout/).
+ * generate hashcodes for each line to determine a hexagonal layout. */
 #include <cairo/cairo.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +29,18 @@ struct {
   .output_pixels_y = 1440,
 };
 
-static const double sq3 = 1.73205080756887729352;
+
+/* we draw tiled unit hexagons in this program (whose edges are 1 unit long).
+ * the width of a unit hexagon is sq3 (measured initial vertex to horizontal
+ * neighbor's initial vertex). the height of a unit hexagon is 3/2 (measured
+ * initial vertex to the initial vertex of its neighbors to the se/sw/ne/nw.
+ * (only the vertical component of that distance; ignore the horizontal offset)
+ * these scale factors are used to figure the amount of drawing surface we need
+ * to draw a bunch of these hexagons e.g. (#hexagons * width), same for height.
+ */
+#define sq3 1.73205080756887729352        /* sqrt(3) */
+const double unit_hexagon_width = sq3;    /* initial vertex to initial vertex */
+const double unit_hexagon_height =  3.0/2;/* initial vertex to initial vertex */
 
 void usage(char *exe) {
   fprintf(stderr,"usage: %s [-v] -i <in.tpl> -o <file.png>\n", exe);
@@ -57,7 +67,10 @@ const UT_icd hex_icd = {
 };
 /* end plumbing */
 
-#define PADDING 10
+/* we calculate a bounding box which is in terms of the
+ * initial vertices of the hexagons. to accomodate the
+ * width and height of the hexagons, we pad that number.*/
+#define PADDING 2
 void find_bounds() {
   hex_t *h=NULL;
   int i=0,x_min,x_max,y_min,y_max;
@@ -116,28 +129,42 @@ void draw_hexagon(cairo_t *cr, hex_t *h) {
    16:9 (or whatever) device surface. Math is hard.
  */
 void setup_transform(cairo_t *cr) {
-  /* width and height of our bbox in user distance */
-  double xw = cfg.bbox.x_max - cfg.bbox.x_min; 
-  double yw = cfg.bbox.y_max - cfg.bbox.y_min;
-  /* scale factors before proportion preservation */
+  /* width and height of our bbox (number of hexagons) */
+  double xu = cfg.bbox.x_max - cfg.bbox.x_min; 
+  double yu = cfg.bbox.y_max - cfg.bbox.y_min;
+  /* width and height needed to draw the unit hexagons */
+  double xw = xu * unit_hexagon_width; 
+  double yw = yu * unit_hexagon_height;
+  /* what scale factors would fill the PNG's height/width? */
   double sx = cfg.output_pixels_x *1.0 / xw;
   double sy = cfg.output_pixels_y *1.0 / yw;
-  /* choose the least scale factor, set both to it */
+  /* choose the lesser, to be our uniform scale factor */
   if (sx < sy) sy = sx;
   else         sx = sy;
-  /* further reduce the scale slightly to pad it */
-  sx *= 0.9;
-  sy *= 0.9;
-  /* TODO translate so that scaled region is centered */
+
+  /* center the drawing, move topleft away from PNG origin */
+  double empty_x = cfg.output_pixels_x - xw*sx;
+  double empty_y = cfg.output_pixels_y - yw*sy;
+  cairo_translate(cr, empty_x/2, empty_y/2);
+  
+  /* scale so unit hexagons blow up to big edges on the PNG */
   cairo_scale(cr, sx, sy);
-  /* start user space drawing so top left is visible */
-  cairo_translate(cr, -1.0*cfg.bbox.x_min, -1.0*cfg.bbox.y_min);
+
+  /* translate top-left hexagon's initial vertex to origin */
+  double min_xu = cfg.bbox.x_min * unit_hexagon_width;
+  double min_yu = cfg.bbox.y_min*  unit_hexagon_height;
+  cairo_translate(cr, -1.0 * min_xu, -1.0 * min_yu);
 }
 
 void draw_image() {
   cairo_surface_t *surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 
                                   cfg.output_pixels_x, cfg.output_pixels_y);
   cairo_t *cr = cairo_create (surface);
+
+  /* solid black background */
+  cairo_set_source_rgb (cr, 0, 0, 0);
+  cairo_rectangle (cr, 0, 0, cfg.output_pixels_x, cfg.output_pixels_y);
+  cairo_fill (cr);
 
   cairo_set_line_width(cr,0.1);
   cairo_set_source_rgb(cr, 0, 0, 1.0);
