@@ -41,7 +41,7 @@ Conversion of Hextile Coordinates to Drawing Coordinates
 To draw a hexagon given its hextile coordinates (x,y), convert to an
 initial drawing vertex (dx,dy) like this (sq3 is the square root of 3):
 
-  dx = sq3*x + (y%2)*(sq3/2)
+  dx = sq3*x + odd(y)?(sq3/2):0
   dy = (3/2)*y
 
 This scales the hextile coordinate horizontally by the hexagon width (sq3 for
@@ -50,7 +50,9 @@ vertically from initial vertex to the offset initial vertex below; also it
 translates alternating rows of hexagons by half a hexagon width, sq3/2, so they
 tile properly. 
 
-Here (y%2) is used to test whether y is odd or even; it's 0 if y is even.
+Here the ternary operator (the question mark) is used with odd(y). You can
+define odd(y) as (y&1) for integer y. (Don't define odd(x) as (x%2) because
+modulo operator on negative inputs is implementation dependent).
 
 The remaining vertices can then be drawn by appropriate translation.
 
@@ -64,8 +66,8 @@ the initial vertex. Then, when drawing the hexagon's edges, multiply each
 x and y component to the next vertex by the same scaling factor.  A translation
 xo/yo can be added to every vertex for a global translation effect.
 
-  dx = s * ( sq3*x + (y%2)*(sq3/2) ) + xo
-  dy = s * ( (3/2)*y )               + yo
+  dx = s * ( sq3*x + odd(y)?(sq3/2):0 ) + xo
+  dy = s * ( (3/2)*y )                  + yo
 
 Gapped hexagons
 ~~~~~~~~~~~~~~~

@@ -77,10 +77,11 @@ void find_bounds() {
 
 /* get coordinate of initial vertex. we're in unit hexagon
    coordinates with no scaling factor */
+#define odd(i) (i&1)
 void get_hexagon_origin(hex_t *h, double *dx, double *dy) {
   int x = h->x; 
   int y = h->y; 
-  *dx = sq3*x + (y%2)*(sq3/2);
+  *dx = sq3*x + odd(y)?(sq3/2):0;
   *dy = (3.0/2)*y;
 }
 

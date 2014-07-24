@@ -11,7 +11,7 @@ unsigned get_hash(unsigned char *s) {
   return h;
 }
 
-#define odd(i) (i%2)
+#define odd(i) (i&1)
 void get_hextile_neighbor(int x, int y, int edge, int *ox, int *oy) {
   switch(edge) {
     /*  e */ case 0: *ox =          x+1;       *oy = y+0; break;
