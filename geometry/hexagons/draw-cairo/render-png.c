@@ -81,7 +81,7 @@ void find_bounds() {
 void get_hexagon_origin(hex_t *h, double *dx, double *dy) {
   int x = h->x; 
   int y = h->y; 
-  *dx = sq3*x + odd(y)?(sq3/2):0;
+  *dx = sq3*x + (odd(y) ? (sq3/2) : 0);
   *dy = (3.0/2)*y;
 }
 
