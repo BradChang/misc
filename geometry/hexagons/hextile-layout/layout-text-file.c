@@ -11,10 +11,13 @@ extern int layout(char *buf, size_t sz,char **obuf, size_t *osz);
  * test driver for layout.c
  * consumes a file (stdin or the named file)
  * and prints the resulting layout
+ * also writes a tpl image that can be loaded
+ * into draw-cairo/render-png
  */
 
 void usage(char *prog) {
-  fprintf(stderr, "usage: %s [-v] <file>\n", prog);
+  fprintf(stderr, "usage: %s [-v] [-i] <file>\n", prog);
+  fprintf(stderr, "   -i writes layout tpl to stdout\n");
   exit(-1);
 }
  
@@ -27,11 +30,11 @@ int main(int argc, char * argv[]) {
   char *buf, *obuf;
   size_t sz,  osz;
 
-  while ( (opt = getopt(argc, argv, "v+i")) != -1) {
+  while ( (opt = getopt(argc, argv, "v+ih")) != -1) {
     switch (opt) {
       case 'v': verbose++; break;
       case 'i': dump_image=1; break;
-      default: usage(argv[0]); break;
+      case 'h': default: usage(argv[0]); break;
     }
   }
   if (optind < argc) ifile=argv[optind++];
