@@ -4,7 +4,7 @@
 #include <string.h>
 #include <assert.h>
 
-int do_read(int fd, char *buf, size_t len) {
+int do_read(int fd, void *buf, size_t len) {
   int rc;
 
   while(len) {
@@ -20,7 +20,7 @@ int do_read(int fd, char *buf, size_t len) {
   return 0;
 }
 
-int do_write(int fd, char *buf, size_t len) {
+int do_write(int fd, void *buf, size_t len) {
   int rc;
 
   while(len) {
