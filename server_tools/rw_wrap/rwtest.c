@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "rw_wrap.h"
+#include "rw.c"
 
 int main() {
   int fds[2];
