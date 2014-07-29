@@ -17,19 +17,24 @@
 #include "utarray.h"
 
 /*****************************************************************************
- * This is an example of a basic TCP server that uses the SIGIO signal to get
- * notified that there is some network activity to be done. That includes new
- * clients that need to be accepted, or input or closure of existing clients. 
- * It cleanly handles signals like Ctrl-C, and does periodic other work. 
- * It is oriented toward servers that receive input, of course we could write
- * back to the clients but it should be noted that the I/O is set non-blocking.
+ * This is an example of a basic TCP server for concurrent clients. It uses the
+ * SIGIO signal to get notified that there is network activity to be handled.
+ * That includes new clients to accept, or input to read, or a client closure.
+ * It cleanly handles signals like Ctrl-C, and does periodic other work.  It is
+ * oriented toward servers that receive input only. We could write back to the
+ * clients of course, but it should be noted that the I/O is set non-blocking.
  *
- * This program uses only non-blocking calls, so it's always ok to call 
- * service_network(). We call it any time input is ready on any descriptor.
- * It loops over all the descriptors it's managing with a quick non-blocking
- * read (or accept). Of course it would be more efficient- and more complex-
- * to track exactly what descriptors are ready, but for simple programs with
- * only a handful of clients this is adequate.
+ * This particular program does not get notified about "which" file descriptors
+ * are ready. It simply uses SIGIO to tell it, "check everything that might
+ * need to be handled." It uses a function, service_network(), to check on all
+ * those things that might need to handled. Since service_network() only uses
+ * non-blocking calls, it's OK to call it any time- when input is ready on any
+ * descriptor- or even when it's not.  Of course it would be more theoretically
+ * efficient to service only the exact descriptors that are ready, e.g. using
+ * the info.si_fd field, but this simpler program is adequate for TCP servers
+ * with smaller number of clients and lower rates of input.
+ *
+ * Troy D. Hanson
  ****************************************************************************/
 
 struct {
@@ -39,6 +44,7 @@ struct {
   UT_array *fds;     /* array of client descriptors */
   int verbose;
   int ticks;         /* uptime in seconds        */
+  int pid;           /* our own pid              */
   char *prog;
 } cfg = {
   .addr = INADDR_ANY, /* by default, listen on all local IP's   */
@@ -90,7 +96,7 @@ int setup_listener() {
   fl |= O_ASYNC|O_NONBLOCK;     /* want a signal on fd ready */
   fcntl(fd, F_SETFL, fl);
   fcntl(fd, F_SETSIG, SIGIO);
-  fcntl(fd, F_SETOWN, getpid());   /* send it to our pid */
+  fcntl(fd, F_SETOWN, cfg.pid); /* send it to our pid */
 
   /**********************************************************
    * put socket into listening state
@@ -129,8 +135,8 @@ int accept_client() {
   fl = fcntl(fd, F_GETFL);
   fl |= O_ASYNC|O_NONBLOCK;        /* want a signal on fd ready */
   fcntl(fd, F_SETFL, fl);
-  fcntl(fd, F_SETSIG, SIGIO);      /* use this instead of SIGIO */
-  fcntl(fd, F_SETOWN, getpid());   /* send it to our pid */
+  fcntl(fd, F_SETSIG, SIGIO);
+  fcntl(fd, F_SETOWN, cfg.pid);    /* send it to our pid */
 
  done:
   if (fd != -1) utarray_push_back(cfg.fds,&fd);
@@ -178,6 +184,7 @@ void service_network() {
 int main(int argc, char *argv[]) {
   cfg.prog = argv[0];
   cfg.prog=argv[0];
+  cfg.pid = getpid();
   int n, signo, opt, *fd;
   siginfo_t info;
   utarray_new(cfg.fds,&ut_int_icd);
