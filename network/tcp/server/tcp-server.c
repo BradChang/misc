@@ -60,7 +60,7 @@ void periodic() {
   if (cfg.verbose) fprintf(stderr,"up %d seconds\n", cfg.ticks);
 }
 
-/* signals that we'll unblock during sigsuspend */
+/* signals that we'll accept synchronously in sigwaitinfo */
 int sigs[] = {SIGIO,SIGHUP,SIGTERM,SIGINT,SIGQUIT,SIGALRM};
 
 int setup_listener() {
@@ -200,12 +200,12 @@ int main(int argc, char *argv[]) {
   if (cfg.addr == INADDR_NONE) usage();
   if (cfg.port==0) usage();
 
-  /* block all signals. we stay blocked always except in sigwaitinfo */
+  /* block all signals. we only take signals synchronously in sigwaitinfo */
   sigset_t all;
   sigfillset(&all);
   sigprocmask(SIG_SETMASK,&all,NULL);
 
-  /* a few signals we'll accept during sigwaitinfo */
+  /* make a set of the signals we accept in sigwaitinfo. others blocked */
   sigset_t sw;
   sigemptyset(&sw);
   for(n=0; n < sizeof(sigs)/sizeof(*sigs); n++) sigaddset(&sw, sigs[n]);

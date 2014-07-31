@@ -81,7 +81,7 @@ int del_epoll(int fd) {
   return rc;
 }
 
-/* signals that we'll unblock during sigsuspend */
+/* signals that we'll accept synchronously via signalfd */
 int sigs[] = {SIGIO,SIGHUP,SIGTERM,SIGINT,SIGQUIT,SIGALRM};
 
 int setup_listener() {
