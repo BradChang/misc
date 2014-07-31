@@ -163,13 +163,14 @@ void drain_client(int fd) {
 
   if (rc != 0) return;
 
-  /* client closed. log it, tell epoll to forget it, close it, forget it */
+  /* client closed. log it, tell epoll to forget it, close it */
   if (cfg.verbose) fprintf(stderr,"client %d has closed\n", fd);
   del_epoll(fd);
   close(fd);
-  
+
+  /* delete record of fd. linear scan. want hash if lots of fds */
   fp=NULL;
-  while ( (fp=(int*)utarray_next(cfg.fds,fp))) { /* find it in our list */
+  while ( (fp=(int*)utarray_next(cfg.fds,fp))) { 
     if (*fp != fd) continue;
     pos = utarray_eltidx(cfg.fds,fp);
     utarray_erase(cfg.fds,pos,1);
@@ -199,19 +200,19 @@ int main(int argc, char *argv[]) {
   if (cfg.addr == INADDR_NONE) usage();
   if (cfg.port==0) usage();
 
-  /* block all signals. we stay blocked always except in sigwaitinfo */
+  /* block all signals. we take signals synchronously via signalfd */
   sigset_t all;
   sigfillset(&all);
   sigprocmask(SIG_SETMASK,&all,NULL);
 
-  /* a few signals we'll accept in epoll, via a fd to receive signals */
+  /* a few signals we'll accept via our signalfd */
   sigset_t sw;
   sigemptyset(&sw);
   for(n=0; n < sizeof(sigs)/sizeof(*sigs); n++) sigaddset(&sw, sigs[n]);
 
   if (setup_listener()) goto done;
 
-  /* create file descriptor used solely for receiving signals */
+  /* create the signalfd for receiving signals */
   cfg.signal_fd = signalfd(-1, &sw, 0);
   if (cfg.signal_fd == -1) {
     fprintf(stderr,"signalfd: %s\n", strerror(errno));
@@ -229,9 +230,13 @@ int main(int argc, char *argv[]) {
   if (add_epoll(EPOLLIN, cfg.fd))        goto done; // listening socket
   if (add_epoll(EPOLLIN, cfg.signal_fd)) goto done; // signal socket
 
+  /*
+   * This is our main loop. epoll for input or signals.
+   */
   alarm(1);
   while (epoll_wait(cfg.epoll_fd, &ev, 1, -1) > 0) {
-    /* check to see if a signal event was sent to us */
+
+    /* if a signal was sent to us, read its signalfd_siginfo */
     if (ev.data.fd == cfg.signal_fd) { 
       if (read(cfg.signal_fd, &info, sizeof(info)) != sizeof(info)) {
         fprintf(stderr,"failed to read signal fd buffer\n");
@@ -242,21 +247,23 @@ int main(int argc, char *argv[]) {
           if ((++cfg.ticks % 10) == 0) periodic(); 
           alarm(1); 
           continue;
-        default: 
-          fprintf(stderr,"got signal %d\n", info.ssi_signo); 
+        default:  /* exit */
+          fprintf(stderr,"got signal %d\n", info.ssi_signo);  
           goto done;
       }
-    } 
+    }
+
     /* regular POLLIN. handle the particular descriptor that's ready */
     assert(ev.events & EPOLLIN);
     if (cfg.verbose) fprintf(stderr,"handle POLLIN on fd %d\n", ev.data.fd);
     if (ev.data.fd == cfg.fd) accept_client();
     else drain_client(ev.data.fd);
+
   }
 
   fprintf(stderr, "epoll_wait: %s\n", strerror(errno));
 
-done:
+ done:   /* we get here if we got a signal like Ctrl-C */
   fd=NULL;
   while ( (fd=(int*)utarray_next(cfg.fds,fd))) {del_epoll(*fd); close(*fd);}
   utarray_free(cfg.fds);
