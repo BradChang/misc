@@ -1,7 +1,7 @@
 PROGS=test1 test2 test3 test4 test5 test6 test7
 OBJS=$(patsubst %,%.o,$(PROGS))
 
-CFLAGS = -I../include -L..
+CFLAGS = -I../include -L../src
 CFLAGS += -g
 CFLAGS += -Wall 
 LDFLAGS=-lut
