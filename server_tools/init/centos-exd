@@ -7,6 +7,13 @@
 
 . /etc/rc.d/init.d/functions
 
+# NOTE: if exd is capable of writing a pidfile then in start() use
+#   daemon --pidfile=/var/run/exd.pid /usr/bin/exd -p /var/run/exd.pid &
+# and in stop() use
+#   killproc -p /var/run/exd.pid exd
+# and in case status) use
+#   status -p /var/run/exd.pid exd
+
 start()
 {
     echo -n $"Starting exd: "
