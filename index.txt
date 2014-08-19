@@ -81,19 +81,20 @@ Compression and compressability
 :t: https://github.com/troydhanson/misc/tree/master/server_tools/
 :i: http://troydhanson.github.io/misc/initscripts.html
 
-C server tools
-~~~~~~~~~~~~~~
+Server libs and utils
+~~~~~~~~~~~~~~~~~~~~~
 [width="50%",cols="10^m,50",grid="none"]
 |=================================================================================================================
+| {t}sized[sized]      | a utility to keep a directory under a certain size in C
+| {t}watch_copy[watch_copy]  | a utility to watch a directory and copy files from it
 | {t}init[init]        | initscripts samples for Linux and OS X. {i}[notes] 
+| {t}ts[timeseries]    | a library to keep a rolling time series in C 
+| {t}uuid[uuid]        | how to use libuuid to get universally unique identifiers
+| {t}tracker[tracker]  | a library to track top strings (URL's, etc) in a stream 
 | {t}tconf[tconf]      | library to read a key-value configuration file in C 
 | {t}controlport[controlport] | library to embed a control port into a C program
-| {t}ts[timeseries]    | a library to keep a rolling time series in C 
-| {t}tracker[tracker]  | a library to track top strings (URL's, etc) in a stream 
 | {t}mworkers[mworkers]| multi-process and multi-thread examples of managing workers in C
-| {t}sized[sized]      | a utility to keep a directory under a certain size in C
 | {t}rw_wrap[rw_wrap]  | macros to deal with partial writes and reads in C
-| {t}uuid[uuid]        | how to use libuuid to get universally unique identifiers
 |=================================================================================================================
 
 :t: https://github.com/troydhanson/misc/tree/master/terminal_io/

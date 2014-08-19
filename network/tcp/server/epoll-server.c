@@ -143,7 +143,7 @@ int accept_client() {
     inet_ntoa(in.sin_addr), (int)ntohs(in.sin_port));
   }
 
-  if (add_epoll(POLLIN, fd) == -1) { close(fd); fd = -1; }
+  if (add_epoll(EPOLLIN, fd) == -1) { close(fd); fd = -1; }
 
  done:
   if (fd != -1) utarray_push_back(cfg.fds,&fd);

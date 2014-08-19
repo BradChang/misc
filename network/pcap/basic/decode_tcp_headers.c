@@ -49,9 +49,9 @@ char *macf(const uint8_t *mac) {
  ******************************************************************************/
 void cb(u_char *unused, const struct pcap_pkthdr *hdr, const u_char *pkt) {
   /* data link: ethernet frame */
-  enum {other,arp,rarp,ip,vlan,ipv6} etype=other;
+  enum {other,arp,rarp,ip,vlan,ipv6,e802} etype=other;
   enum {none,icmp,igmp,tcp,udp} ipproto=none;
-  char *etypes[] = {"other","arp","rarp","ip","vlan","ipv6"};
+  char *etypes[] = {"other","arp","rarp","ip","vlan","ipv6","802_2/3"};
   const uint8_t *dst_mac=pkt, *src_mac=pkt+6, *typep=pkt+12;
   const uint8_t *data = pkt+14, *tci_p;
   uint16_t type,tci,vid;
@@ -68,9 +68,18 @@ void cb(u_char *unused, const struct pcap_pkthdr *hdr, const u_char *pkt) {
     case 0x0806: etype = arp; break;
     case 0x8035: etype = rarp; break;
     case 0x86dd: etype = ipv6; break;
-    default: etype = other; break;
+    default: 
+      if (type < 1500) etype = e802;  // 802.2/3 link encapsulation vs. EthernetII
+      else etype = other; 
+      break;
   }
   printf("type: 0x%x (%s) ", (unsigned)type, etypes[etype]);
+
+  if (etype==802) {
+    // skip SNAP and LLC header
+    typep += 6;
+    goto again;
+  }
 
   /* vlan tags are 'interjected' before the ethertype; they are known by their
    * own ethertype (0x8100) followed by a TCI, after which the real etherype 
