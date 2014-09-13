@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <sys/inotify.h>
+#include <limits.h>
 #include <netdb.h>
 #include <libgen.h>
 #include <sys/socket.h>
@@ -15,9 +17,11 @@
 #include <sys/fcntl.h>
  
 int verbose=0;
+char *watch_dir;
+
 void usage(char *prog) {
-  fprintf(stderr, "usage: %s <file> -s <ip> -p <port>  # send one file\n", prog);
-  fprintf(stderr, "  ls | %s -s <ip> -p <port>         # file names on stdin\n", prog);
+  fprintf(stderr, "usage: %s -s <ip> -p <port> <file>   (send one file)\n", prog);
+  fprintf(stderr, "   or: %s -s <ip> -p <port> -w <dir> (watch directory)\n", prog);
   exit(-1);
 }
 
@@ -52,7 +56,7 @@ char *map(char *file, size_t *len) {
 int send_file(char *filename) {
   char *buf, *base;
   size_t buflen;
-  int rc,baselen;
+  int rc=-1,baselen;
   time_t before,after;
 
   buf = map(filename, &buflen);
@@ -63,14 +67,14 @@ int send_file(char *filename) {
    *********************************************************/
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   if (fd == -1) {
-    printf("socket: %s\n", strerror(errno));
-    exit(-1);
+    fprintf(stderr,"socket: %s\n", strerror(errno));
+    goto done;
   }
 
   struct hostent *h=gethostbyname(server);
   if (!h) {
-    printf("cannot resolve name: %s\n", hstrerror(h_errno));
-    exit(-1);
+    fprintf(stderr,"cannot resolve name: %s\n", hstrerror(h_errno));
+    goto done;
   }
     
   /**********************************************************
@@ -82,16 +86,16 @@ int send_file(char *filename) {
   sin.sin_port = htons(port);
 
   if (sin.sin_addr.s_addr == INADDR_NONE) {
-    printf("invalid remote IP %s\n", server);
-    exit(-1);
+    fprintf(stderr,"invalid remote IP %s\n", server);
+    goto done;
   }
 
   /**********************************************************
    * Perform the 3 way handshake, (c)syn, (s)ack/syn, c(ack)
    *********************************************************/
   if (connect(fd, (struct sockaddr*)&sin, sizeof(sin)) == -1) {
-    printf("connect: %s\n", strerror(errno));
-    exit(-1);
+    fprintf(stderr,"connect: %s\n", strerror(errno));
+    goto done;
   }
 
   time(&before);
@@ -101,57 +105,118 @@ int send_file(char *filename) {
   baselen = strlen(base);
   if (verbose) fprintf(stderr,"sending %s\n", base);
   if (write(fd,&baselen,sizeof(baselen)) != sizeof(baselen)) {
-    printf("write: %s\n", (rc<0)?strerror(errno):"incomplete");
-    exit(-1);
+    fprintf(stderr,"write: %s\n", (rc<0)?strerror(errno):"incomplete");
+    goto done;
   }
 
   if (write(fd,base,baselen) != baselen) {
-    printf("write: %s\n", (rc<0)?strerror(errno):"incomplete");
-    exit(-1);
+    fprintf(stderr,"write: %s\n", (rc<0)?strerror(errno):"incomplete");
+    goto done;
   }
 
   /* and write the file content */
-  if ( (rc=write(fd,buf,buflen)) != buflen) {
-    printf("write: %s\n", (rc<0)?strerror(errno):"incomplete");
-    exit(-1);
+  size_t l = buflen;
+  char *b  = buf;
+  
+  while(l) {
+    rc = write(fd,b,l);
+    if (rc < 0) {
+      fprintf(stderr,"write: %s\n", strerror(errno));
+      goto done;
+    }
+    l -= rc;
+    b += rc;
   }
+
   close(fd);
   time(&after);
   int sec = after-before;
-  if (verbose) fprintf(stderr,"sent in %u sec (%.0f Mbps)\n", sec, 
+  if (verbose) fprintf(stderr,"sent in %u sec (%.0f MB/s)\n", sec, 
     sec ? ((buflen/(1024.0*1024))/sec) :0);
 
 
   munmap(buf,buflen);
   close(md);
 
-  if (verbose) printf("sent %s\n",filename);
+  if (verbose) fprintf(stderr,"sent %s\n",filename);
+  rc = 0;
+
+ done:
+  return rc;
 }
 
 int main(int argc, char * argv[]) {
-  int opt;
-  char *file=NULL, *buf;
-  size_t len;
+  int opt, fd = -1, wd, rc;
+  char *file=NULL, *buf, *name;
   char filename[100];
  
-  while ( (opt = getopt(argc, argv, "v+s:p:h")) != -1) {
+  while ( (opt = getopt(argc, argv, "v+s:p:hw:")) != -1) {
     switch (opt) {
       case 's': server = strdup(optarg); break;
       case 'p': port = atoi(optarg); break;
       case 'v': verbose++; break;
+      case 'w': watch_dir=strdup(optarg); break;
       default: usage(argv[0]); break;
     }
   }
  
   if (optind < argc) file=argv[optind++];
+  if (!file && !watch_dir) usage(argv[0]);
 
-  if (!file) {
-    while (fgets(filename,sizeof(filename),stdin) != NULL) {
-      int len = strlen(filename);
-      if (filename[len-1] == '\n') filename[len-1]='\0'; 
-      send_file(filename);
+  /* send one file only */
+  if (file) {
+    send_file(file);
+    goto done;
+  }
+  
+  /* prepare a buffer that's prefixed with the watchdir/ */
+  char path[PATH_MAX];
+  int len = strlen(watch_dir);
+  memcpy(path, watch_dir, len); path[len]='/';
+
+  /* send a stream of files by watching a directory */
+  if ( (fd = inotify_init()) == -1) {
+    perror("inotify_init failed");
+    goto done; 
+  }
+
+  int mask = IN_CLOSE_WRITE;
+  if ( (wd = inotify_add_watch(fd, watch_dir, mask)) == -1) {
+    perror("inotify_add_watch failed");
+    goto done;
+  }
+
+  /* see inotify(7) as inotify_event has a trailing name
+   * field allocated beyond the fixed structure; we must
+   * allocate enough room for the kernel to populate it */
+  struct inotify_event *eb, *ev, *nx;
+  size_t eb_sz = sizeof(*eb) + PATH_MAX, sz;
+  if ( (eb = malloc(eb_sz)) == NULL) {
+    fprintf(stderr, "out of memory\n");
+    goto done;
+  }
+
+  /* one read will produce one or more event structures */
+  while ( (rc=read(fd,eb,eb_sz)) > 0) {
+    for(ev = eb; rc > 0; ev = nx) {
+
+      sz = sizeof(*ev) + ev->len;
+      nx = (struct inotify_event*)((char*)ev + sz);
+      rc -= sz;
+
+      name = (ev->len ? ev->name : watch_dir);
+      memcpy(&path[len+1],name,strlen(name)+1);
+
+      if (send_file(path)) goto done;
     }
   }
-  else send_file(file);
 
+  if (rc < 0) {
+   fprintf(stderr, "read: %s\n", strerror(errno));
+  }
+
+
+ done:
+  if (fd != -1) close(fd);
 }
+
