@@ -24,15 +24,18 @@ struct {
   int ticks;
   int signal_fd;
   int epoll_fd;
+  int capbuf;
 } cfg = {
   .snaplen = 65535,
   .pcap_fd = -1,
   .dev = "eth0",
+  .capbuf = (1024*1024),
 };
 
 void usage() {
   fprintf(stderr,"usage: %s [-v] -f <bpf-filter>                \n"
-                 "               -i <eth>   (read from interface)\n"
+                 "               -i <eth>        (read from interface)\n"
+                 "               -B <cap-buf-sz> (capture buf size eg. 10m)\n"
                  "\n",
           cfg.prog);
   exit(-1);
@@ -128,19 +131,46 @@ int get_pcap_data() {
   return rc;
 }
 
+/* parse a suffixed number like 1m (one megabyte) */
+int parse_kmg(char *str) {
+  char *c;
+  int i;
+  if (sscanf(str,"%u",&i) != 1) {
+    fprintf(stderr,"could not parse integer in %s\n",str);
+    return -1;
+  }
+  for(c=str; *c != '\0'; c++) {
+    switch(*c) {
+      case '0': case '1': case '2': case '3': case '4': 
+      case '5': case '6': case '7': case '8': case '9': 
+         continue;
+      case 'g': case 'G': i *= 1024; /* fall through */
+      case 'm': case 'M': i *= 1024; /* fall through */
+      case 'k': case 'K': i *= 1024; break;
+      default:
+       fprintf(stderr,"unknown suffix on integer in %s\n",str);
+       return -1;
+    }
+  }
+  return i;
+}
+
 int main(int argc, char *argv[]) {
   struct epoll_event ev;
   cfg.prog = argv[0];
   int n,opt;
 
-  while ( (opt=getopt(argc,argv,"vf:i:h")) != -1) {
+  while ( (opt=getopt(argc,argv,"vB:f:i:h")) != -1) {
     switch(opt) {
       case 'v': cfg.verbose++; break;
       case 'f': cfg.filter=strdup(optarg); break; 
       case 'i': cfg.dev=strdup(optarg); break; 
+      case 'B': cfg.capbuf=parse_kmg(optarg); break; 
       case 'h': default: usage(); break;
     }
   }
+
+  if (cfg.capbuf == -1) goto done; // syntax error 
 
   /* block all signals. we take signals synchronously via signalfd */
   sigset_t all;
@@ -170,13 +200,21 @@ int main(int argc, char *argv[]) {
   if (new_epoll(EPOLLIN, cfg.signal_fd))   goto done; // signal socket
 
   /* open capture interface and get underlying descriptor */
-  cfg.pcap = pcap_open_live(cfg.dev, cfg.snaplen, 1, 0, cfg.err);
-  if (!cfg.pcap) {fprintf(stderr,"can't open %s: %s\n",cfg.dev,cfg.err); goto done;}
-  cfg.pcap_fd = pcap_get_selectable_fd(cfg.pcap);
+  if ( (cfg.pcap = pcap_create(cfg.dev, cfg.err)) == NULL) {
+    fprintf(stderr,"can't open %s: %s\n", cfg.dev, cfg.err); 
+    goto done;
+  }
   set_filter();
+  if (pcap_set_promisc(cfg.pcap, 1))              {fprintf(stderr,"pcap_set_promisc failed\n"); goto done;}
+  if (pcap_set_snaplen(cfg.pcap, cfg.snaplen))    {fprintf(stderr,"pcap_set_snaplen failed\n"); goto done;}
+  if (pcap_set_buffer_size(cfg.pcap, cfg.capbuf)) {fprintf(stderr,"pcap_set_buf_size failed\n");goto done;}
+  if (pcap_activate(cfg.pcap))                    {fprintf(stderr,"pcap_activate failed\n");    goto done; }
+  cfg.pcap_fd = pcap_get_selectable_fd(cfg.pcap);
+  if (cfg.pcap_fd == -1)                          {fprintf(stderr,"pcap_get_sel_fd failed\n");  goto done;}
   if (new_epoll(EPOLLIN, cfg.pcap_fd)) goto done;
 
   alarm(1);
+
   while (epoll_wait(cfg.epoll_fd, &ev, 1, -1) > 0) {
     if (cfg.verbose > 1)  fprintf(stderr,"epoll reports fd %d\n", ev.data.fd);
     if      (ev.data.fd == cfg.signal_fd)   { if (handle_signal() < 0) goto done; }
