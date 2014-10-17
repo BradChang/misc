@@ -77,7 +77,6 @@ int periodic_work() {
   if (cfg.sv_addr && (cfg.sv_ts + cfg.rotate_sec < cfg.now)) {
     if (reopen_savefile()) goto done;
   }
-  /* TODO emit statistics */
   rc = 0;
 
  done:
@@ -87,14 +86,11 @@ int periodic_work() {
 void cb(u_char *data, const struct pcap_pkthdr *hdr, const u_char *pkt) {
   //if (cfg.verbose) fprintf(stderr,"packet of length %d\n", hdr->len);
   if (cfg.sv_addr == NULL) return;
-  /* TODO test again exclusions */
-  /* TODO record stats by vlan */
   /* check if enough space remains in the mapped output area before writing */
   if (cfg.sv_cur + ((sizeof(uint32_t) * 4) + hdr->caplen) >= cfg.maxsz_mb*(1024*1024)) {
     if (reopen_savefile()) pcap_breakloop(cfg.pcap);
   }
   /* write packet header and packet. */
-  /* TODO verify endianness */
   memcpy(&cfg.sv_addr[cfg.sv_cur], &hdr->ts.tv_sec,  sizeof(uint32_t)); cfg.sv_cur += sizeof(uint32_t);
   memcpy(&cfg.sv_addr[cfg.sv_cur], &hdr->ts.tv_usec, sizeof(uint32_t)); cfg.sv_cur += sizeof(uint32_t);
   memcpy(&cfg.sv_addr[cfg.sv_cur], &hdr->caplen,     sizeof(uint32_t)); cfg.sv_cur += sizeof(uint32_t);
