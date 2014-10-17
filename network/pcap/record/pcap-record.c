@@ -1,16 +1,18 @@
 /* demonstrate usage of epoll-based pcap application */
 
 #define _GNU_SOURCE
-#include <errno.h>
-#include <limits.h>
+#include <sys/signalfd.h>
 #include <sys/epoll.h>
 #include <sys/stat.h>
-#include <sys/signalfd.h>
+#include <sys/mman.h>
 #include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <pcap.h>
 #include <time.h>
 
@@ -21,6 +23,7 @@ struct {
   char *prog;
   char *dev;
   char *file_pat;
+  char *dir;
   int rotate_sec;
   int maxsz_mb;
   char *filter;
@@ -33,14 +36,23 @@ struct {
   int signal_fd;
   int epoll_fd;
   int capbuf;
+  time_t now;
+  /* savefile mapping */
+  char *sv_addr;
+  size_t sv_len;
+  int    sv_fd;  
+  time_t sv_ts;  /* time reflected in name of savefile */
+  int    sv_seq; /* sequence number of save file within ts second */
+  off_t  sv_cur; /* next write offset within save file */
 } cfg = {
   .snaplen = 65535,
   .pcap_fd = -1,
   .dev = "eth0",
   .capbuf = (1024*1024),
-  .file_pat = "%Y%m%d%H%M%S.pcap",
+  .file_pat = "%Y%m%d%H%M%S",
   .rotate_sec = 10,
   .maxsz_mb = 10,
+  .dir = ".",
 };
 
 void usage() {
@@ -50,6 +62,7 @@ void usage() {
                  "               -G <rotate-sec> (in sec)\n"
                  "               -C <file-size>  (in mb)\n"
                  "               -w <file-pat>   (eg. %s)\n"
+                 "               -d <dir>        \n"
                  "\n",
           cfg.prog, default_file_pat);
   exit(-1);
@@ -58,10 +71,15 @@ void usage() {
 /* signals that we'll accept via signalfd in epoll */
 int sigs[] = {SIGHUP,SIGTERM,SIGINT,SIGQUIT,SIGALRM};
 
-void periodic_work() {
+int periodic_work() {
+  int rc=-1;
   /* TODO test rotation interval */
-  /* TODO if within same second append sequence number */
+  if (reopen_savefile()) goto done;
   /* TODO emit statistics */
+  rc = 0;
+
+ done:
+  return rc;
 }
 
 void cb(u_char *data, const struct pcap_pkthdr *hdr, const u_char *pkt) {
@@ -124,7 +142,8 @@ int handle_signal() {
 
   switch(info.ssi_signo) {
     case SIGALRM: 
-      periodic_work();
+      cfg.now = time(NULL);
+      if (periodic_work()) goto done;
       if ((++cfg.ticks % 10) == 0) do_stats();
       alarm(1); 
       break;
@@ -153,25 +172,63 @@ int get_pcap_data() {
   return rc;
 }
 
-int open_savefile() {
-  char fname[PATH_MAX];
+const uint8_t pcap_glb_hdr[] = {
+    0xd4, 0xc3, 0xb2, 0xa1,  /* magic number */
+    0x02, 0x00, 0x04, 0x00,  /* version major, version minor */
+    0x00, 0x00, 0x00, 0x00,  /* this zone */
+    0x00, 0x00, 0x00, 0x00,  /* sigfigs  */
+    0xff, 0xff, 0x00, 0x00,  /* snaplen  */
+    0x01, 0x00, 0x00, 0x00   /* network  */
+};
+
+int close_savefile() {
+  int rc=-1;
+  if (munmap(cfg.sv_addr, cfg.sv_len))  { fprintf(stderr,"munmap: %s\n", strerror(errno)); goto done; }
+  if (ftruncate(cfg.sv_fd, cfg.sv_cur)) { fprintf(stderr,"ftruncate: %s\n", strerror(errno)); goto done; }
+  if (close(cfg.sv_fd))                 { fprintf(stderr,"close: %s\n", strerror(errno)); goto done; }
+  rc = 0;
+ done:
+  return rc;
+}
+
+#define FILE_MAX 250  /* better than FILENAME_MAX or PATH_MAX */
+int reopen_savefile() {
+  char filepath[FILE_MAX];
+  char filename[FILE_MAX];
   struct stat s;
   char *buf=NULL;
   int fd=-1,rc=-1;
   uint32_t plen;
-  time_t now;
 
-  /* TODO directory prefix */
+  /* close out current savefile, if we have one */
+  if (cfg.sv_addr) {
+    if (close_savefile()) goto done;
+    cfg.sv_addr= NULL;
+    cfg.sv_len = 0;
+    cfg.sv_cur = 0;
+    cfg.sv_fd  =-1;
+    cfg.sv_seq = (cfg.sv_ts == cfg.now) ? (cfg.sv_seq+1) : 0;
+  }
+
   /* format filename with strftime */
-  time(&now);
-  if (strftime(fname, sizeof(fname), cfg.file_pat, localtime(&now)) == 0) {
+  cfg.sv_ts = cfg.now;
+  if (strftime(filename, sizeof(filename), cfg.file_pat, localtime(&cfg.now)) == 0) {
     fprintf(stderr,"strftime: error in file pattern\n");
     goto done; 
   }
-  fprintf(stderr,"opening %s\n", fname);
-  /* TODO map file into memory */
-  /* TODO save timestamp of file in mem */
-  /* TODO set up global header */
+  snprintf(filepath, sizeof(filepath), "%s/%s%.2u.pcap", cfg.dir, filename, cfg.sv_seq);
+  if (cfg.verbose) fprintf(stderr,"opening %s\n", filepath);
+
+  /* map file into memory */
+  if ( (cfg.sv_fd = open(filepath, O_RDWR|O_CREAT|O_EXCL, 0644)) == -1) { fprintf(stderr, "open %s: %s\n", filepath, strerror(errno)); goto done; }
+  cfg.sv_len = cfg.maxsz_mb*(1024*1024);
+  if (ftruncate(cfg.sv_fd, cfg.sv_len)) { fprintf(stderr, "ftruncate %s: %s\n", filepath, strerror(errno)); goto done; }
+  cfg.sv_addr = mmap(0, cfg.sv_len, PROT_READ|PROT_WRITE, MAP_SHARED, cfg.sv_fd, 0);
+  if (cfg.sv_addr == MAP_FAILED) { fprintf(stderr, "mmap %s: %s\n", filepath, strerror(errno)); goto done; }
+
+  /* set up global header. */
+  memcpy(&cfg.sv_addr[cfg.sv_cur], pcap_glb_hdr, sizeof(pcap_glb_hdr));
+  cfg.sv_cur += sizeof(pcap_glb_hdr);
 
   rc = 0;
 
@@ -208,7 +265,7 @@ int main(int argc, char *argv[]) {
   cfg.prog = argv[0];
   int n,opt;
 
-  while ( (opt=getopt(argc,argv,"vB:f:i:hC:G:w:")) != -1) {
+  while ( (opt=getopt(argc,argv,"vB:f:i:hC:G:w:d:")) != -1) {
     switch(opt) {
       case 'v': cfg.verbose++; break;
       case 'f': cfg.filter=strdup(optarg); break; 
@@ -217,13 +274,14 @@ int main(int argc, char *argv[]) {
       case 'G': cfg.rotate_sec=atoi(optarg); break; 
       case 'C': cfg.maxsz_mb=atoi(optarg); break; 
       case 'w': cfg.file_pat=strdup(optarg); break; 
+      case 'd': cfg.dir=strdup(optarg); break; 
       case 'h': default: usage(); break;
     }
   }
 
   if (cfg.capbuf == -1) goto done; // syntax error 
 
-  open_savefile();
+  if (reopen_savefile()) goto done;
 
   /* block all signals. we take signals synchronously via signalfd */
   sigset_t all;
@@ -275,6 +333,7 @@ int main(int argc, char *argv[]) {
   }
 
 done:
+  if (cfg.sv_addr) close_savefile();
   if (cfg.pcap) pcap_close(cfg.pcap);
   if (cfg.pcap_fd > 0) close(cfg.pcap_fd);
   return 0;
