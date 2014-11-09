@@ -10,6 +10,7 @@
  *   tcpsrv_run                                                           *
  ****************************************************************************/
 typedef struct {
+  int verbose;
   int nthread;          /* how many threads to create */
   int maxfd;            /* max file descriptor number we can service */
   int timeout;          /* shutdown silent connections after seconds */
@@ -24,16 +25,18 @@ typedef struct {
 } tcpsrv_init_t;
 
 typedef struct {
+  int thread_idx;
   int epoll_fd;
+  struct _tcpsrv_t *t;
 } tcpsrv_thread_t;
 
-typedef struct {
+typedef struct _tcpsrv_t {
   tcpsrv_init_t p;
-  int verbose;
   int signal_fd;
   int epoll_fd;     /* for main thread, signalfd, listener etc */
   int fd;           /* listener fd */
   int ticks;
+  int shutdown;     /* can be set in any thread to induce global shutdown */
   char *slots;
   sigset_t all;     /* the set of all signals */
   sigset_t few;     /* just the signals we accept */

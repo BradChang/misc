@@ -6,6 +6,7 @@ typedef struct {
 } slot_t;
 
 tcpsrv_init_t parms = {
+  .verbose=1,
   .nthread=2,
   .maxfd = 20,
   .timeout = 10,
@@ -17,13 +18,8 @@ int main() {
   int rc=-1;
   void *t;
 
-  t=tcpsrv_init(&parms);
-
-  if (t==NULL) {
-    fprintf(stderr,"tcpsrv_init failed\n");
-    goto done;
-  }
-
+  t=tcpsrv_init(&parms); if (!t) goto done;
+  tcpsrv_run(t);
   tcpsrv_fini(t);
 
  done:

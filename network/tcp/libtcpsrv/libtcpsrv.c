@@ -79,6 +79,9 @@ static int del_epoll(int epoll_fd, int fd) {
 static void periodic() {
 }
 
+static void accept_client() {
+}
+
 void *tcpsrv_init(tcpsrv_init_t *p) {
   int rc=-1,n;
 
@@ -112,6 +115,8 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
   t->tc = calloc(t->p.nthread,sizeof(tcpsrv_thread_t));
   if (t->tc == NULL) goto done;
   for(n=0; n < t->p.nthread; n++) {
+    t->tc[n].thread_idx = n;
+    t->tc[n].t = t;
     t->tc[n].epoll_fd = epoll_create(1);
     if (t->tc[n].epoll_fd == -1) {
       fprintf(stderr,"epoll: %s\n", strerror(errno));
@@ -142,9 +147,55 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
   return t;
 }
 
+static void *worker(void *data) {
+  tcpsrv_thread_t *tc = (tcpsrv_thread_t*)data;
+  int thread_idx = tc->thread_idx;
+  struct epoll_event ev;
+  tcpsrv_t *t = tc->t;
+
+  if (t->p.verbose) fprintf(stderr,"thread %d starting\n", thread_idx);
+
+  /* block all signals */
+  sigset_t all;
+  sigfillset(&all);
+  pthread_sigmask(SIG_BLOCK, &all, NULL);
+
+  /* event loop */
+  while (epoll_wait(tc->epoll_fd, &ev, 1, -1) > 0) {
+    assert(ev.events & EPOLLIN);
+    if (t->p.verbose) fprintf(stderr,"handle POLLIN on fd %d\n", ev.data.fd);
+    if (ev.data.fd == t->fd) accept_client();
+  }
+
+ if (t->p.verbose) fprintf(stderr,"thread %d exiting\n", thread_idx);
+}
+
+void handle_signal(tcpsrv_t *t) {
+  struct signalfd_siginfo info;
+  int rc = -1;
+
+  if (read(t->signal_fd, &info, sizeof(info)) != sizeof(info)) {
+    fprintf(stderr,"failed to read signal fd buffer\n");
+    goto done;
+  }
+
+  switch (info.ssi_signo) {
+    case SIGALRM: 
+      if ((++t->ticks % 10) == 0) periodic(); 
+      alarm(1); 
+      break;
+    default:  /* exit */
+      fprintf(stderr,"got signal %d\n", info.ssi_signo);  
+      goto done;
+  }
+  rc = 0;
+
+ done:
+  if (rc < 0) t->shutdown=-rc;
+}
+
 int tcpsrv_run(void *_t) {
   tcpsrv_t *t = (tcpsrv_t*)_t;
-  struct signalfd_siginfo info;
   struct epoll_event ev;
   int rc=-1,n;
 
@@ -154,49 +205,29 @@ int tcpsrv_run(void *_t) {
   if (add_epoll(t->epoll_fd, EPOLLIN, t->signal_fd)) goto done; // signal socket
 
 
-  // TODO start threads
-  //for(i=0; i < p->nthread; i++) pthread_create(&t->th[i],NULL,worker,(void*)i);
-  // TODO epoll on accept fd or active conns
-  //      each thread has a maxfd-sized array that tells it which fd's to service
-  //      and a vector version 
-  //      on ready, enqueue work to appropriate thread, remove from epoll interest
+  for(n=0; n < t->p.nthread; n++) {
+    void *data = &t->tc[n];
+    pthread_create(&t->th[n],NULL,worker,data);
+  }
 
   alarm(1);
   while (epoll_wait(t->epoll_fd, &ev, 1, -1) > 0) {
 
-    /* if a signal was sent to us, read its signalfd_siginfo */
-    if (ev.data.fd == t->signal_fd) { 
-      if (read(t->signal_fd, &info, sizeof(info)) != sizeof(info)) {
-        fprintf(stderr,"failed to read signal fd buffer\n");
-        continue;
-      }
-      switch (info.ssi_signo) {
-        case SIGALRM: 
-          if ((++t->ticks % 10) == 0) periodic(); 
-          alarm(1); 
-          continue;
-        default:  /* exit */
-          fprintf(stderr,"got signal %d\n", info.ssi_signo);  
-          goto done;
-      }
-    }
-
-#if 0
-    /* regular POLLIN. handle the particular descriptor that's ready */
     assert(ev.events & EPOLLIN);
-    if (t->verbose) fprintf(stderr,"handle POLLIN on fd %d\n", ev.data.fd);
-    if (ev.data.fd == t->fd) accept_client();
-    else drain_client(ev.data.fd);
-#endif
+    if (t->p.verbose) fprintf(stderr,"POLLIN fd %d\n", ev.data.fd);
+
+    if      (ev.data.fd == t->fd)        accept_client();
+    else if (ev.data.fd == t->signal_fd) handle_signal(t);
+
+    if (t->shutdown) {rc = t->shutdown; goto done; }
   }
 
  done:
   return rc;
 }
 
-// does each thread epoll on its established clients.
-// and main thread does a sneaky mod epoll on the threads' epoll object
-// each thread has one epoll instance open to pipe to parent
+// TODO main thread does a sneaky mod epoll on the threads' epoll object
+// TODO each thread has epoll instance open to parent
 
 void tcpsrv_fini(void *_t) {
   int n;
