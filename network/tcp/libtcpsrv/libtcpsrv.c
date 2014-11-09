@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
@@ -76,7 +77,16 @@ static int del_epoll(int epoll_fd, int fd) {
   return rc;
 }
 
-static void periodic() {
+/* send a byte to each worker on the control pipe */
+static void send_workers(tcpsrv_t *t, char op) {
+  int n;
+  for(n=0; n < t->p.nthread; n++) {
+    write(t->tc[n].pipe_fd[1], &op, sizeof(op));
+  }
+}
+
+static void periodic(tcpsrv_t *t) {
+  send_workers(t,WORKER_PING);
 }
 
 static void accept_client() {
@@ -117,6 +127,7 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
   for(n=0; n < t->p.nthread; n++) {
     t->tc[n].thread_idx = n;
     t->tc[n].t = t;
+    if (pipe(t->tc[n].pipe_fd) == -1) goto done;
     t->tc[n].epoll_fd = epoll_create(1);
     if (t->tc[n].epoll_fd == -1) {
       fprintf(stderr,"epoll: %s\n", strerror(errno));
@@ -136,6 +147,8 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
       if (t->epoll_fd > 0) close(t->epoll_fd);
       if (t->tc) {
         for(n=0; n < t->p.nthread; n++) {
+          if (t->tc[n].pipe_fd[0] > 0) close(t->tc[n].pipe_fd[0]);
+          if (t->tc[n].pipe_fd[1] > 0) close(t->tc[n].pipe_fd[1]);
           if (t->tc[n].epoll_fd > 0) close(t->tc[n].epoll_fd);
         }
         free(t->tc);
@@ -152,6 +165,8 @@ static void *worker(void *data) {
   int thread_idx = tc->thread_idx;
   struct epoll_event ev;
   tcpsrv_t *t = tc->t;
+  void *rv=NULL;
+  char op;
 
   if (t->p.verbose) fprintf(stderr,"thread %d starting\n", thread_idx);
 
@@ -160,14 +175,24 @@ static void *worker(void *data) {
   sigfillset(&all);
   pthread_sigmask(SIG_BLOCK, &all, NULL);
 
+  /* listen to parent */
+  if (add_epoll(tc->epoll_fd, EPOLLIN, tc->pipe_fd[0])) goto done; 
+
   /* event loop */
   while (epoll_wait(tc->epoll_fd, &ev, 1, -1) > 0) {
     assert(ev.events & EPOLLIN);
-    if (t->p.verbose) fprintf(stderr,"handle POLLIN on fd %d\n", ev.data.fd);
-    if (ev.data.fd == t->fd) accept_client();
+    if (t->p.verbose) fprintf(stderr,"thread %d POLLIN fd %d\n", thread_idx, ev.data.fd);
+    /* test for byte from parent. either a ping or a shutdown request. */
+    if (ev.data.fd == tc->pipe_fd[0]) { 
+      if (read(tc->pipe_fd[0],&op,sizeof(op)) != sizeof(op)) goto done;
+      fprintf(stderr,"> thread %d: '%c' from main thread\n", thread_idx, op);
+      if (op == WORKER_SHUTDOWN) goto done;
+    }
   }
 
- if (t->p.verbose) fprintf(stderr,"thread %d exiting\n", thread_idx);
+ done:
+  if (t->p.verbose) fprintf(stderr,"thread %d exiting\n", thread_idx);
+  return rv;
 }
 
 void handle_signal(tcpsrv_t *t) {
@@ -181,7 +206,7 @@ void handle_signal(tcpsrv_t *t) {
 
   switch (info.ssi_signo) {
     case SIGALRM: 
-      if ((++t->ticks % 10) == 0) periodic(); 
+      if ((++t->ticks % 10) == 0) periodic(t); 
       alarm(1); 
       break;
     default:  /* exit */
@@ -219,7 +244,11 @@ int tcpsrv_run(void *_t) {
     if      (ev.data.fd == t->fd)        accept_client();
     else if (ev.data.fd == t->signal_fd) handle_signal(t);
 
-    if (t->shutdown) {rc = t->shutdown; goto done; }
+    if (t->shutdown) {
+      send_workers(t,WORKER_SHUTDOWN);
+      rc = 0;
+      goto done;
+    }
   }
 
  done:
@@ -227,18 +256,22 @@ int tcpsrv_run(void *_t) {
 }
 
 // TODO main thread does a sneaky mod epoll on the threads' epoll object
-// TODO each thread has epoll instance open to parent
 
 void tcpsrv_fini(void *_t) {
-  int n;
+  int n,rc;
   tcpsrv_t *t = (tcpsrv_t*)_t;
   free(t->slots);
-  free(t->th);
   close(t->signal_fd);
   close(t->epoll_fd);
   for(n=0; n < t->p.nthread; n++) {
+    close(t->tc[n].pipe_fd[0]);
+    close(t->tc[n].pipe_fd[1]);
     close(t->tc[n].epoll_fd);
+    rc=pthread_join(t->th[n],NULL);
+    if (rc == -1) fprintf(stderr,"pthread_join %d: %s\n",n,strerror(errno));
+    else if (t->p.verbose) fprintf(stderr,"thread %d exited\n",n);
   }
+  free(t->th);
   free(t->tc);
   free(t);
 }

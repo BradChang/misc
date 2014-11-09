@@ -27,6 +27,9 @@ typedef struct {
 typedef struct {
   int thread_idx;
   int epoll_fd;
+#define WORKER_PING     'p'
+#define WORKER_SHUTDOWN 's'
+  int pipe_fd[2];  // to main thread; [0]=child read end, [1]=parent write end 
   struct _tcpsrv_t *t;
 } tcpsrv_thread_t;
 
