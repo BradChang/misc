@@ -8,7 +8,7 @@ typedef struct {
 tcpsrv_init_t parms = {
   .verbose=1,
   .nthread=2,
-  .maxfd = 20,
+  .maxfd = 13,
   .timeout = 10,
   .port = 1099,
   .sz = sizeof(slot_t),

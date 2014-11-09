@@ -18,10 +18,13 @@ typedef struct {
   in_addr_t addr;       /* IP address to listen on */ // TODO or interface
   int sz;               /* size of structure for each active descriptor */
   void *data;           /* opaque */
+  /* callbacks into the application. may be NULL.  THREADS CALL THESE- 
+     callbacks should confine their r/w to the slot! */
   void (*slot_init)(void *slot, int nslots, void *data);
-  void (*on_accept)(void *slot, int fd, void *data);
-  void (*on_data)(void *slot, int fd, void *data);
-  void (*after_close)(void *slot, int fd, void *data);
+  void (*on_accept)(void *slot, int fd, void *data); // app should clean the slot
+  void (*on_data)(void *slot, int fd, void *data);   // app should consume/emit data
+  void (*after_close)(void *slot, int fd, void *data); // TODO how to handle
+  // TODO how to have app modify epoll to indicate write-interest
 } tcpsrv_init_t;
 
 typedef struct {
@@ -40,12 +43,13 @@ typedef struct _tcpsrv_t {
   int fd;           /* listener fd */
   int ticks;
   int shutdown;     /* can be set in any thread to induce global shutdown */
-  char *slots;
+  char *slots;      /* app I/O context; a slot belongs to just one thread */
   sigset_t all;     /* the set of all signals */
   sigset_t few;     /* just the signals we accept */
   pthread_t *th;
   tcpsrv_thread_t *tc; /* per-thread control */
-  /* TODO num_accepts, overloads (max fd exceeded), rejects (access list) */
+  int num_accepts;  /* cumulative counter */
+  int num_overloads;/* rejects due to max fd exceeded, TODO rejects due to ACL */
 } tcpsrv_t;
 
 void *tcpsrv_init(tcpsrv_init_t *p);

@@ -6,7 +6,12 @@
 #include <errno.h>
 #include <sys/signalfd.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "libtcpsrv.h"
+
+#define fd_slot(t,fd) (t->slots + (fd * t->p.sz))
 
 /* signals that we'll accept synchronously via signalfd */
 static int sigs[] = {SIGHUP,SIGTERM,SIGINT,SIGQUIT,SIGALRM};
@@ -89,7 +94,46 @@ static void periodic(tcpsrv_t *t) {
   send_workers(t,WORKER_PING);
 }
 
-static void accept_client() {
+static void accept_client(tcpsrv_t *t) { // always in main thread
+  int fd;
+  struct sockaddr_in in;
+  socklen_t sz = sizeof(in);
+
+  fd = accept(t->fd,(struct sockaddr*)&in, &sz);
+  if (fd == -1) {
+    fprintf(stderr,"accept: %s\n", strerror(errno)); 
+    goto done;
+  }
+
+  if (t->p.verbose && (sizeof(in)==sz)) {
+    fprintf(stderr,"connection fd %d from %s:%d\n", fd,
+    inet_ntoa(in.sin_addr), (int)ntohs(in.sin_port));
+  }
+
+  if (fd > t->p.maxfd) {
+    if (t->p.verbose) fprintf(stderr,"overload fd %d > %d\n", fd, t->p.maxfd);
+    t->num_overloads++;
+    close(fd);
+    goto done;
+  }
+
+  /* pick a thread to own the connection */
+  int thread_idx = t->num_accepts++ % t->p.nthread;
+
+  /* if the app has an on-accept callback, invoke it. */ 
+  /* TODO maybe hand to worker thread, and allow it to monitor pollout */
+  if (t->p.on_accept) t->p.on_accept(fd_slot(t,fd), fd, t->p.data);
+
+  /* hand all further I/O on this fd to the worker. */
+  if (add_epoll(t->tc[thread_idx].epoll_fd, EPOLLIN, fd) == -1) { 
+    fprintf(stderr,"can't give accepted connection to thread %d\n", thread_idx);
+    close(fd); 
+    t->shutdown=1;
+  }
+
+
+ done:
+  return;
 }
 
 void *tcpsrv_init(tcpsrv_init_t *p) {
@@ -160,6 +204,20 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
   return t;
 }
 
+static int drain_client(int fd) {  // debug routine
+  int rc, pos, *fp;
+  char buf[1024];
+
+  rc = read(fd, buf, sizeof(buf));
+  switch(rc) { 
+    default: fprintf(stderr,"received %d bytes\n", rc);         break;
+    case  0: fprintf(stderr,"fd %d closed\n", fd);              break;
+    case -1: fprintf(stderr, "recv: %s\n", strerror(errno));    break;
+  }
+
+  return rc; // if rc == 0, caller should close fd
+}
+
 static void *worker(void *data) {
   tcpsrv_thread_t *tc = (tcpsrv_thread_t*)data;
   int thread_idx = tc->thread_idx;
@@ -182,11 +240,24 @@ static void *worker(void *data) {
   while (epoll_wait(tc->epoll_fd, &ev, 1, -1) > 0) {
     assert(ev.events & EPOLLIN);
     if (t->p.verbose) fprintf(stderr,"thread %d POLLIN fd %d\n", thread_idx, ev.data.fd);
-    /* test for byte from parent. either a ping or a shutdown request. */
+
+    /* is I/O from the from main thread on the control pipe? */ 
     if (ev.data.fd == tc->pipe_fd[0]) { 
       if (read(tc->pipe_fd[0],&op,sizeof(op)) != sizeof(op)) goto done;
       fprintf(stderr,"> thread %d: '%c' from main thread\n", thread_idx, op);
       if (op == WORKER_SHUTDOWN) goto done;
+      continue;
+    }
+
+    // regular I/O. invoke app cb. if there is no app CB, act as a sink
+    // TODO cb needs way to say "close it; I closed it; mod epoll mask"
+    char *slot = fd_slot(t,ev.data.fd);
+    if (t->p.on_data) t->p.on_data(slot, ev.data.fd, t->p.data); 
+    else { 
+      if (drain_client(ev.data.fd) == 0) {
+        close(ev.data.fd); // also mod epolls
+        if (t->p.after_close) t->p.after_close(slot, ev.data.fd, t->p.data);
+      }
     }
   }
 
@@ -241,7 +312,7 @@ int tcpsrv_run(void *_t) {
     assert(ev.events & EPOLLIN);
     if (t->p.verbose) fprintf(stderr,"POLLIN fd %d\n", ev.data.fd);
 
-    if      (ev.data.fd == t->fd)        accept_client();
+    if      (ev.data.fd == t->fd)        accept_client(t);
     else if (ev.data.fd == t->signal_fd) handle_signal(t);
 
     if (t->shutdown) {
@@ -256,6 +327,9 @@ int tcpsrv_run(void *_t) {
 }
 
 // TODO main thread does a sneaky mod epoll on the threads' epoll object
+// TODO the worker thread invokes the accept callback
+// TODO the worker thread invokes the I/o data callback
+// TODO the worker thread invokes the post-close callback
 
 void tcpsrv_fini(void *_t) {
   int n,rc;
