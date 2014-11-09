@@ -64,8 +64,20 @@ static int add_epoll(int epoll_fd, int events, int fd) {
   memset(&ev,0,sizeof(ev)); // placate valgrind
   ev.events = events;
   ev.data.fd= fd;
-  //fprintf(stderr,"adding fd %d to epoll\n", fd);
   rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+  if (rc == -1) {
+    fprintf(stderr,"epoll_ctl: %s\n", strerror(errno));
+  }
+  return rc;
+}
+
+static int mod_epoll(int epoll_fd, int events, int fd) {
+  int rc;
+  struct epoll_event ev;
+  memset(&ev,0,sizeof(ev)); // placate valgrind
+  ev.events = events;
+  ev.data.fd= fd;
+  rc = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev);
   if (rc == -1) {
     fprintf(stderr,"epoll_ctl: %s\n", strerror(errno));
   }
@@ -94,6 +106,24 @@ static void periodic(tcpsrv_t *t) {
   send_workers(t,WORKER_PING);
 }
 
+/* drain is a built-in default used if app has no on_data callback */
+static void drain(void *slot, int fd, void *data, int *flags) {
+  int rc, pos, *fp;
+  char buf[1024];
+
+  rc = read(fd, buf, sizeof(buf));
+  switch(rc) { 
+    default: fprintf(stderr,"received %d bytes\n", rc);         break;
+    case  0: fprintf(stderr,"fd %d closed\n", fd);              break;
+    case -1: fprintf(stderr, "recv: %s\n", strerror(errno));    break;
+  }
+
+  if (rc == 0) {
+    close(fd);
+    *flags |= TCPSRV_CLOSED;
+  }
+}
+
 static void accept_client(tcpsrv_t *t) { // always in main thread
   int fd;
   struct sockaddr_in in;
@@ -119,18 +149,29 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
 
   /* pick a thread to own the connection */
   int thread_idx = t->num_accepts++ % t->p.nthread;
+  char *slot = fd_slot(t,fd);
 
   /* if the app has an on-accept callback, invoke it. */ 
-  /* TODO maybe hand to worker thread, and allow it to monitor pollout */
-  if (t->p.on_accept) t->p.on_accept(fd_slot(t,fd), fd, t->p.data);
+  // TODO maybe hand to worker thread, via control channel
+  int flags = TCPSRV_POLL_READ;
+  if (t->p.on_accept) {
+    t->p.on_accept(slot, fd, t->p.data, &flags);
+    if (flags & TCPSRV_SHUTDOWN) t->shutdown=1;
+    if ((flags & TCPSRV_CLOSED) && t->p.after_close) {
+        t->p.after_close(slot, fd, t->p.data);
+    }
+    if (flags & (TCPSRV_SHUTDOWN | TCPSRV_CLOSED)) goto done;
+  }
 
   /* hand all further I/O on this fd to the worker. */
-  if (add_epoll(t->tc[thread_idx].epoll_fd, EPOLLIN, fd) == -1) { 
+  int events = 0;
+  if (flags & TCPSRV_POLL_READ)  events |= EPOLLIN;
+  if (flags & TCPSRV_POLL_WRITE) events |= EPOLLOUT;
+  if (add_epoll(t->tc[thread_idx].epoll_fd, events, fd) == -1) { 
     fprintf(stderr,"can't give accepted connection to thread %d\n", thread_idx);
     close(fd); 
     t->shutdown=1;
   }
-
 
  done:
   return;
@@ -141,6 +182,7 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
 
   tcpsrv_t *t = calloc(1,sizeof(*t)); if (!t) goto done;
   t->p = *p; // struct copy
+  if (t->p.on_data == NULL) t->p.on_data = drain;
   t->slots = calloc(p->maxfd+1, p->sz); 
   if (t->slots == NULL) goto done;
   if (p->slot_init) p->slot_init(t->slots, p->maxfd+1, p->data);
@@ -204,20 +246,6 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
   return t;
 }
 
-static int drain_client(int fd) {  // debug routine
-  int rc, pos, *fp;
-  char buf[1024];
-
-  rc = read(fd, buf, sizeof(buf));
-  switch(rc) { 
-    default: fprintf(stderr,"received %d bytes\n", rc);         break;
-    case  0: fprintf(stderr,"fd %d closed\n", fd);              break;
-    case -1: fprintf(stderr, "recv: %s\n", strerror(errno));    break;
-  }
-
-  return rc; // if rc == 0, caller should close fd
-}
-
 static void *worker(void *data) {
   tcpsrv_thread_t *tc = (tcpsrv_thread_t*)data;
   int thread_idx = tc->thread_idx;
@@ -238,8 +266,12 @@ static void *worker(void *data) {
 
   /* event loop */
   while (epoll_wait(tc->epoll_fd, &ev, 1, -1) > 0) {
-    assert(ev.events & EPOLLIN);
-    if (t->p.verbose) fprintf(stderr,"thread %d POLLIN fd %d\n", thread_idx, ev.data.fd);
+
+    if (t->p.verbose) {
+      fprintf(stderr,"thread %d %s %s fd %d\n", thread_idx, 
+        (ev.events & EPOLLIN ) ? "IN " : "   ", 
+        (ev.events & EPOLLOUT) ? "OUT" : "   ", ev.data.fd);
+    }
 
     /* is I/O from the from main thread on the control pipe? */ 
     if (ev.data.fd == tc->pipe_fd[0]) { 
@@ -249,16 +281,26 @@ static void *worker(void *data) {
       continue;
     }
 
-    // regular I/O. invoke app cb. if there is no app CB, act as a sink
-    // TODO cb needs way to say "close it; I closed it; mod epoll mask"
-    // TODO the worker thread invokes the post-close callback
+    /* regular I/O. */
     char *slot = fd_slot(t,ev.data.fd);
-    if (t->p.on_data) t->p.on_data(slot, ev.data.fd, t->p.data); 
-    else { 
-      if (drain_client(ev.data.fd) == 0) {
-        close(ev.data.fd); // also mod epolls
-        if (t->p.after_close) t->p.after_close(slot, ev.data.fd, t->p.data);
-      }
+    int flags = 0;
+    if (ev.events & EPOLLIN)  flags |= TCPSRV_CAN_READ;
+    if (ev.events & EPOLLOUT) flags |= TCPSRV_CAN_WRITE;
+    t->p.on_data(slot, ev.data.fd, t->p.data, &flags); 
+
+    /* did app set terminal condition or close fd? */
+    if (flags & TCPSRV_SHUTDOWN) t->shutdown=1; // main checks at @1hz
+    if ((flags & TCPSRV_CLOSED) && t->p.after_close) {
+        t->p.after_close(slot, ev.data.fd, t->p.data);
+    } 
+    if (flags & (TCPSRV_SHUTDOWN | TCPSRV_CLOSED)) continue;
+
+    /* did app modify poll condition? (set neither bit to keep current poll) */
+    if (flags & (TCPSRV_POLL_READ | TCPSRV_POLL_WRITE)) {
+      int events = 0;
+      if (flags & TCPSRV_POLL_READ)  events |= EPOLLIN;
+      if (flags & TCPSRV_POLL_WRITE) events |= EPOLLOUT;
+      if (mod_epoll(tc->epoll_fd, events, ev.data.fd)) goto done;
     }
   }
 
