@@ -251,6 +251,7 @@ static void *worker(void *data) {
 
     // regular I/O. invoke app cb. if there is no app CB, act as a sink
     // TODO cb needs way to say "close it; I closed it; mod epoll mask"
+    // TODO the worker thread invokes the post-close callback
     char *slot = fd_slot(t,ev.data.fd);
     if (t->p.on_data) t->p.on_data(slot, ev.data.fd, t->p.data); 
     else { 
@@ -287,7 +288,7 @@ void handle_signal(tcpsrv_t *t) {
   rc = 0;
 
  done:
-  if (rc < 0) t->shutdown=-rc;
+  if (rc < 0) t->shutdown=1;
 }
 
 int tcpsrv_run(void *_t) {
@@ -326,10 +327,6 @@ int tcpsrv_run(void *_t) {
   return rc;
 }
 
-// TODO main thread does a sneaky mod epoll on the threads' epoll object
-// TODO the worker thread invokes the accept callback
-// TODO the worker thread invokes the I/o data callback
-// TODO the worker thread invokes the post-close callback
 
 void tcpsrv_fini(void *_t) {
   int n,rc;
@@ -337,13 +334,15 @@ void tcpsrv_fini(void *_t) {
   free(t->slots);
   close(t->signal_fd);
   close(t->epoll_fd);
+  for(n=0; n < t->p.nthread; n++) { // wait for thread term 
+    rc=pthread_join(t->th[n],NULL);
+    if (rc == -1) fprintf(stderr,"pthread_join %d: %s\n",n,strerror(errno));
+    else if (t->p.verbose) fprintf(stderr,"thread %d exited\n",n);
+  }
   for(n=0; n < t->p.nthread; n++) {
     close(t->tc[n].pipe_fd[0]);
     close(t->tc[n].pipe_fd[1]);
     close(t->tc[n].epoll_fd);
-    rc=pthread_join(t->th[n],NULL);
-    if (rc == -1) fprintf(stderr,"pthread_join %d: %s\n",n,strerror(errno));
-    else if (t->p.verbose) fprintf(stderr,"thread %d exited\n",n);
   }
   free(t->th);
   free(t->tc);
