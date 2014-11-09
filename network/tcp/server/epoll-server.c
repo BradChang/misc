@@ -24,7 +24,7 @@
  * signalfd. This program uses blocking I/O in all cases. The epoll mechanism
  * tell us which exactly which descriptor is ready, when it is ready, so there
  * is no need for speculative/non-blocking reads. This program is more
- * efficient than tcp-server.c, but is longer, and harder to read.
+ * efficient than sigio-server.c.
  *
  * Troy D. Hanson
  ****************************************************************************/
