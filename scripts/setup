@@ -71,3 +71,18 @@ echo $HOME/.vimrc
 echo "You may also need to run:"
 echo 'git config --global user.name "Your Name"'
 echo 'git config --global user.email "your@email.address"'
+
+# preferred packages (Ubuntu/Mint)
+# gcc-doc
+# glibc-doc
+# make-doc
+# vim
+# vim-doc
+# autoconf
+# automake
+# libtool
+# perl-doc
+# valgrind
+# gdb
+# strace
+# libpcap-dev
