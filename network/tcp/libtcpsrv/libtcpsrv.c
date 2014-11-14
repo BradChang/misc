@@ -373,6 +373,7 @@ int tcpsrv_run(void *_t) {
 void tcpsrv_fini(void *_t) {
   int n,rc;
   tcpsrv_t *t = (tcpsrv_t*)_t;
+  if (t->p.slot_fini) t->p.slot_fini(t->slots, t->p.maxfd+1, t->p.data);
   free(t->slots);
   close(t->signal_fd);
   close(t->epoll_fd);

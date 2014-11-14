@@ -22,6 +22,7 @@ typedef struct {
   void (*on_accept)(void *slot, int fd, void *data, int *flags);   // app should clean the slot
   void (*on_data)(void *slot, int fd, void *data, int *flags);     // app should consume/emit data
   void (*after_close)(void *slot, int fd, void *data);
+  void (*slot_fini)(void *slot, int nslots, void *data);           // at program termination
 } tcpsrv_init_t;
 
 /* these are values for flags in the callbacks */
