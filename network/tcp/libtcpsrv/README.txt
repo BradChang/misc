@@ -24,4 +24,8 @@ on_data:
            TCPSRV_POLL_WRITE may be set* (see note)
            Note: omit TCPSRV_POLL_READ/WRITE bits to preserve current epoll test
 
-
+Tests
+=====
+test1: simplest application, drain server, uses defaults
+test2: sends greeting using accept cb, closes connection
+test3: sends greeting, consumes data once, closes connection
