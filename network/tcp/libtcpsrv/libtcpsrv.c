@@ -154,7 +154,7 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
   /* if the app has an on-accept callback, invoke it. */ 
   int flags = TCPSRV_POLL_READ;
   if (t->p.on_accept) {
-    t->p.on_accept(slot, fd, t->p.data, &flags); // TODO give remote IP etc?
+    t->p.on_accept(slot, fd, t->p.data, &flags); // TODO give remote IP etc
     if (flags & TCPSRV_DO_EXIT) t->shutdown=1;
     if (flags & TCPSRV_DO_CLOSE) {
       if (t->p.upon_close) t->p.upon_close(slot, fd, t->p.data);

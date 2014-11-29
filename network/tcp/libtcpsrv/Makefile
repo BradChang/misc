@@ -1,4 +1,5 @@
-OBJS=libtcpsrv.a tcpsrv-test1
+TESTS=$(patsubst %.c,%,$(wildcard test*.c))
+OBJS=libtcpsrv.a $(TESTS)
 all: $(OBJS)
 CFLAGS=-pthread
 CFLAGS+=-g
@@ -14,10 +15,10 @@ libtcpsrv.o: libtcpsrv.c libtcpsrv.h
 
 # test apps
 
-tcpsrv-test1: tcpsrv-test1.o libtcpsrv.a
+test%: test%.o libtcpsrv.a
 	$(CC) $(CFLAGS) -o $@ $< $(TESTS_LDFLAGS) $(LDFLAGS) 
 
-tcpsrv-test1.o: tcpsrv-test1.c
+test%.o: test%.c
 	$(CC) $(CFLAGS) -c $< 
 
 .PHONY: clean
