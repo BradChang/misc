@@ -157,7 +157,7 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
     t->p.on_accept(slot, fd, t->p.data, &flags); // TODO give remote IP etc
     if (flags & TCPSRV_DO_EXIT) t->shutdown=1;
     if (flags & TCPSRV_DO_CLOSE) {
-      if (t->p.upon_close) t->p.upon_close(slot, fd, t->p.data);
+      if (t->p.on_close) t->p.on_close(slot, fd, t->p.data);
       close(fd);
     }
     if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) goto done;
@@ -291,7 +291,7 @@ static void *worker(void *data) {
     /* did app set terminal condition or close fd? */
     if (flags & TCPSRV_DO_EXIT) t->shutdown=1; // main checks at @1hz
     if (flags & TCPSRV_DO_CLOSE) {
-      if (t->p.upon_close) t->p.upon_close(slot, ev.data.fd, t->p.data);
+      if (t->p.on_close) t->p.on_close(slot, ev.data.fd, t->p.data);
       close(ev.data.fd);
     }
     if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) continue;

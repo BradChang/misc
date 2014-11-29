@@ -21,7 +21,7 @@ typedef struct {
   void (*slot_init)(void *slot, int nslots, void *data);
   void (*on_accept)(void *slot, int fd, void *data, int *flags);   // app should clean the slot
   void (*on_data)(void *slot, int fd, void *data, int *flags);     // app should consume/emit data
-  void (*upon_close)(void *slot, int fd, void *data);              // cleanup slot at fd closure
+  void (*on_close)(void *slot, int fd, void *data);                // cleanup slot at fd closure
   void (*slot_fini)(void *slot, int nslots, void *data);           // at program termination
 } tcpsrv_init_t;
 
