@@ -374,15 +374,15 @@ int tcpsrv_run(void *_t) {
 void tcpsrv_fini(void *_t) {
   int n,rc;
   tcpsrv_t *t = (tcpsrv_t*)_t;
-  if (t->p.slot_fini) t->p.slot_fini(t->slots, t->p.maxfd+1, t->p.data);
-  free(t->slots);
-  close(t->signal_fd);
-  close(t->epoll_fd);
   for(n=0; n < t->p.nthread; n++) { // wait for thread term 
     rc=pthread_join(t->th[n],NULL);
     if (rc == -1) fprintf(stderr,"pthread_join %d: %s\n",n,strerror(errno));
     else if (t->p.verbose) fprintf(stderr,"thread %d exited\n",n);
   }
+  if (t->p.slot_fini) t->p.slot_fini(t->slots, t->p.maxfd+1, t->p.data);
+  free(t->slots);
+  close(t->signal_fd);
+  close(t->epoll_fd);
   for(n=0; n < t->p.nthread; n++) {
     close(t->tc[n].pipe_fd[0]);
     close(t->tc[n].pipe_fd[1]);
