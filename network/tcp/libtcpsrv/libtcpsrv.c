@@ -119,8 +119,7 @@ static void drain(void *slot, int fd, void *data, int *flags) {
   }
 
   if (rc == 0) {
-    close(fd);
-    *flags |= TCPSRV_CLOSED;
+    *flags |= TCPSRV_DO_CLOSE;
   }
 }
 
@@ -148,19 +147,20 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
   }
 
   /* pick a thread to own the connection */
-  int thread_idx = t->num_accepts++ % t->p.nthread;
+  t->num_accepts++;
+  int thread_idx = fd % t->p.nthread;
   char *slot = fd_slot(t,fd);
 
   /* if the app has an on-accept callback, invoke it. */ 
-  // TODO maybe hand to worker thread, via control channel
   int flags = TCPSRV_POLL_READ;
   if (t->p.on_accept) {
-    t->p.on_accept(slot, fd, t->p.data, &flags);
-    if (flags & TCPSRV_SHUTDOWN) t->shutdown=1;
-    if ((flags & TCPSRV_CLOSED) && t->p.after_close) {
-        t->p.after_close(slot, fd, t->p.data);
+    t->p.on_accept(slot, fd, t->p.data, &flags); // TODO give remote IP etc?
+    if (flags & TCPSRV_DO_EXIT) t->shutdown=1;
+    if (flags & TCPSRV_DO_CLOSE) {
+      if (t->p.upon_close) t->p.upon_close(slot, fd, t->p.data);
+      close(fd);
     }
-    if (flags & (TCPSRV_SHUTDOWN | TCPSRV_CLOSED)) goto done;
+    if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) goto done;
   }
 
   /* hand all further I/O on this fd to the worker. */
@@ -289,11 +289,12 @@ static void *worker(void *data) {
     t->p.on_data(slot, ev.data.fd, t->p.data, &flags); 
 
     /* did app set terminal condition or close fd? */
-    if (flags & TCPSRV_SHUTDOWN) t->shutdown=1; // main checks at @1hz
-    if ((flags & TCPSRV_CLOSED) && t->p.after_close) {
-        t->p.after_close(slot, ev.data.fd, t->p.data);
-    } 
-    if (flags & (TCPSRV_SHUTDOWN | TCPSRV_CLOSED)) continue;
+    if (flags & TCPSRV_DO_EXIT) t->shutdown=1; // main checks at @1hz
+    if (flags & TCPSRV_DO_CLOSE) {
+      if (t->p.upon_close) t->p.upon_close(slot, ev.data.fd, t->p.data);
+      close(ev.data.fd);
+    }
+    if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) continue;
 
     /* did app modify poll condition? (set neither bit to keep current poll) */
     if (flags & (TCPSRV_POLL_READ | TCPSRV_POLL_WRITE)) {

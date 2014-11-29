@@ -21,17 +21,18 @@ typedef struct {
   void (*slot_init)(void *slot, int nslots, void *data);
   void (*on_accept)(void *slot, int fd, void *data, int *flags);   // app should clean the slot
   void (*on_data)(void *slot, int fd, void *data, int *flags);     // app should consume/emit data
-  void (*after_close)(void *slot, int fd, void *data);
+  void (*upon_close)(void *slot, int fd, void *data);              // cleanup slot at fd closure
   void (*slot_fini)(void *slot, int nslots, void *data);           // at program termination
 } tcpsrv_init_t;
 
 /* these are values for flags in the callbacks */
-#define TCPSRV_CLOSED     (1 << 0)
-#define TCPSRV_POLL_READ  (1 << 1)
-#define TCPSRV_POLL_WRITE (1 << 2)
-#define TCPSRV_CAN_READ   (1 << 3)
-#define TCPSRV_CAN_WRITE  (1 << 4)
-#define TCPSRV_SHUTDOWN   (1 << 5)
+#define TCPSRV_DO_CLOSE     (1 << 0)
+#define TCPSRV_DO_CLOSE_RST (1 << 1)  // TODO
+#define TCPSRV_POLL_READ    (1 << 2)
+#define TCPSRV_POLL_WRITE   (1 << 3)
+#define TCPSRV_CAN_READ     (1 << 4)
+#define TCPSRV_CAN_WRITE    (1 << 5)
+#define TCPSRV_DO_EXIT      (1 << 6)
 
 typedef struct {
   int thread_idx;
