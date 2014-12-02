@@ -2,7 +2,7 @@ fifor
 -----
 Troy D. Hanson <tdh@tkhanson.net>
 
-Back to http://tkhanson.net/misc[Scripts and Snippets].
+Back to http://troydhanson.github.io
 
 Say you have `vim` running in one window, and wish to have `make` kicked off
 'in a different window' whenever you type backslash in vim. This is the sort of

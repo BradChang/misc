@@ -11,6 +11,6 @@ TMP=/tmp/uthash-gh-pages
 stage:
 	mkdir -p ${TMP}
 	rm -if ${TMP}/*
-	cp *.html *.css *.png ${TMP}
+	cp *.html ${TMP}
 
 

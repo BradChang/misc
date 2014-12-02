@@ -2,7 +2,7 @@ md5watch
 ---------
 Troy D. Hanson <tdh@tkhanson.net>
 
-Back to http://tkhanson.net/misc[Scripts and Snippets].
+Back to http://troydhanson.github.io
 
 This runs on an MD5 checksum on files in a directory hierarchy. It keeps a
 record of all their MD5 values (by default in a file called `~/.md5hist`) so
