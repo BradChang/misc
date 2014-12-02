@@ -99,12 +99,22 @@ static int del_epoll(int epoll_fd, int fd) {
 static void send_workers(tcpsrv_t *t, char op) {
   int n;
   for(n=0; n < t->p.nthread; n++) {
-    write(t->tc[n].pipe_fd[1], &op, sizeof(op));
+    if (write(t->tc[n].pipe_fd[1], &op, sizeof(op)) == -1) {
+      fprintf(stderr,"control pipe write: %s\n", strerror(errno));
+      t->shutdown=1;
+    }
   }
 }
 
 static void periodic(tcpsrv_t *t) {
+  /* at 1hz we we send a byte on the control pipe to each worker.
+   * if dead worker, pipe eventually fills, inducing shutdown. */
   send_workers(t,WORKER_PING);
+  /* invoke the low-frequency app periodic callback, if due */
+  if (t->p.periodic == NULL) return;
+  if (t->p.periodic_seconds == 0) return;
+  if (t->ticks % t->p.periodic_seconds) return;
+  if (t->p.periodic(t->ticks, t->p.data) == -1) t->shutdown=1;
 }
 
 /* drain is a built-in default used if app has no on_data callback */
@@ -143,6 +153,7 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
   }
 
   /* record info about the session. pick thread to own it */
+  if (fd > t->high_watermark) t->high_watermark = fd;
   int thread_idx = fd % t->p.nthread;
   memcpy(&t->si[fd].sa, &in, sz);
   t->si[fd].accept_ts = t->now;
@@ -314,7 +325,7 @@ static void *worker(void *data) {
   return rv;
 }
 
-void handle_signal(tcpsrv_t *t) {
+static void handle_signal(tcpsrv_t *t) {
   struct signalfd_siginfo info;
   int rc = -1;
 
@@ -326,7 +337,8 @@ void handle_signal(tcpsrv_t *t) {
   switch (info.ssi_signo) {
     case SIGALRM: 
       t->now = time(NULL);
-      if ((++t->ticks % 10) == 0) periodic(t); 
+      t->ticks++;
+      periodic(t);
       alarm(1); 
       break;
     default:  /* exit */

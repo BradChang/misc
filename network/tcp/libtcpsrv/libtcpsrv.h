@@ -15,12 +15,14 @@ typedef struct {
   in_addr_t addr;       /* IP address to listen on */ // TODO or interface
   int sz;               /* size of structure for each active descriptor */
   void *data;           /* opaque */
+  int periodic_seconds; /* how often to invoke periodic cb, if any */
   /* callbacks into the application. may be NULL.  */
   void (*slot_init)(void *slot, int nslots, void *data);           // at program startup
   void (*on_accept)(void *slot, int fd, struct sockaddr_in6 *sa, void *data, int *flags);   // app should renew the slot
   void (*on_data)(void *slot, int fd, void *data, int *flags);     // app should consume/emit data
   void (*on_close)(void *slot, int fd, void *data);                // cleanup slot at fd closure
   void (*slot_fini)(void *slot, int nslots, void *data);           // at program termination
+  int  (*periodic)(int uptime, void *data);                        // app periodic callback 
 } tcpsrv_init_t;
 
 /* these are values for flags in the callbacks */
@@ -66,6 +68,7 @@ typedef struct _tcpsrv_t {
   int num_accepts;   
   int num_overloads; /* rejects due to max fd exceeded */
   int num_rejects;   /* TODO rejects due to ACL */
+  int high_watermark;/* max fd that has been accepted */
   /* Each connection gets its own slot for app data. It is entirely handled
    * by the application through callbacks. There is also a lib counterpart,
    * slotinfo, where this library stores its own info about the connection.*/
