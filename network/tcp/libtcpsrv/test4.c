@@ -5,10 +5,16 @@ typedef struct {
   int fd;
 } slot_t;
 
-void greet(void *_slot, int fd, void *data, int *flags) {
+char *addr(struct sockaddr_in6 *sa) {
+  char buf[50];
+  int rc = inet_ntop(AF_INET6, &sa->sin6_addr, buf, sizeof(buf));
+  return rc ? buf : "?";
+}
+
+void greet(void *_slot, int fd, struct sockaddr_in6 *sa, void *data, int *flags) {
   char buf[] = "welcome (" __FILE__ ")\n";
   slot_t *slot = (slot_t*)_slot;
-  fprintf(stderr,"accepting fd %d in main thread\n", fd);
+  fprintf(stderr,"accepting fd %d in main thread from %s\n", fd, addr(sa));
   write(fd, buf, sizeof(buf));
 }
 

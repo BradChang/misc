@@ -19,7 +19,7 @@ static int sigs[] = {SIGHUP,SIGTERM,SIGINT,SIGQUIT,SIGALRM};
 static int setup_listener(tcpsrv_t *t) {
   int rc = -1, one=1;
 
-  int fd = socket(AF_INET, SOCK_STREAM, 0);
+  int fd = socket(AF_INET6, SOCK_STREAM, 0);
   if (fd == -1) {
     fprintf(stderr,"socket: %s\n", strerror(errno));
     goto done;
@@ -28,10 +28,11 @@ static int setup_listener(tcpsrv_t *t) {
   /**********************************************************
    * internet socket address structure: our address and port
    *********************************************************/
-  struct sockaddr_in sin;
-  sin.sin_family = AF_INET;
-  sin.sin_addr.s_addr = t->p.addr;
-  sin.sin_port = htons(t->p.port);
+  struct sockaddr_in6 sin;
+  memset(&sin,0,sizeof(sin));
+  sin.sin6_family = AF_INET6;
+  sin.sin6_port = htons(t->p.port);
+  // sin.sin6_addr.s6_addr = t->p.addr; TODO
 
   /**********************************************************
    * bind socket to address and port 
@@ -125,18 +126,13 @@ static void drain(void *slot, int fd, void *data, int *flags) {
 
 static void accept_client(tcpsrv_t *t) { // always in main thread
   int fd;
-  struct sockaddr_in in;
+  struct sockaddr_in6 in;
   socklen_t sz = sizeof(in);
 
   fd = accept(t->fd,(struct sockaddr*)&in, &sz);
   if (fd == -1) {
     fprintf(stderr,"accept: %s\n", strerror(errno)); 
     goto done;
-  }
-
-  if (t->p.verbose && (sizeof(in)==sz)) {
-    fprintf(stderr,"connection fd %d from %s:%d\n", fd,
-    inet_ntoa(in.sin_addr), (int)ntohs(in.sin_port));
   }
 
   if (fd > t->p.maxfd) {
@@ -146,18 +142,22 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
     goto done;
   }
 
-  /* pick a thread to own the connection */
-  t->num_accepts++;
+  /* record info about the session. pick thread to own it */
   int thread_idx = fd % t->p.nthread;
-  char *slot = fd_slot(t,fd);
+  memcpy(&t->si[fd].sa, &in, sz);
+  t->si[fd].accept_ts = t->now;
+  t->si[fd].kind = io;
+  t->num_accepts++;
 
   /* if the app has an on-accept callback, invoke it. */ 
+  char *slot = fd_slot(t,fd);
   int flags = TCPSRV_POLL_READ;
   if (t->p.on_accept) {
-    t->p.on_accept(slot, fd, t->p.data, &flags); // TODO give remote IP etc
+    t->p.on_accept(slot, fd, &t->si[fd].sa, t->p.data, &flags);
     if (flags & TCPSRV_DO_EXIT) t->shutdown=1;
     if (flags & TCPSRV_DO_CLOSE) {
       if (t->p.on_close) t->p.on_close(slot, fd, t->p.data);
+      t->si[fd].kind = other;
       close(fd);
     }
     if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) goto done;
@@ -188,6 +188,8 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
   if (p->slot_init) p->slot_init(t->slots, p->maxfd+1, p->data);
   t->th = calloc(p->nthread,sizeof(pthread_t));
   if (t->th == NULL) goto done;
+  t->si = calloc(p->maxfd+1, sizeof(tcpsrv_slotinfo_t)); 
+  if (t->si == NULL) goto done;
 
   sigfillset(&t->all);  /* set of all signals */
   sigemptyset(&t->few); /* set of signals we accept */
@@ -229,6 +231,7 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
     if (t) {
       if (t->slots) free(t->slots);
       if (t->th) free(t->th);
+      if (t->si) free(t->si);
       if (t->signal_fd > 0) close(t->signal_fd);
       if (t->epoll_fd > 0) close(t->epoll_fd);
       if (t->tc) {
@@ -292,6 +295,7 @@ static void *worker(void *data) {
     if (flags & TCPSRV_DO_EXIT) t->shutdown=1; // main checks at @1hz
     if (flags & TCPSRV_DO_CLOSE) {
       if (t->p.on_close) t->p.on_close(slot, ev.data.fd, t->p.data);
+      t->si[ev.data.fd].kind = other;
       close(ev.data.fd);
     }
     if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) continue;
@@ -321,6 +325,7 @@ void handle_signal(tcpsrv_t *t) {
 
   switch (info.ssi_signo) {
     case SIGALRM: 
+      t->now = time(NULL);
       if ((++t->ticks % 10) == 0) periodic(t); 
       alarm(1); 
       break;
@@ -389,6 +394,7 @@ void tcpsrv_fini(void *_t) {
     close(t->tc[n].epoll_fd);
   }
   free(t->th);
+  free(t->si);
   free(t->tc);
   free(t);
 }

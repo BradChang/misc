@@ -5,7 +5,6 @@
 /*****************************************************************************
  * libtcpsrv                                                                 *
  * Provides a threaded TCP server. Interface to application is via callbacks *
- * into the init routine.                                                    *
  ****************************************************************************/
 typedef struct {
   int verbose;
@@ -16,10 +15,9 @@ typedef struct {
   in_addr_t addr;       /* IP address to listen on */ // TODO or interface
   int sz;               /* size of structure for each active descriptor */
   void *data;           /* opaque */
-  /* callbacks into the application. may be NULL.  THREADS CALL THESE- 
-     callbacks should confine their r/w to the slot! */
-  void (*slot_init)(void *slot, int nslots, void *data);
-  void (*on_accept)(void *slot, int fd, void *data, int *flags);   // app should clean the slot
+  /* callbacks into the application. may be NULL.  */
+  void (*slot_init)(void *slot, int nslots, void *data);           // at program startup
+  void (*on_accept)(void *slot, int fd, struct sockaddr_in6 *sa, void *data, int *flags);   // app should renew the slot
   void (*on_data)(void *slot, int fd, void *data, int *flags);     // app should consume/emit data
   void (*on_close)(void *slot, int fd, void *data);                // cleanup slot at fd closure
   void (*slot_fini)(void *slot, int nslots, void *data);           // at program termination
@@ -43,20 +41,36 @@ typedef struct {
   struct _tcpsrv_t *t;
 } tcpsrv_thread_t;
 
+typedef struct {
+  enum {other=0,io,cp} kind;
+  struct sockaddr_in6 sa; /* describes the remote endpoint */
+  time_t accept_ts;       /* unix time of socket acceptance*/
+} tcpsrv_slotinfo_t;
+
 typedef struct _tcpsrv_t {
   tcpsrv_init_t p;
-  int signal_fd;
+  time_t now;       /* incremented @ 1hz */
+  int signal_fd;    /* how we accept our signals */
   int epoll_fd;     /* for main thread, signalfd, listener etc */
   int fd;           /* listener fd */
-  int ticks;
+  int ticks;        /* global time ticker */
   int shutdown;     /* can be set in any thread to induce global shutdown */
-  char *slots;      /* app I/O context; a slot belongs to just one thread */
-  sigset_t all;     /* the set of all signals */
-  sigset_t few;     /* just the signals we accept */
+  /* the set of all signals, and the smaller set of signals we accept. */
+  sigset_t all;
+  sigset_t few;
+  /* there are 'n' threads spawned to service I/O. here we have an array
+   * of the threads themselves, and an array of our thread management struct */
   pthread_t *th;
-  tcpsrv_thread_t *tc; /* per-thread control */
-  int num_accepts;  /* cumulative counter */
-  int num_overloads;/* rejects due to max fd exceeded, TODO rejects due to ACL */
+  tcpsrv_thread_t *tc; 
+  /* some statistics */
+  int num_accepts;   
+  int num_overloads; /* rejects due to max fd exceeded */
+  int num_rejects;   /* TODO rejects due to ACL */
+  /* Each connection gets its own slot for app data. It is entirely handled
+   * by the application through callbacks. There is also a lib counterpart,
+   * slotinfo, where this library stores its own info about the connection.*/
+  tcpsrv_slotinfo_t *si;
+  char *slots;
 } tcpsrv_t;
 
 void *tcpsrv_init(tcpsrv_init_t *p);
