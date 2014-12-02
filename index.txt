@@ -2,7 +2,7 @@ C Miscellany
 ------------
 Troy D. Hanson <tdh@tkhanson.net>
 
-include::twitter.txt[]
+Here's a link back to my http://troydhanson.github.io/[main GitHub page].
 
 About
 ~~~~~
@@ -14,9 +14,8 @@ These are all placed in the public domain.
 * you can browse the links below, or
 * download the repo: https://github.com/troydhanson/misc/archive/master.zip[misc-master.zip]
 * clone it with git: `git clone https://github.com/troydhanson/misc.git`
+* Here's https://github.com/troydhanson/misc[this repo's Github page]
 
-Here's a link to https://github.com/troydhanson/misc[this repo's Github page]
-and to my http://troydhanson.github.io/[main page].
 
 // this defines an attribute called {t} used below
 :t: https://github.com/troydhanson/misc/tree/master/network/
