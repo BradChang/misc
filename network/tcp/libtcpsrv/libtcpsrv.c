@@ -390,9 +390,10 @@ int tcpsrv_run(void *_t) {
 
 void tcpsrv_fini(void *_t) {
   int n,rc;
+  struct timespec max_wait = {.tv_sec=1,.tv_nsec=0};
   tcpsrv_t *t = (tcpsrv_t*)_t;
   for(n=0; n < t->p.nthread; n++) { // wait for thread term 
-    rc=pthread_join(t->th[n],NULL);
+    rc=pthread_timedjoin_np(t->th[n],NULL,max_wait);
     if (rc == -1) fprintf(stderr,"pthread_join %d: %s\n",n,strerror(errno));
     else if (t->p.verbose) fprintf(stderr,"thread %d exited\n",n);
   }
