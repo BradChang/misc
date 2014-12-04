@@ -260,8 +260,8 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
   return t;
 }
 
-static void *worker(void *data) {
-  tcpsrv_thread_t *tc = (tcpsrv_thread_t*)data;
+static void *worker(void *_tc) {
+  tcpsrv_thread_t *tc = (tcpsrv_thread_t*)_tc;
   int thread_idx = tc->thread_idx;
   struct epoll_event ev;
   tcpsrv_t *t = tc->t;
@@ -291,6 +291,7 @@ static void *worker(void *data) {
     if (ev.data.fd == tc->pipe_fd[0]) { 
       if (read(tc->pipe_fd[0],&op,sizeof(op)) != sizeof(op)) goto done;
       fprintf(stderr,"> thread %d: '%c' from main thread\n", thread_idx, op);
+      if (op == WORKER_PING) tc->pong = t->now; // respond to ping
       if (op == WORKER_SHUTDOWN) goto done;
       continue;
     }
