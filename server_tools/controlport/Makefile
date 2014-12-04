@@ -1,26 +1,37 @@
-CFLAGS = -I. 
-CFLAGS += -g
-LIB = libcontrolport.a
-SRCS = controlport.c tpl.c
-OBJS = $(patsubst %.c,%.o,$(SRCS))
+TESTS=$(patsubst %.c,%,$(wildcard test*.c))
+OBJS=libcontrolport.a 
+#OBJS+=$(TESTS)
+#OBJS+=xcon
+all: $(OBJS)
+CFLAGS=-I./include
+CFLAGS+=-g
+#CFLAGS+=-O2
+TESTS_LDFLAGS=-L. -lcontrolport
 
-EXESRC = $(wildcard app*.c)
-EXES = $(patsubst %.c,%,$(EXESRC))
+xcon.o: xcon.c
+	$(CC) $(CFLAGS) -o $@ $< 
 
-all: $(LIB) $(EXES) cpcli
+xcon: xcon.o
+	$(CC) $(CFLAGS) -o $@ $< -lreadline
 
-$(OBJS): $(SRCS)
+libcontrolport.a: libcontrolport.o tpl.o
+	ar r $@ $^
 
-$(LIB): $(OBJS)
-	ar cr $@ $^
+tpl.o: tpl.c 
+	$(CC) $(CFLAGS) -c $< 
 
-$(EXES): $(EXESRC) $(LIB)
-	$(CC) $(CFLAGS) -o $@ $@.c -L. -lcontrolport
+libcontrolport.o: libcontrolport.c libcontrolport.h
+	$(CC) $(CFLAGS) -c $< 
 
-cpcli: cpcli.c $(LIB)
-	$(CC) $(CFLAGS) -o $@ $< tpl.c -L. -lcontrolport -lreadline
+# test apps
+
+test%: test%.o libcontrolport.a
+	$(CC) $(CFLAGS) -o $@ $< $(TESTS_LDFLAGS) $(LDFLAGS) 
+
+test%.o: test%.c
+	$(CC) $(CFLAGS) -c $< 
 
 .PHONY: clean
 
 clean:
-	rm -f *.o $(LIB) $(EXES) cpcli
+	rm -f *.o $(OBJS)

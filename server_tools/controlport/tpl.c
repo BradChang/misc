@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2005-2010, Troy D. Hanson     http://tpl.sourceforge.net
+Copyright (c) 2005-2013, Troy D. Hanson     http://troydhanson.github.com/tpl/
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -21,7 +21,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define TPL_VERSION 1.5
+#define TPL_VERSION 1.6
 
 static const char id[]="$Id: tpl.c 192 2009-04-24 10:35:30Z thanson $";
 
@@ -53,6 +53,9 @@ typedef unsigned __int32 uint32_t;
 typedef unsigned __int64 uint64_t;
 #endif
 
+#ifndef S_ISREG
+#define S_ISREG(mode)  (((mode) & S_IFMT) == S_IFREG)
+#endif
 
 #if ( defined __CYGWIN__ || defined __MINGW32__ || defined _WIN32 )
 #include "win/mman.h"   /* mmap */
@@ -1626,7 +1629,7 @@ static void tpl_free_atyp(tpl_node *n, tpl_atyp *atyp) {
  */
 static int tpl_serlen(tpl_node *r, tpl_node *n, void *dv, size_t *serlen) {
     uint32_t slen;
-    int num,fidx;
+    int num=0,fidx;
     tpl_node *c;
     size_t len=0, alen, buf_past, itermax;
     tpl_pound_data *pd;
