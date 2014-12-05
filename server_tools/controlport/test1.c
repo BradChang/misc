@@ -1,16 +1,24 @@
 #include <stdio.h>
+#include <string.h>
 #include <sys/epoll.h>
 #include "libcontrolport.h"
 
 int shutdown;
+
+int halt_fcn(void *cp, int argc, char **argv, void *data) {
+  shutdown=1;
+  return CP_OK;
+}
 
 int main(int argc, char *argv[]) {
   void *cp;
   int fd,epoll_fd, rc;
   struct epoll_event ev;
   cp = cp_init("/tmp/cp", NULL, NULL, &fd);
+  cp_add_cmd(cp, "halt", halt_fcn, "halts the server");
 
   epoll_fd = epoll_create(1);
+  memset(&ev,0,sizeof(ev));
   ev.events = EPOLLIN;
   ev.data.fd = fd;
   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);

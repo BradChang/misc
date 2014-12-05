@@ -133,8 +133,8 @@ static int do_cmd(cp_t *cp, int fd, int pos) {
 
   /* prepare the argc/argv array */ 
   cp->argc = tpl_Alen(tn,1);
-  utstring_clear(cp->argv);
-  while (tpl_unpack(tn,1) > 0) utarray_push_back(cp->argv, arg);
+  utarray_clear(cp->argv);
+  while (tpl_unpack(tn,1) > 0) utarray_push_back(cp->argv, &arg);
   tpl_free(tn);
 
   /* clear response buffer, lookup callback, run it, cleanup */
