@@ -1,17 +1,17 @@
 TESTS=$(patsubst %.c,%,$(wildcard test*.c))
 OBJS=libcontrolport.a 
 OBJS+=$(TESTS)
-OBJS+=xcon
+OBJS+=cpcon
 all: $(OBJS)
 CFLAGS=-I./include
 CFLAGS+=-g
 #CFLAGS+=-O2
 TESTS_LDFLAGS=-L. -lcontrolport
 
-xcon.o: xcon.c
+cpcon.o: cpcon.c
 	$(CC) $(CFLAGS) -c $< 
 
-xcon: xcon.o tpl.o
+cpcon: cpcon.o tpl.o
 	$(CC) $(CFLAGS) -o $@ $^ -lreadline 
 
 libcontrolport.a: libcontrolport.o tpl.o

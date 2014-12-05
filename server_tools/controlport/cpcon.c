@@ -46,7 +46,7 @@ int last_gasp(int fd) {
   do {
     rc=read(fd,buf,sizeof(buf));
     if (rc > 0) fprintf(stderr,"control port: %.*s\n", rc, buf);
-    else if (rc == 0) fprintf(stderr,"control port: closed\n");
+    else if (rc == 0) fprintf(stderr,"Closed by remote side.\n");
   } while(rc > 0);
   fcntl(fd, F_SETFL, flags);
 
@@ -169,7 +169,7 @@ int main(int argc, char *argv[]) {
     }
   }
   if (optind < argc) usage(argv[0]);
-  snprintf(prompt,sizeof(prompt),"%s> ", path);
+  snprintf(prompt,sizeof(prompt),"[cp] %s %% ", path);
   using_history();
 
   if ( (fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
@@ -185,6 +185,7 @@ int main(int argc, char *argv[]) {
     perror("connect error");
     exit(-1);
   }
+  printf("Connected to %s.\n", path);
 
   if (file && !(filef = fopen(file,"r"))) {
     perror("fopen error"); 
