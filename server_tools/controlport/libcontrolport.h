@@ -26,7 +26,7 @@ typedef struct {
  *****************************************************************************/
 void *cp_init(char *path, cp_cmd_t *cmds, void *data, int *fd);
 void  cp_add_cmd(void*, char *name, cp_cmd_f *cmd, char *help);
-int   cp_service(void*, int fd, int *flags, void *data);
+int   cp_service(void*, int fd);
 void  cp_fini(void*);
 void  cp_printf(void *, char *fmt, ...);
 

@@ -107,7 +107,7 @@ void cp_add_cmd(void *_cp, char *name, cp_cmd_f *cmd, char *help) {
   HASH_FIND(hh, cp->cmds, name, strlen(name), cw);
   if (cw == NULL) {
     cw = calloc(1,sizeof(*cw));
-    if (cw = NULL) { fprintf(stderr,"out of memory\n"); exit(-1); }
+    if (cw == NULL) { fprintf(stderr,"out of memory\n"); exit(-1); }
     cw->cmd.name = strdup(name);
     HASH_ADD_KEYPTR(hh, cp->cmds, cw->cmd.name, strlen(cw->cmd.name), cw);
   }
@@ -116,13 +116,13 @@ void cp_add_cmd(void *_cp, char *name, cp_cmd_f *cmd, char *help) {
   cw->cmd.help = help ? strdup(help) : NULL;
 }
 
-static int do_cmd(cp_t *cp, int fd) {
+static int do_cmd(cp_t *cp, int fd, int pos) {
   char *arg,**v=NULL,**argv;
-  int rc,tc,pos;
   cp_cmd_f *cmd;
   cp_cmd_w *cw;
   tpl_node *tn;
   tpl_bin bin;
+  int rc,tc;
 
   /* dequeue the client argv buffer */
   tn = tpl_map("A(s)", &arg);
@@ -156,7 +156,6 @@ static int do_cmd(cp_t *cp, int fd) {
   if (rc == CP_OK) return 0;
 
  close_client: // erase record of client descriptor. close client.
-  pos = utarray_eltpos(cp->fds, fd);
   utarray_erase(cp->fds, pos, 1);
   close(fd);
   return -fd; // notify app to STOP polling fd 
@@ -172,9 +171,9 @@ static int do_cmd(cp_t *cp, int fd) {
 *    x>0 to tell app "start polling fd x, I accepted it"
 *  any other communication from callbacks to the app can use the opaque *data
 *******************************************************************************/
-int cp_service(void*_cp, int fd, int *flags, void *data) {
+int cp_service(void*_cp, int fd) {
   cp_t *cp = (cp_t*)_cp;
-  int rc,*cd,nd;
+  int rc,*cd,nd,pos;
   cp_cmd_f *cmd;
 
   /* if the ready-fd is the _listening_ socket, we need to accept the
@@ -196,7 +195,8 @@ int cp_service(void*_cp, int fd, int *flags, void *data) {
     assert(0);
   }
 
-  rc = do_cmd(cp, fd);
+  pos = utarray_eltidx(cp->fds,cd);
+  rc = do_cmd(cp, fd, pos);
   return rc;
 }
 

@@ -1,6 +1,6 @@
 TESTS=$(patsubst %.c,%,$(wildcard test*.c))
 OBJS=libcontrolport.a 
-#OBJS+=$(TESTS)
+OBJS+=$(TESTS)
 #OBJS+=xcon
 all: $(OBJS)
 CFLAGS=-I./include
