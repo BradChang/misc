@@ -2,7 +2,7 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <errno.h>
-#include "libcontrolport.h"
+#include "libmc6.h"
 #include "utstring.h"
 #include "utarray.h"
 #include "uthash.h"
