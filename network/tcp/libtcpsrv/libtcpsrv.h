@@ -45,7 +45,6 @@ typedef struct {
 } tcpsrv_thread_t;
 
 typedef struct {
-  enum {other=0,io,cp} kind;
   struct sockaddr_in6 sa; /* describes the remote endpoint */
   time_t accept_ts;       /* unix time of socket acceptance*/
 } tcpsrv_slotinfo_t;

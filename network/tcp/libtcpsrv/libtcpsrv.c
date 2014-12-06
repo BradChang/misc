@@ -157,7 +157,6 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
   int thread_idx = fd % t->p.nthread;
   memcpy(&t->si[fd].sa, &in, sz);
   t->si[fd].accept_ts = t->now;
-  t->si[fd].kind = io;
   t->num_accepts++;
 
   /* if the app has an on-accept callback, invoke it. */ 
@@ -168,7 +167,6 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
     if (flags & TCPSRV_DO_EXIT) t->shutdown=1;
     if (flags & TCPSRV_DO_CLOSE) {
       if (t->p.on_close) t->p.on_close(slot, fd, t->p.data);
-      t->si[fd].kind = other;
       close(fd);
     }
     if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) goto done;
@@ -307,7 +305,6 @@ static void *worker(void *_tc) {
     if (flags & TCPSRV_DO_EXIT) t->shutdown=1; // main checks at @1hz
     if (flags & TCPSRV_DO_CLOSE) {
       if (t->p.on_close) t->p.on_close(slot, ev.data.fd, t->p.data);
-      t->si[ev.data.fd].kind = other;
       close(ev.data.fd);
     }
     if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) continue;
