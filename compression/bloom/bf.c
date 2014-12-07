@@ -33,9 +33,16 @@ void get_hashv(char *in, size_t len, unsigned *out) {
   out[1] = MASK(hash_fnv(in,len),n);
 }
 
-#define BIT_TEST(c,i) (c[i/8] & (1 << (i % 8)))
-#define BIT_SET(c,i) (c[i/8] |= (1 << (i % 8)))
+/* a few macros used to implement a bit vector */
+/* test/set/clear the bit in bitmask c at index i */
+#define BIT_TEST(c,i)  (c[i/8] &   (1 << (i % 8)))
+#define BIT_SET(c,i)   (c[i/8] |=  (1 << (i % 8)))
+#define BIT_CLEAR(c,i) (c[i/8] &= ~(1 << (i % 8)))
+/* number of bytes needed to store 2^n bits */
 #define byte_len(n) (((1UL << n) / 8) + (((1UL << n) % 8) ? 1 : 0))
+/* number of bytes needed to store n bits */
+#define bytes_nbits(n) ((n/8) + ((n % 8) ? 1 : 0))
+/* number of bits in 2^n bits */
 #define num_bits(n) (1UL << n)
 char *bf_new(unsigned n) {
   char *bf = calloc(1,byte_len(n));

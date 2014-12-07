@@ -42,6 +42,7 @@ typedef struct {
   int pipe_fd[2];  // to main thread; [0]=child read end, [1]=parent write end 
   time_t pong;     // timestamp of last thread ping-reply
   struct _tcpsrv_t *t;
+  char *fdmask;    // bit mask of fds owned by this thread
 } tcpsrv_thread_t;
 
 typedef struct {

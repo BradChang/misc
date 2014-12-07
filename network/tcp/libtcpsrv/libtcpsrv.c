@@ -11,6 +11,13 @@
 #include <arpa/inet.h>
 #include "libtcpsrv.h"
 
+/* a few macros used to implement a mask of n bits. */
+/* test/set/clear the bit at index i in bitmask c */
+#define BIT_TEST(c,i)  (c[i/8] &   (1 << (i % 8)))
+#define BIT_SET(c,i)   (c[i/8] |=  (1 << (i % 8)))
+#define BIT_CLEAR(c,i) (c[i/8] &= ~(1 << (i % 8)))
+#define bytes_nbits(n) ((n/8) + ((n % 8) ? 1 : 0))
+
 #define fd_slot(t,fd) (t->slots + (fd * t->p.sz))
 
 /* signals that we'll accept synchronously via signalfd */
@@ -173,12 +180,13 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
   }
 
   /* hand all further I/O on this fd to the worker. */
+  BIT_SET(t->tc[thread_idx].fdmask, fd);
   int events = 0;
   if (flags & TCPSRV_POLL_READ)  events |= EPOLLIN;
   if (flags & TCPSRV_POLL_WRITE) events |= EPOLLOUT;
   if (add_epoll(t->tc[thread_idx].epoll_fd, events, fd) == -1) { 
     fprintf(stderr,"can't give accepted connection to thread %d\n", thread_idx);
-    close(fd); 
+    // close not needed; fd closed in fdmask sweep at exit
     t->shutdown=1;
   }
 
@@ -224,6 +232,8 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
   for(n=0; n < t->p.nthread; n++) {
     t->tc[n].thread_idx = n;
     t->tc[n].t = t;
+    t->tc[n].fdmask = calloc(1,bytes_nbits(p->maxfd+1));
+    if (t->tc[n].fdmask == NULL) goto done;
     if (pipe(t->tc[n].pipe_fd) == -1) goto done;
     t->tc[n].epoll_fd = epoll_create(1);
     if (t->tc[n].epoll_fd == -1) {
@@ -248,6 +258,7 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
           if (t->tc[n].pipe_fd[0] > 0) close(t->tc[n].pipe_fd[0]);
           if (t->tc[n].pipe_fd[1] > 0) close(t->tc[n].pipe_fd[1]);
           if (t->tc[n].epoll_fd > 0) close(t->tc[n].epoll_fd);
+          if (t->tc[n].fdmask) free(t->tc[n].fdmask);
         }
         free(t->tc);
       }
@@ -260,7 +271,7 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
 
 static void *worker(void *_tc) {
   tcpsrv_thread_t *tc = (tcpsrv_thread_t*)_tc;
-  int thread_idx = tc->thread_idx;
+  int thread_idx = tc->thread_idx, i;
   struct epoll_event ev;
   tcpsrv_t *t = tc->t;
   void *rv=NULL;
@@ -305,6 +316,7 @@ static void *worker(void *_tc) {
     if (flags & TCPSRV_DO_EXIT) t->shutdown=1; // main checks at @1hz
     if (flags & TCPSRV_DO_CLOSE) {
       if (t->p.on_close) t->p.on_close(slot, ev.data.fd, t->p.data);
+      BIT_CLEAR(tc->fdmask, ev.data.fd);
       close(ev.data.fd);
     }
     if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) continue;
@@ -319,7 +331,12 @@ static void *worker(void *_tc) {
   }
 
  done:
+  /* thread exit is induced at impending program termination.
+   * close any open descriptors still in service by this thread. */
   if (t->p.verbose) fprintf(stderr,"thread %d exiting\n", thread_idx);
+  for(i=0; i <= t->p.maxfd; i++) {
+    if (BIT_TEST(tc->fdmask,i)) { BIT_CLEAR(tc->fdmask,i); close(i); }
+  }
   return rv;
 }
 
@@ -403,6 +420,7 @@ void tcpsrv_fini(void *_t) {
     close(t->tc[n].pipe_fd[0]);
     close(t->tc[n].pipe_fd[1]);
     close(t->tc[n].epoll_fd);
+    free(t->tc[n].fdmask);
   }
   free(t->th);
   free(t->si);
