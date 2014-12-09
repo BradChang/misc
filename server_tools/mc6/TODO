@@ -1,2 +1,1 @@
 ptty alt. to unix domain socket (then can use 'screen' to connect)
-fix cpcon to select on closure of remote fd

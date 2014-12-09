@@ -28,7 +28,7 @@ typedef struct {
 /*******************************************************************************
  * default commands 
  ******************************************************************************/
-static int exit_cmd(void *_cp, int argc, char **argv, void *data) {
+static int quit_cmd(void *_cp, int argc, char **argv, void *data) {
   return CP_CLOSE;
 }
 
@@ -82,7 +82,7 @@ void *cp_init(char *path, cp_cmd_t *cmds, void *data, int *fd) {
     cp_add_cmd(cp,cmd->name,cmd->cmdf,cmd->help);
   }
   cp_add_cmd(cp, "help", help_cmd, "this text");
-  cp_add_cmd(cp, "exit", exit_cmd, "close session");
+  cp_add_cmd(cp, "quit", quit_cmd, "close session");
 
   *fd = cp->fd;  // app should poll on it
   rc= 0;
@@ -127,7 +127,7 @@ static int do_cmd(cp_t *cp, int fd, int pos) {
   /* dequeue the client argv buffer */
   tn = tpl_map("A(s)", &arg);
   if (tpl_load(tn, TPL_FD, fd) < 0) {
-    fprintf(stderr,"control port: protocol error\n");
+    // client closed, or protocol error
     goto close_client;
   }
 

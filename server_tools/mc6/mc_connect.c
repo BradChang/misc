@@ -16,6 +16,7 @@
 
 char *path = "/tmp/cp"; 
 char prompt[100];
+int running=1;
 
 void usage(char *prog) {
   fprintf(stderr, "usage: %s [-v] [-s|-S socket] [-f file]\n", prog);
@@ -28,60 +29,7 @@ void usage(char *prog) {
 
 int verbose;
 char *file;
-FILE *filef;
-char buf[256]; // max line length
 int fd;        // connection to unix domain socket (control port)
-
-/* the control port can became readable when we aren't expecting a response.
- * this probably means the control port is shutting down. check for this.
- * if found, confirm its EOF. any other I/O without EOF here would be a bug. */
-int last_gasp(int fd) {
-  char buf[100];
-  fd_set rfds;
-  int sr,rc;
-
-  int flags;
-  flags = fcntl(fd, F_GETFL);
-  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-  do {
-    rc=read(fd,buf,sizeof(buf));
-    if (rc > 0) fprintf(stderr,"control port: %.*s\n", rc, buf);
-    else if (rc == 0) fprintf(stderr,"Closed by remote side.\n");
-  } while(rc > 0);
-  fcntl(fd, F_SETFL, flags);
-
-  return (rc==-1) ? 0 : 1;
-}
-
-char *next_line() {
-  size_t len;
-  char *line=NULL,*tmp;
-
-  if (file) line=fgets(buf,sizeof(buf), filef);
-  else {
-    if (last_gasp(fd)) goto done; // before we block on stdin, see if cp closed
-    line=readline(prompt);  // must free it
-  }
-  if (!line) goto done;
-
-  len = strlen(line);
-  
-  if (file) { 
-    /* fgets keeps trailing newline. null it out. if absent, line got truncated*/
-    if (buf[len-1] == '\n') buf[len-1]='\0'; 
-    else { fprintf(stderr, "line too long\n"); line=NULL; }
-  } else {  
-    /* copy the mallocd readline buffer and free it */
-    tmp = line;
-    if (len+1 < sizeof(buf)) {memcpy(buf, line, len+1); line=buf; }
-    else { fprintf(stderr, "line too long\n"); line=NULL; }
-    free(tmp); 
-  }
-
- done:
-  if (file && !line) fclose(filef);
-  return line;
-}
 
 /* This little parsing function finds one word at a time from the
  * input line. It supports double quotes to group words together. */
@@ -112,7 +60,7 @@ char *find_word(char *c, char **start, char **end) {
   return c;
 }
 
-int do_rqst(char *line, int fd) {
+int do_rqst(char *line) {
   char *c=line, *start=NULL, *end=NULL, **f, *file, *arg;
   tpl_node *tn=NULL,*tr=NULL;
   int rc = -1, len;
@@ -152,6 +100,44 @@ int do_rqst(char *line, int fd) {
   if (tr) tpl_free(tr);
   return rc;
 }
+
+void handle_file() {
+  char buf[500];
+  FILE *f;
+  int len;
+
+  f = fopen(file,"r");
+  if (f == NULL) {
+    fprintf(stderr,"fopen: %s\n",strerror(errno)); 
+    goto done;
+  }
+
+  while(fgets(buf, sizeof(buf), f)) {
+    len = strlen(buf);
+    if ((len >= 2) && (buf[len-1] == '\n')) buf[len-1]='\0'; 
+    else { fprintf(stderr, "line too long\n"); break; }
+    if (do_rqst(buf)) break;
+  }
+
+ done:
+  if (f) fclose(f);
+  return;
+}
+
+/* called inside readline() whenever full line gathered */
+void cb_linehandler(char *line) {
+  int rc;
+
+  if (line == NULL) { running=0; goto done; } // user EOF
+  if (*line=='\0') goto done; // ignore user's empty line
+
+  rc = do_rqst(line);
+  if (rc) running=0;
+  else add_history(line);
+
+ done:
+  if (line) free(line);
+}
  
 int main(int argc, char *argv[]) {
   struct sockaddr_un addr;
@@ -169,12 +155,15 @@ int main(int argc, char *argv[]) {
     }
   }
   if (optind < argc) usage(argv[0]);
-  snprintf(prompt,sizeof(prompt),"[cp] %s %% ", path);
+  snprintf(prompt,sizeof(prompt),"[mc6] %s %% ", path);
   using_history();
 
+  /**************************************************
+   * connect to server
+   *************************************************/
   if ( (fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-    perror("socket error");
-    exit(-1);
+    fprintf(stderr,"socket: %s\n",strerror(errno));
+    goto done;
   }
 
   memset(&addr, 0, sizeof(addr));
@@ -182,22 +171,44 @@ int main(int argc, char *argv[]) {
   strncpy(addr.sun_path, path, sizeof(addr.sun_path)-1);
 
   if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-    perror("connect error");
-    exit(-1);
+    fprintf(stderr, "connect: %s\n",strerror(errno));
+    goto done;
   }
-  printf("Connected to %s.\n", path);
+  fprintf(stderr,"Connected to %s.\n", path);
 
-  if (file && !(filef = fopen(file,"r"))) {
-    perror("fopen error"); 
-    exit(-1);
+  /**************************************************
+   * if we're reading commands from file, do so
+   *************************************************/
+  if (file) { handle_file(file); goto done; }
+
+  /**************************************************
+   * handle keyboard interactive input.
+   *************************************************/
+  rl_callback_handler_install(prompt, cb_linehandler);
+  int readline_fd = fileno(rl_instream);
+  fd_set fds;
+  while(running) {
+    FD_ZERO(&fds);
+    FD_SET(readline_fd, &fds);
+    FD_SET(fd, &fds);
+
+    rc = select(FD_SETSIZE,&fds,NULL,NULL,NULL);
+    if (rc < 0) {
+      fprintf(stderr,"select: %s\n", strerror(errno));
+      goto done;
+    }
+
+    /* handle user input, but terminate on server io/close */
+    if (FD_ISSET(readline_fd, &fds)) rl_callback_read_char();
+    if (FD_ISSET(fd, &fds)) { 
+      fprintf(stderr,"Connection closed.\n");
+      running=0;
+    }
   }
 
-  while ( (line=next_line()) != NULL) {
-    add_history(line);
-    if (do_rqst(line,fd) == -1) break;
-  }
-
-  clear_history();
+ done:
+  if (!file) rl_callback_handler_remove();
+  if (fd) close(fd);
   return 0;
 }
 

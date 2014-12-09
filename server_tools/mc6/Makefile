@@ -1,17 +1,17 @@
 TESTS=$(patsubst %.c,%,$(wildcard test*.c))
 OBJS=libmc6.a 
 OBJS+=$(TESTS)
-OBJS+=mc6x
+OBJS+=mc_connect
 all: $(OBJS)
 CFLAGS=-I./include -I./tpl
 CFLAGS+=-g
 #CFLAGS+=-O2
 TESTS_LDFLAGS=-L. -lmc6
 
-mc6x.o: mc6x.c
+mc_connect.o: mc_connect.c
 	$(CC) $(CFLAGS) -c $< 
 
-mc6x: mc6x.o tpl/tpl.o
+mc_connect: mc_connect.o tpl/tpl.o
 	$(CC) $(CFLAGS) -o $@ $^ -lreadline 
 
 libmc6.a: libmc6.o tpl/tpl.o
