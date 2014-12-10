@@ -1,4 +1,4 @@
-EXES=read_serial
+EXES=read_serial symmetricom_serial
 all: $(EXES)
 
 CFLAGS=-g
