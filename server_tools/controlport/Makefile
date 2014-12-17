@@ -1,28 +1,28 @@
 TESTS=$(patsubst %.c,%,$(wildcard test*.c))
-OBJS=libmc6.a 
+OBJS=libcontrolport.a 
 OBJS+=$(TESTS)
-OBJS+=mc_connect
+OBJS+=controlsh
 all: $(OBJS)
 CFLAGS=-I./include -I./tpl
 CFLAGS+=-g
 #CFLAGS+=-O2
-TESTS_LDFLAGS=-L. -lmc6
+TESTS_LDFLAGS=-L. -lcontrolport
 
-mc_connect.o: mc_connect.c
+controlsh.o: controlsh.c
 	$(CC) $(CFLAGS) -c $< 
 
-mc_connect: mc_connect.o tpl/tpl.o
+controlsh: controlsh.o tpl/tpl.o
 	$(CC) $(CFLAGS) -o $@ $^ -lreadline 
 
-libmc6.a: libmc6.o tpl/tpl.o
+libcontrolport.a: libcontrolport.o tpl/tpl.o
 	ar r $@ $^
 
-libmc6.o: libmc6.c libmc6.h
+libcontrolport.o: libcontrolport.c libcontrolport.h
 	$(CC) $(CFLAGS) -c $< 
 
 # test apps
 
-test%: test%.o libmc6.a
+test%: test%.o libcontrolport.a
 	$(CC) $(CFLAGS) -o $@ $< $(TESTS_LDFLAGS) $(LDFLAGS) 
 
 test%.o: test%.c

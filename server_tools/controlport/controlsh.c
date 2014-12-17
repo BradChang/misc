@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
     }
   }
   if (optind < argc) usage(argv[0]);
-  snprintf(prompt,sizeof(prompt),"[mc6] %s %% ", path);
+  snprintf(prompt,sizeof(prompt),"[controlsh] %s %% ", path);
   using_history();
 
   /**************************************************

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/epoll.h>
-#include "libmc6.h"
+#include "libcontrolport.h"
 
 int shutdown;
 
