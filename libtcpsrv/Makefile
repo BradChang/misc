@@ -1,6 +1,7 @@
 TESTS=$(patsubst %.c,%,$(wildcard test*.c))
 OBJS=libtcpsrv.a $(TESTS)
-all: $(OBJS)
+SUBDIRS=controlport
+all: $(SUBDIRS) $(OBJS)
 CFLAGS=-pthread
 CFLAGS+=-g
 #CFLAGS+=-O2
@@ -21,7 +22,11 @@ test%: test%.o libtcpsrv.a
 test%.o: test%.c
 	$(CC) $(CFLAGS) -c $< 
 
-.PHONY: clean
+.PHONY: clean $(SUBDIRS)
+
+$(SUBDIRS):
+	for d in $(SUBDIRS); do make -C $$d; done
 
 clean:
 	rm -f *.o $(OBJS)
+	for d in $(SUBDIRS); do make -C $$d clean; done
