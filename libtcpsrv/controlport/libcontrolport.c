@@ -8,10 +8,11 @@
 #include "uthash.h"
 #include "tpl.h"
 
-typedef struct {  // wraps a command structure 
-  char *name;
-  cp_cmd_f *cmdf;
-  char *help;
+typedef struct {  
+  char *name;       /* name of control port command *unique */
+  cp_cmd_f *cmdf;   /* function pointer */
+  char *help;       /* optional longer help text */
+  void *data;       /* opaque data to callback, maybe NULl */
   UT_hash_handle hh;
 } cp_cmd;
 
@@ -19,7 +20,6 @@ typedef struct {
   struct sockaddr_un addr;
   cp_cmd *cmds;   // hash table of commands
   int fd;         // listener descriptor
-  void *data;     // opaque data pointer
   UT_array *fds;  // descriptors of connected clients
   // used in executing command callbacks 
   UT_string *s;
@@ -51,14 +51,13 @@ static int unknown_cmd(void *_cp, int argc, char **argv, void *data) {
 /*******************************************************************************
  * library API
  ******************************************************************************/
-void *cp_init(char *path, void *data, int *fd) {
+void *cp_init(char *path, int *fd) {
   int rc=-1;
   cp_t *cp;
   
   if ( (cp=malloc(sizeof(cp_t))) == NULL) goto done;
   memset(cp, 0, sizeof(*cp));
 
-  cp->data = data;
   utstring_new(cp->s);
   utarray_new(cp->fds, &ut_int_icd);
   utarray_new(cp->argv,&ut_ptr_icd);
@@ -79,8 +78,8 @@ void *cp_init(char *path, void *data, int *fd) {
     fprintf(stderr,"listen: %s\n",strerror(errno)); goto done;
   }
 
-  cp_add_cmd(cp, "help", help_cmd, "this text");
-  cp_add_cmd(cp, "quit", quit_cmd, "close session");
+  cp_add_cmd(cp, "help", help_cmd, "this text", NULL);
+  cp_add_cmd(cp, "quit", quit_cmd, "close session", NULL);
 
   *fd = cp->fd;  // app should poll on it
   rc= 0;
@@ -97,7 +96,7 @@ void *cp_init(char *path, void *data, int *fd) {
   return cp;
 }
 
-void cp_add_cmd(void *_cp, char *name, cp_cmd_f *cmd, char *help) {
+void cp_add_cmd(void *_cp, char *name, cp_cmd_f *cmd, char *help, void *data) {
   cp_t *cp = (cp_t*)_cp;
   cp_cmd *cw;
 
@@ -110,6 +109,7 @@ void cp_add_cmd(void *_cp, char *name, cp_cmd_f *cmd, char *help) {
     HASH_ADD_KEYPTR(hh, cp->cmds, cw->name, strlen(cw->name), cw);
   }
   cw->cmdf = cmd;
+  cw->data = data;
   if (cw->help) free(cw->help);
   cw->help = help ? strdup(help) : NULL;
 }
@@ -118,6 +118,7 @@ static int do_cmd(cp_t *cp, int fd, int pos) {
   char *arg,**v=NULL,**argv;
   cp_cmd_f *cmd;
   cp_cmd *cw;
+  void *data;
   tpl_node *tn;
   tpl_bin bin;
   int rc,tc;
@@ -139,8 +140,9 @@ static int do_cmd(cp_t *cp, int fd, int pos) {
   utstring_clear(cp->s);
   argv = (char**)utarray_front(cp->argv);
   if (argv) HASH_FIND_STR(cp->cmds, *argv, cw);
-  cmd = (argv && cw) ?  cw->cmdf : unknown_cmd;
-  rc = cmd(cp, cp->argc, argv, cp->data);
+  cmd  = (argv && cw) ?  cw->cmdf : unknown_cmd;
+  data = (argv && cw) ?  cw->data : NULL;
+  rc = cmd(cp, cp->argc, argv, data);
   while ( (v=(char**)utarray_next(cp->argv,v))) free(*v);
 
   /* send response buffer */

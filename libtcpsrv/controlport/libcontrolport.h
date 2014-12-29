@@ -18,8 +18,8 @@ typedef int (cp_cmd_f)(void *cp, int argc, char **argv, void *data);
  * cp_fini:     closes the control port, terminates any clients
  * cp_printf:   used inside a command callback
  *****************************************************************************/
-void *cp_init(char *path, void *data, int *fd);
-void  cp_add_cmd(void*, char *name, cp_cmd_f *cmd, char *help);
+void *cp_init(char *path, int *fd);
+void  cp_add_cmd(void*, char *name, cp_cmd_f *cmd, char *help, void *data);
 int   cp_service(void*, int fd);
 void  cp_fini(void*);
 void  cp_printf(void *, char *fmt, ...);

@@ -9,13 +9,22 @@ int halt_fcn(void *cp, int argc, char **argv, void *data) {
   shutdown=1;
   return CP_OK;
 }
+int count_fcn(void *cp, int argc, char **argv, void *data) {
+  int *count = (int*)data;
+  cp_printf(cp, "invocations: %d\n", (*count)++);
+  return CP_OK;
+}
+
+
+int count=0;
 
 int main(int argc, char *argv[]) {
   void *cp;
   int fd,epoll_fd, rc;
   struct epoll_event ev;
-  cp = cp_init("/tmp/cp", NULL, &fd);
-  cp_add_cmd(cp, "halt", halt_fcn, "halts the server");
+  cp = cp_init("/tmp/cp", &fd);
+  cp_add_cmd(cp, "halt", halt_fcn, "halts the server", NULL);
+  cp_add_cmd(cp, "count", count_fcn, "counts invocations", &count);
 
   epoll_fd = epoll_create(1);
   memset(&ev,0,sizeof(ev));
