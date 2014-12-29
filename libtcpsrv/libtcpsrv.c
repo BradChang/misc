@@ -229,10 +229,11 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
 
   /* set up the control port */
   if (t->p.cp_path) {
-    if ( (t->cp = cp_init(t->p.cp_path, NULL, NULL, &t->cp_fd)) == NULL) {
+    if ( (t->cp = cp_init(t->p.cp_path, &t->cp_fd)) == NULL) {
       fprintf(stderr,"cp_init: failed\n");
       goto done;
     }
+    p->cp = t->cp; /* expose the control port handle */
     t->cp_clients = calloc(1, bytes_nbits(p->maxfd+1));
     if (t->cp_clients == NULL) goto done;
   }
@@ -312,7 +313,7 @@ static void *worker(void *_tc) {
     /* is I/O from the from main thread on the control pipe? */ 
     if (ev.data.fd == tc->pipe_fd[0]) { 
       if (read(tc->pipe_fd[0],&op,sizeof(op)) != sizeof(op)) goto done;
-      fprintf(stderr,"> thread %d: '%c' from main thread\n", thread_idx, op);
+      //fprintf(stderr,"> thread %d: '%c' from main thread\n", thread_idx, op);
       if (op == WORKER_PING) tc->pong = t->now; // respond to ping
       if (op == WORKER_SHUTDOWN) goto done;
       continue;

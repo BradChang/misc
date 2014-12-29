@@ -2,6 +2,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <signal.h>
+#include "libcontrolport.h"
 /*****************************************************************************
  * libtcpsrv                                                                 *
  * Provides a threaded TCP server. Interface to application is via callbacks *
@@ -16,7 +17,9 @@ typedef struct {
   int sz;               /* size of structure for each active descriptor */
   void *data;           /* opaque */
   int periodic_seconds; /* how often to invoke periodic cb, if any */
-  char *cp_path;        /* control port path - unix domain socket */
+  /* control port */
+  char *cp_path;        /* path - unix domain socket, may be null */
+  void *cp;             /* output: exposes control port handle for cp_add_cmd */
   /* callbacks into the application. may be NULL.  */
   void (*slot_init)(void *slot, int nslots, void *data);           // at program startup
   void (*on_accept)(void *slot, int fd, struct sockaddr_in6 *sa, void *data, int *flags);   // app should renew the slot
