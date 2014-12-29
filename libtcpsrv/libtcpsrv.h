@@ -16,6 +16,7 @@ typedef struct {
   int sz;               /* size of structure for each active descriptor */
   void *data;           /* opaque */
   int periodic_seconds; /* how often to invoke periodic cb, if any */
+  char *cp_path;        /* control port path - unix domain socket */
   /* callbacks into the application. may be NULL.  */
   void (*slot_init)(void *slot, int nslots, void *data);           // at program startup
   void (*on_accept)(void *slot, int fd, struct sockaddr_in6 *sa, void *data, int *flags);   // app should renew the slot
@@ -58,6 +59,10 @@ typedef struct _tcpsrv_t {
   int fd;           /* listener fd */
   int ticks;        /* global time ticker */
   int shutdown;     /* can be set in any thread to induce global shutdown */
+  /* we use these to integrate the external control port library */
+  int cp_fd;        /* control port listener descriptor */
+  void *cp;         /* control port handle */
+  char *cp_clients; /* bit mask of connected client descriptors */
   /* the set of all signals, and the smaller set of signals we accept. */
   sigset_t all;
   sigset_t few;

@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "libtcpsrv.h"
+#include "libcontrolport.h"
 
 /* a few macros used to implement a mask of n bits. */
 /* test/set/clear the bit at index i in bitmask c */
@@ -226,6 +227,16 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
     goto done;
   }
 
+  /* set up the control port */
+  if (t->p.cp_path) {
+    if ( (t->cp = cp_init(t->p.cp_path, NULL, NULL, &t->cp_fd)) == NULL) {
+      fprintf(stderr,"cp_init: failed\n");
+      goto done;
+    }
+    t->cp_clients = calloc(1, bytes_nbits(p->maxfd+1));
+    if (t->cp_clients == NULL) goto done;
+  }
+
   /* create thread areas */
   t->tc = calloc(t->p.nthread,sizeof(tcpsrv_thread_t));
   if (t->tc == NULL) goto done;
@@ -253,6 +264,8 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
       if (t->si) free(t->si);
       if (t->signal_fd > 0) close(t->signal_fd);
       if (t->epoll_fd > 0) close(t->epoll_fd);
+      if (t->cp) cp_fini(t->cp);
+      if (t->cp_clients) free(t->cp_clients);
       if (t->tc) {
         for(n=0; n < t->p.nthread; n++) {
           if (t->tc[n].pipe_fd[0] > 0) close(t->tc[n].pipe_fd[0]);
@@ -340,6 +353,22 @@ static void *worker(void *_tc) {
   return rv;
 }
 
+/* here is a lot going on under the hood. cp_service handles any control 
+ * port i/o. If the ready-fd is the listening descriptor, it accepts the
+ * new connection, and returns (rc > 0) a new fd that we should poll. If
+ * rc<0 its an fd that we should stop polling; libcontrolport closed it.
+ * BUT that's done for us; kernel removed it from epoll when fd closed. */
+static void handle_control(tcpsrv_t *t, int fd) {
+  int rc;
+
+  rc = cp_service(t->cp, fd);
+  if (rc < 0) BIT_CLEAR(t->cp_clients, -rc);
+  if (rc <=0) return;
+
+  BIT_SET(t->cp_clients, rc);
+  if (add_epoll(t->epoll_fd, EPOLLIN, rc)) t->shutdown=1;
+}
+
 static void handle_signal(tcpsrv_t *t) {
   struct signalfd_siginfo info;
   int rc = -1;
@@ -375,6 +404,9 @@ int tcpsrv_run(void *_t) {
   if (setup_listener(t)) goto done; 
   if (add_epoll(t->epoll_fd, EPOLLIN, t->fd))        goto done; // listening socket
   if (add_epoll(t->epoll_fd, EPOLLIN, t->signal_fd)) goto done; // signal socket
+  if (t->cp) {
+    if (add_epoll(t->epoll_fd, EPOLLIN, t->cp_fd))   goto done; // control port 
+  }
 
 
   for(n=0; n < t->p.nthread; n++) {
@@ -388,8 +420,14 @@ int tcpsrv_run(void *_t) {
     assert(ev.events & EPOLLIN);
     if (t->p.verbose) fprintf(stderr,"POLLIN fd %d\n", ev.data.fd);
 
-    if      (ev.data.fd == t->fd)        accept_client(t);
-    else if (ev.data.fd == t->signal_fd) handle_signal(t);
+    if      (ev.data.fd == t->fd)                accept_client(t);
+    else if (ev.data.fd == t->signal_fd)         handle_signal(t);
+    else if (ev.data.fd == t->cp_fd)             handle_control(t,t->cp_fd);
+    else if (BIT_SET(t->cp_clients, ev.data.fd)) handle_control(t,ev.data.fd);
+    else {
+      fprintf(stderr,"epoll fd %d unrecognized\n", ev.data.fd);
+      t->shutdown=1;
+    }
 
     if (t->shutdown) {
       send_workers(t,WORKER_SHUTDOWN);
@@ -416,6 +454,7 @@ void tcpsrv_fini(void *_t) {
   free(t->slots);
   close(t->signal_fd);
   close(t->epoll_fd);
+  if (t->cp) cp_fini(t->cp);
   for(n=0; n < t->p.nthread; n++) {
     close(t->tc[n].pipe_fd[0]);
     close(t->tc[n].pipe_fd[1]);
