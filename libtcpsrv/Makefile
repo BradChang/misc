@@ -1,11 +1,9 @@
-TESTS=$(patsubst %.c,%,$(wildcard test*.c))
-OBJS=libtcpsrv.a $(TESTS)
+OBJS=libtcpsrv.a 
 SUBDIRS=controlport
 all: $(SUBDIRS) $(OBJS)
 CFLAGS=-pthread -I./controlport
 CFLAGS+=-g
 #CFLAGS+=-O2
-TESTS_LDFLAGS=-L. -ltcpsrv -L./controlport -lcontrolport
 
 libtcpsrv.a: libtcpsrv.o
 	ar r $@ $^
@@ -13,15 +11,10 @@ libtcpsrv.a: libtcpsrv.o
 libtcpsrv.o: libtcpsrv.c libtcpsrv.h
 	$(CC) $(CFLAGS) -c $< 
 
-# test apps
+.PHONY: clean $(SUBDIRS) tests
 
-test%: test%.o libtcpsrv.a controlport/libcontrolport.a
-	$(CC) $(CFLAGS) -o $@ $< $(TESTS_LDFLAGS) 
-
-test%.o: test%.c
-	$(CC) $(CFLAGS) -c $< 
-
-.PHONY: clean $(SUBDIRS)
+tests:
+	make -C tests
 
 $(SUBDIRS):
 	for d in $(SUBDIRS); do make -C $$d; done
@@ -29,3 +22,4 @@ $(SUBDIRS):
 clean:
 	rm -f *.o $(OBJS)
 	for d in $(SUBDIRS); do make -C $$d clean; done
+	make -C tests clean
