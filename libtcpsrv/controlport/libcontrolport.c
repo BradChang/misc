@@ -9,13 +9,15 @@
 #include "tpl.h"
 
 typedef struct {  // wraps a command structure 
-  cp_cmd_t cmd;
+  char *name;
+  cp_cmd_f *cmdf;
+  char *help;
   UT_hash_handle hh;
-} cp_cmd_w;
+} cp_cmd;
 
 typedef struct {
   struct sockaddr_un addr;
-  cp_cmd_w *cmds; // hash table of commands
+  cp_cmd *cmds;   // hash table of commands
   int fd;         // listener descriptor
   void *data;     // opaque data pointer
   UT_array *fds;  // descriptors of connected clients
@@ -34,9 +36,9 @@ static int quit_cmd(void *_cp, int argc, char **argv, void *data) {
 
 static int help_cmd(void *_cp, int argc, char **argv, void *data) {
   cp_t *cp = (cp_t*)_cp;
-  cp_cmd_w *cw, *tmp;
+  cp_cmd *cw, *tmp;
   HASH_ITER(hh, cp->cmds, cw, tmp) {
-    cp_printf(_cp, "%-20s %s\n", cw->cmd.name, cw->cmd.help ? cw->cmd.help : "");
+    cp_printf(_cp, "%-20s %s\n", cw->name, cw->help ? cw->help : "");
   }
   return CP_OK; 
 }
@@ -49,8 +51,7 @@ static int unknown_cmd(void *_cp, int argc, char **argv, void *data) {
 /*******************************************************************************
  * library API
  ******************************************************************************/
-void *cp_init(char *path, cp_cmd_t *cmds, void *data, int *fd) {
-  cp_cmd_t *cmd;
+void *cp_init(char *path, void *data, int *fd) {
   int rc=-1;
   cp_t *cp;
   
@@ -78,9 +79,6 @@ void *cp_init(char *path, cp_cmd_t *cmds, void *data, int *fd) {
     fprintf(stderr,"listen: %s\n",strerror(errno)); goto done;
   }
 
-  for(cmd=cmds; cmd && cmd->name; cmd++) {
-    cp_add_cmd(cp,cmd->name,cmd->cmdf,cmd->help);
-  }
   cp_add_cmd(cp, "help", help_cmd, "this text");
   cp_add_cmd(cp, "quit", quit_cmd, "close session");
 
@@ -101,25 +99,25 @@ void *cp_init(char *path, cp_cmd_t *cmds, void *data, int *fd) {
 
 void cp_add_cmd(void *_cp, char *name, cp_cmd_f *cmd, char *help) {
   cp_t *cp = (cp_t*)_cp;
-  cp_cmd_w *cw;
+  cp_cmd *cw;
 
   /* create new command if it isn't in the hash; else update in place */
   HASH_FIND(hh, cp->cmds, name, strlen(name), cw);
   if (cw == NULL) {
     cw = calloc(1,sizeof(*cw));
     if (cw == NULL) { fprintf(stderr,"out of memory\n"); exit(-1); }
-    cw->cmd.name = strdup(name);
-    HASH_ADD_KEYPTR(hh, cp->cmds, cw->cmd.name, strlen(cw->cmd.name), cw);
+    cw->name = strdup(name);
+    HASH_ADD_KEYPTR(hh, cp->cmds, cw->name, strlen(cw->name), cw);
   }
-  cw->cmd.cmdf = cmd;
-  if (cw->cmd.help) free(cw->cmd.help);
-  cw->cmd.help = help ? strdup(help) : NULL;
+  cw->cmdf = cmd;
+  if (cw->help) free(cw->help);
+  cw->help = help ? strdup(help) : NULL;
 }
 
 static int do_cmd(cp_t *cp, int fd, int pos) {
   char *arg,**v=NULL,**argv;
   cp_cmd_f *cmd;
-  cp_cmd_w *cw;
+  cp_cmd *cw;
   tpl_node *tn;
   tpl_bin bin;
   int rc,tc;
@@ -141,7 +139,7 @@ static int do_cmd(cp_t *cp, int fd, int pos) {
   utstring_clear(cp->s);
   argv = (char**)utarray_front(cp->argv);
   if (argv) HASH_FIND_STR(cp->cmds, *argv, cw);
-  cmd = (argv && cw) ?  cw->cmd.cmdf : unknown_cmd;
+  cmd = (argv && cw) ?  cw->cmdf : unknown_cmd;
   rc = cmd(cp, cp->argc, argv, cp->data);
   while ( (v=(char**)utarray_next(cp->argv,v))) free(*v);
 
@@ -204,11 +202,11 @@ void cp_fini(void *_cp) {
   cp_t *cp = (cp_t*)_cp;
 
   /* free up command structures */
-  cp_cmd_w *cw, *tmp;
+  cp_cmd *cw, *tmp;
   HASH_ITER(hh, cp->cmds, cw, tmp) {
     HASH_DEL(cp->cmds, cw);
-    free(cw->cmd.name);
-    if (cw->cmd.help) free(cw->cmd.help);
+    free(cw->name);
+    if (cw->help) free(cw->help);
     free(cw);
   }
 

@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
   void *cp;
   int fd,epoll_fd, rc;
   struct epoll_event ev;
-  cp = cp_init("/tmp/cp", NULL, NULL, &fd);
+  cp = cp_init("/tmp/cp", NULL, &fd);
   cp_add_cmd(cp, "halt", halt_fcn, "halts the server");
 
   epoll_fd = epoll_create(1);

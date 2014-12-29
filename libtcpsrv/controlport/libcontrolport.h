@@ -3,16 +3,10 @@
 
 #include <stdlib.h>
 
+/* control port command callback, and its allowed return values */
 typedef int (cp_cmd_f)(void *cp, int argc, char **argv, void *data);
-
-typedef struct {
-  char *name;
-  cp_cmd_f *cmdf;
-  char *help;
-  // return values from a control port command callback
-#define CP_OK    ( 0)
-#define CP_CLOSE (-1)
-} cp_cmd_t;
+#define CP_OK    ( 0)  // normal  
+#define CP_CLOSE (-1)  // tells library to disconnect client
 
 /******************************************************************************
  * cp_init:     lib creates a unix domain socket, gives app listener fd to poll
@@ -24,7 +18,7 @@ typedef struct {
  * cp_fini:     closes the control port, terminates any clients
  * cp_printf:   used inside a command callback
  *****************************************************************************/
-void *cp_init(char *path, cp_cmd_t *cmds, void *data, int *fd);
+void *cp_init(char *path, void *data, int *fd);
 void  cp_add_cmd(void*, char *name, cp_cmd_f *cmd, char *help);
 int   cp_service(void*, int fd);
 void  cp_fini(void*);
