@@ -6,3 +6,4 @@ libtconf.a: tconf.c
 
 clean:
 	rm -f libtconf.a *.o
+	make -C tests clean
