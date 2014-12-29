@@ -10,16 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "libtcpsrv.h"
-#include "libcontrolport.h"
-
-/* a few macros used to implement a mask of n bits. */
-/* test/set/clear the bit at index i in bitmask c */
-#define BIT_TEST(c,i)  (c[i/8] &   (1 << (i % 8)))
-#define BIT_SET(c,i)   (c[i/8] |=  (1 << (i % 8)))
-#define BIT_CLEAR(c,i) (c[i/8] &= ~(1 << (i % 8)))
-#define bytes_nbits(n) ((n/8) + ((n % 8) ? 1 : 0))
-
-#define fd_slot(t,fd) (t->slots + (fd * t->p.sz))
+#include "internal.h"
 
 /* signals that we'll accept synchronously via signalfd */
 static int sigs[] = {SIGHUP,SIGTERM,SIGINT,SIGQUIT,SIGALRM};
@@ -236,6 +227,8 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
     p->cp = t->cp; /* expose the control port handle */
     t->cp_clients = calloc(1, bytes_nbits(p->maxfd+1));
     if (t->cp_clients == NULL) goto done;
+
+    register_cp_cmds(t);
   }
 
   /* create thread areas */

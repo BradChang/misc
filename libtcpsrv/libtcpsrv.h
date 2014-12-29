@@ -1,8 +1,10 @@
+#ifndef __TCPSRV_H__
+#define __TCPSRV_H__
+
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <pthread.h>
-#include <signal.h>
 #include "libcontrolport.h"
+
 /*****************************************************************************
  * libtcpsrv                                                                 *
  * Provides a threaded TCP server. Interface to application is via callbacks *
@@ -38,59 +40,16 @@ typedef struct {
 #define TCPSRV_CAN_WRITE    (1 << 5)
 #define TCPSRV_DO_EXIT      (1 << 6)
 
-typedef struct {
-  int thread_idx;
-  int epoll_fd;
-#define WORKER_PING     'p'
-#define WORKER_SHUTDOWN 's'
-  int pipe_fd[2];  // to main thread; [0]=child read end, [1]=parent write end 
-  time_t pong;     // timestamp of last thread ping-reply
-  struct _tcpsrv_t *t;
-  char *fdmask;    // bit mask of fds owned by this thread
-} tcpsrv_thread_t;
-
-typedef struct {
-  struct sockaddr_in6 sa; /* describes the remote endpoint */
-  time_t accept_ts;       /* unix time of socket acceptance*/
-} tcpsrv_slotinfo_t;
-
-typedef struct _tcpsrv_t {
-  tcpsrv_init_t p;
-  time_t now;       /* incremented @ 1hz */
-  int signal_fd;    /* how we accept our signals */
-  int epoll_fd;     /* for main thread, signalfd, listener etc */
-  int fd;           /* listener fd */
-  int ticks;        /* global time ticker */
-  int shutdown;     /* can be set in any thread to induce global shutdown */
-  /* we use these to integrate the external control port library */
-  int cp_fd;        /* control port listener descriptor */
-  void *cp;         /* control port handle */
-  char *cp_clients; /* bit mask of connected client descriptors */
-  /* the set of all signals, and the smaller set of signals we accept. */
-  sigset_t all;
-  sigset_t few;
-  /* there are 'n' threads spawned to service I/O. here we have an array
-   * of the threads themselves, and an array of our thread management struct */
-  pthread_t *th;
-  tcpsrv_thread_t *tc; 
-  /* some statistics */
-  int num_accepts;   
-  int num_overloads; /* rejects due to max fd exceeded */
-  int num_rejects;   /* TODO rejects due to ACL */
-  int high_watermark;/* max fd that has been accepted */
-  /* Each connection gets its own slot for app data. It is entirely handled
-   * by the application through callbacks. There is also a lib counterpart,
-   * slotinfo, where this library stores its own info about the connection.*/
-  tcpsrv_slotinfo_t *si;
-  char *slots;
-} tcpsrv_t;
-
+/*******************************************************************************
+ * API
+ ******************************************************************************/
 void *tcpsrv_init(tcpsrv_init_t *p);
 int tcpsrv_run(void *_t);
 void tcpsrv_fini(void *_t);
-
 /* initiate shutdown of the tcp server. shortly afterward tcpsrv_run should 
  * return. this function is meant for use only in control port callbacks.
  * but it could be called from a signal handler or another thread and be
  * expected to work since it just sets a flag in the tcpserver state. */
 void tcpsrv_shutdown(void *_t);
+
+#endif //__TCPSRV_H__

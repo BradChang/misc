@@ -5,10 +5,13 @@ CFLAGS=-pthread -I./controlport
 CFLAGS+=-g
 #CFLAGS+=-O2
 
-libtcpsrv.a: libtcpsrv.o
+libtcpsrv.a: libtcpsrv.o cmds.o
 	ar r $@ $^
 
-libtcpsrv.o: libtcpsrv.c libtcpsrv.h
+libtcpsrv.o: libtcpsrv.c libtcpsrv.h internal.h
+	$(CC) $(CFLAGS) -c $< 
+
+cmds.o: cmds.c libtcpsrv.h internal.h
 	$(CC) $(CFLAGS) -c $< 
 
 .PHONY: clean $(SUBDIRS) tests

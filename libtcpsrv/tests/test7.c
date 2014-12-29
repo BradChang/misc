@@ -15,7 +15,7 @@ int stats_cmd(void *cp, int argc, char **argv, void *_data) {
   cp_printf(cp, "invocation %u", (*count)++);
   return CP_OK;
 }
-int halt_cmd(void *cp, int argc, char **argv, void *_data) {
+int app_shutdown_cmd(void *cp, int argc, char **argv, void *_data) {
   cp_printf(cp, "halting server");
   tcpsrv_shutdown(_data);
   return CP_OK;
@@ -42,7 +42,7 @@ int main() {
   parms.data = &count;
   t=tcpsrv_init(&parms); if (!t) goto done;
   cp_add_cmd(parms.cp, "stats", stats_cmd, "show stats", &count);
-  cp_add_cmd(parms.cp, "halt",  halt_cmd,  "terminate", t);
+  cp_add_cmd(parms.cp, "halt",  app_shutdown_cmd,  "app shutdown", t);
   tcpsrv_run(t);
   tcpsrv_fini(t);
 
