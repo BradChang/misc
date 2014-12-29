@@ -89,3 +89,8 @@ void *tcpsrv_init(tcpsrv_init_t *p);
 int tcpsrv_run(void *_t);
 void tcpsrv_fini(void *_t);
 
+/* initiate shutdown of the tcp server. shortly afterward tcpsrv_run should 
+ * return. this function is meant for use only in control port callbacks.
+ * but it could be called from a signal handler or another thread and be
+ * expected to work since it just sets a flag in the tcpserver state. */
+void tcpsrv_shutdown(void *_t);

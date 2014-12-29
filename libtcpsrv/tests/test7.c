@@ -16,9 +16,8 @@ int stats_cmd(void *cp, int argc, char **argv, void *_data) {
   return CP_OK;
 }
 int halt_cmd(void *cp, int argc, char **argv, void *_data) {
-  cp_printf(cp, "halting server\n");
-  cp_printf(cp, "TODO\n");
-  // FIXME need way to set t->shutdown
+  cp_printf(cp, "halting server");
+  tcpsrv_shutdown(_data);
   return CP_OK;
 }
 
@@ -43,7 +42,7 @@ int main() {
   parms.data = &count;
   t=tcpsrv_init(&parms); if (!t) goto done;
   cp_add_cmd(parms.cp, "stats", stats_cmd, "show stats", &count);
-  cp_add_cmd(parms.cp, "halt",  halt_cmd,  "terminate", NULL);
+  cp_add_cmd(parms.cp, "halt",  halt_cmd,  "terminate", t);
   tcpsrv_run(t);
   tcpsrv_fini(t);
 

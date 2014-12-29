@@ -456,6 +456,7 @@ void tcpsrv_fini(void *_t) {
   close(t->signal_fd);
   close(t->epoll_fd);
   if (t->cp) cp_fini(t->cp);
+  if (t->cp_clients) free(t->cp_clients);
   for(n=0; n < t->p.nthread; n++) {
     close(t->tc[n].pipe_fd[0]);
     close(t->tc[n].pipe_fd[1]);
@@ -466,4 +467,11 @@ void tcpsrv_fini(void *_t) {
   free(t->si);
   free(t->tc);
   free(t);
+}
+
+/* initiate shutdown procedure. eventually causes tcpsrv_run
+ * to return. meant for use in control port callbacks. */
+void tcpsrv_shutdown(void *_t) {
+  tcpsrv_t *t = (tcpsrv_t*)_t;
+  t->shutdown=1;
 }

@@ -8,7 +8,7 @@ LDFLAGS=-L.. -ltcpsrv -L../controlport -lcontrolport
 
 # test apps
 
-test%: test%.o 
+test%: test%.o ../libtcpsrv.a
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) 
 
 test%.o: test%.c
