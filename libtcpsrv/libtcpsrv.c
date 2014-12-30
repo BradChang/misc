@@ -414,10 +414,10 @@ int tcpsrv_run(void *_t) {
     assert(ev.events & EPOLLIN);
     if (t->p.verbose) fprintf(stderr,"POLLIN fd %d\n", ev.data.fd);
 
-    if      (ev.data.fd == t->fd)                accept_client(t);
-    else if (ev.data.fd == t->signal_fd)         handle_signal(t);
-    else if (ev.data.fd == t->cp_fd)             handle_control(t,t->cp_fd);
-    else if (BIT_SET(t->cp_clients, ev.data.fd)) handle_control(t,ev.data.fd);
+    if      (ev.data.fd == t->fd)                 accept_client(t);
+    else if (ev.data.fd == t->signal_fd)          handle_signal(t);
+    else if (ev.data.fd == t->cp_fd)              handle_control(t,t->cp_fd);
+    else if (BIT_TEST(t->cp_clients, ev.data.fd)) handle_control(t,ev.data.fd);
     else {
       fprintf(stderr,"epoll fd %d unrecognized\n", ev.data.fd);
       t->shutdown=1;
