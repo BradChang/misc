@@ -24,7 +24,7 @@ int app_shutdown_cmd(void *cp, int argc, char **argv, void *_data) {
 tcpsrv_init_t parms = {
   //.verbose=1,
   .nthread=2,
-  .maxfd = 13,
+  .maxfd = 20,
   .timeout = 10,
   .port = 1099,
   .sz = sizeof(slot_t),
