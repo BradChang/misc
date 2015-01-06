@@ -116,7 +116,7 @@ DMX Lighting, Sound, etc
 | {t}dmx_lighting/artnet[artnet]    | how to talk to an ArtNet DMX device using UDP
 | {t}sound[sound]                   | synthesizing sound (PCM) from sines, playing
 | {t}joystick[joystick]             | use SDL to read joystick axes and buttons in C 
-| {t}canvas/hexagons[hexagons]      | geometry of drawing hexagons (on HTML canvas)
+| {t}geometry/hexagons[hexagons]    | notes and code on geometry of drawing hexagons 
 | {t}cairo[cairo]                   | a few basic examples of 2D drawing with Cairo
 |=================================================================================================================
 
@@ -134,9 +134,6 @@ Shell functions & scripts
 | {b}bin2hex[bin2hex]   | read stdin, print as hex 
 | {b}hex2bin[hex2bin]   | take hex, emit as binary 
 | {b}fcut[fcut]         | print region of a file (given a byte position and length) 
-| {b}downsample[downsample] |  reduce a text file to x% of its lines (default 10%) 
-| {t}md5watch[md5watch] | list files changed since last run 
-| {b}mailpl[mailpl]     | send email with attachments in Perl
 | {t}remember[remember] | logs commands you want to remember
 | {b}setup[setup]       | configure my preferences for bash, etc
 |=================================================================================================================

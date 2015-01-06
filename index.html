@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
 <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
-<meta name="generator" content="AsciiDoc 8.6.7" />
+<meta name="generator" content="AsciiDoc 8.6.9" />
 <title></title>
 <style type="text/css">
 /* Shared CSS for AsciiDoc xhtml11 and html5 backends */
@@ -87,9 +87,15 @@ ul, ol, li > p {
 ul > li     { color: #aaa; }
 ul > li > * { color: black; }
 
-pre {
+.monospaced, code, pre {
+  font-family: "Courier New", Courier, monospace;
+  font-size: inherit;
+  color: navy;
   padding: 0;
   margin: 0;
+}
+pre {
+  white-space: pre-wrap;
 }
 
 #author {
@@ -219,7 +225,7 @@ div.exampleblock > div.content {
 }
 
 div.imageblock div.content { padding-left: 0; }
-span.image img { border-style: none; }
+span.image img { border-style: none; vertical-align: text-bottom; }
 a.image:visited { color: white; }
 
 dl {
@@ -415,12 +421,6 @@ div.unbreakable { page-break-inside: avoid; }
  *
  * */
 
-tt {
-  font-family: "Courier New", Courier, monospace;
-  font-size: inherit;
-  color: navy;
-}
-
 div.tableblock {
   margin-top: 1.0em;
   margin-bottom: 1.5em;
@@ -453,12 +453,6 @@ div.tableblock > table[frame="vsides"] {
  * html5 specific
  *
  * */
-
-.monospaced {
-  font-family: "Courier New", Courier, monospace;
-  font-size: inherit;
-  color: navy;
-}
 
 table.tableblock {
   margin-top: 1.0em;
@@ -539,6 +533,8 @@ body.manpage div.sectionbody {
 @media print {
   body.manpage div#toc { display: none; }
 }
+
+
 </style>
 <script type="text/javascript">
 /*<![CDATA[*/
@@ -761,7 +757,7 @@ download the repo: <a href="https://github.com/troydhanson/misc/archive/master.z
 </li>
 <li>
 <p>
-clone it with git: <tt>git clone https://github.com/troydhanson/misc.git</tt>
+clone it with git: <code>git clone https://github.com/troydhanson/misc.git</code>
 </p>
 </li>
 <li>
@@ -782,35 +778,35 @@ cellspacing="0" cellpadding="4">
 <col width="83%" />
 <tbody>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/tcp/basic">tcp</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/network/tcp/basic">tcp</a></code></p></td>
 <td align="left" valign="top"><p class="table">TCP client and server in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/udp/basic">udp</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/network/udp/basic">udp</a></code></p></td>
 <td align="left" valign="top"><p class="table">UDP client and server in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/dns">dns</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/network/dns">dns</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to do a DNS lookup in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/pcap/basic">pcap</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/network/pcap/basic">pcap</a></code></p></td>
 <td align="left" valign="top"><p class="table">using libpcap to capture packets in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/ifinfo">ifinfo</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/network/ifinfo">ifinfo</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to list network interfaces, IP addresses and MACs in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/unixdomain">unixdomain</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/network/unixdomain">unixdomain</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to use UNIX domain sockets in C <a href="http://troydhanson.github.com/misc/Unix_domain_sockets.html">notes</a></p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/qcp">qcp</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/network/qcp">qcp</a></code></p></td>
 <td align="left" valign="top"><p class="table">a utility to copy files across a network with no authentication</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/network/serial">serial</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/network/serial">serial</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to read the serial port in C and node.js</p></td>
 </tr>
 </tbody>
@@ -828,27 +824,27 @@ cellspacing="0" cellpadding="4">
 <col width="83%" />
 <tbody>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/sigio">sigio</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/sigio">sigio</a></code></p></td>
 <td align="left" valign="top"><p class="table">signal driven I/O in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/asm">asm</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/asm">asm</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to call into x86 assembly in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/inotify">inotify</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/inotify">inotify</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to get file events from the kernel in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/uthash/blob/master/tests/hashscan.c">peek</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/uthash/blob/master/tests/hashscan.c">peek</a></code></p></td>
 <td align="left" valign="top"><p class="table">peek into virtual memory of another process in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/pexit">pexit</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/pexit">pexit</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to get a signal when parent process exits in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/dlsym">dlsym</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/dlsym">dlsym</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to read symbol tables of shared libraries in C</p></td>
 </tr>
 </tbody>
@@ -866,23 +862,23 @@ cellspacing="0" cellpadding="4">
 <col width="83%" />
 <tbody>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/text_handling/slurp">slurp</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/text_handling/slurp">slurp</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to read a whole file in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/text_handling/looper">looper</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/text_handling/looper">looper</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to read a file line-by-line in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/text_handling/pcre">pcre</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/text_handling/pcre">pcre</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to use regular expressions in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/text_handling/lemon">lemon</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/text_handling/lemon">lemon</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to use the Lemon parser generator in C, <a href="http://troydhanson.github.com/misc/lemon_notes.html">notes</a></p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/text_handling/unicode">unicode</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/text_handling/unicode">unicode</a></code></p></td>
 <td align="left" valign="top"><p class="table">Unicode handling in C, UTF conversion, etc</p></td>
 </tr>
 </tbody>
@@ -900,15 +896,15 @@ cellspacing="0" cellpadding="4">
 <col width="83%" />
 <tbody>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/compression/zlib">zlib</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/compression/zlib">zlib</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to use zlib in C to gzip or gunzip</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/compression/entropy">entropy</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/compression/entropy">entropy</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to measure entropy in C, <a href="http://troydhanson.github.com/misc/Entropy.html">notes</a></p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/compression/bloom">bloom</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/compression/bloom">bloom</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to build a Bloom filter in C, <a href="http://troydhanson.github.com/misc/bloom.html">notes</a></p></td>
 </tr>
 </tbody>
@@ -926,43 +922,43 @@ cellspacing="0" cellpadding="4">
 <col width="83%" />
 <tbody>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/sized">sized</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/sized">sized</a></code></p></td>
 <td align="left" valign="top"><p class="table">a utility to keep a directory under a certain size in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/watch_copy">watch_copy</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/watch_copy">watch_copy</a></code></p></td>
 <td align="left" valign="top"><p class="table">a utility to watch a directory and copy files from it</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/init">init</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/init">init</a></code></p></td>
 <td align="left" valign="top"><p class="table">initscripts samples for Linux and OS X. <a href="http://troydhanson.github.io/misc/initscripts.html">notes</a></p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/ts">timeseries</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/ts">timeseries</a></code></p></td>
 <td align="left" valign="top"><p class="table">a library to keep a rolling time series in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/uuid">uuid</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/uuid">uuid</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to use libuuid to get universally unique identifiers</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/tracker">tracker</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/tracker">tracker</a></code></p></td>
 <td align="left" valign="top"><p class="table">a library to track top strings (URL&#8217;s, etc) in a stream</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/tconf">tconf</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/tconf">tconf</a></code></p></td>
 <td align="left" valign="top"><p class="table">library to read a key-value configuration file in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/controlport">controlport</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/controlport">controlport</a></code></p></td>
 <td align="left" valign="top"><p class="table">library to embed a control port into a C program</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/mworkers">mworkers</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/mworkers">mworkers</a></code></p></td>
 <td align="left" valign="top"><p class="table">multi-process and multi-thread examples of managing workers in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/server_tools/rw_wrap">rw_wrap</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/rw_wrap">rw_wrap</a></code></p></td>
 <td align="left" valign="top"><p class="table">macros to deal with partial writes and reads in C</p></td>
 </tr>
 </tbody>
@@ -980,11 +976,11 @@ cellspacing="0" cellpadding="4">
 <col width="83%" />
 <tbody>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/terminal_io/ncurses">ncurses</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/terminal_io/ncurses">ncurses</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to use ncurses in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/terminal_io/readline">readline</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/terminal_io/readline">readline</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to use readline in C</p></td>
 </tr>
 </tbody>
@@ -1002,27 +998,27 @@ cellspacing="0" cellpadding="4">
 <col width="83%" />
 <tbody>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/av/dmx_lighting/ftdi">ftdi</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/av/dmx_lighting/ftdi">ftdi</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to use libftdi to drive a DMX controller</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/av/dmx_lighting/artnet">artnet</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/av/dmx_lighting/artnet">artnet</a></code></p></td>
 <td align="left" valign="top"><p class="table">how to talk to an ArtNet DMX device using UDP</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/av/sound">sound</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/av/sound">sound</a></code></p></td>
 <td align="left" valign="top"><p class="table">synthesizing sound (PCM) from sines, playing</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/av/joystick">joystick</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/av/joystick">joystick</a></code></p></td>
 <td align="left" valign="top"><p class="table">use SDL to read joystick axes and buttons in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/av/canvas/hexagons">hexagons</a></tt></p></td>
-<td align="left" valign="top"><p class="table">geometry of drawing hexagons (on HTML canvas)</p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/av/geometry/hexagons">hexagons</a></code></p></td>
+<td align="left" valign="top"><p class="table">notes and code on geometry of drawing hexagons</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/av/cairo">cairo</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/av/cairo">cairo</a></code></p></td>
 <td align="left" valign="top"><p class="table">a few basic examples of 2D drawing with Cairo</p></td>
 </tr>
 </tbody>
@@ -1041,43 +1037,31 @@ cellspacing="0" cellpadding="4">
 <col width="83%" />
 <tbody>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/scripts/fifor">fifor</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/scripts/fifor">fifor</a></code></p></td>
 <td align="left" valign="top"><p class="table">trigger make from a vim keypress, among other uses.</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/blob/master/scripts/anb">anb</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/blob/master/scripts/anb">anb</a></code></p></td>
 <td align="left" valign="top"><p class="table">list lines in file A missing in file B (anb is short for "a not b")</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/blob/master/scripts/bin2hex">bin2hex</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/blob/master/scripts/bin2hex">bin2hex</a></code></p></td>
 <td align="left" valign="top"><p class="table">read stdin, print as hex</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/blob/master/scripts/hex2bin">hex2bin</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/blob/master/scripts/hex2bin">hex2bin</a></code></p></td>
 <td align="left" valign="top"><p class="table">take hex, emit as binary</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/blob/master/scripts/fcut">fcut</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/blob/master/scripts/fcut">fcut</a></code></p></td>
 <td align="left" valign="top"><p class="table">print region of a file (given a byte position and length)</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/blob/master/scripts/downsample">downsample</a></tt></p></td>
-<td align="left" valign="top"><p class="table">reduce a text file to x% of its lines (default 10%)</p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/scripts/md5watch">md5watch</a></tt></p></td>
-<td align="left" valign="top"><p class="table">list files changed since last run</p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/blob/master/scripts/mailpl">mailpl</a></tt></p></td>
-<td align="left" valign="top"><p class="table">send email with attachments in Perl</p></td>
-</tr>
-<tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/tree/master/scripts/remember">remember</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/scripts/remember">remember</a></code></p></td>
 <td align="left" valign="top"><p class="table">logs commands you want to remember</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><tt><a href="https://github.com/troydhanson/misc/blob/master/scripts/setup">setup</a></tt></p></td>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/blob/master/scripts/setup">setup</a></code></p></td>
 <td align="left" valign="top"><p class="table">configure my preferences for bash, etc</p></td>
 </tr>
 </tbody>
@@ -1094,7 +1078,7 @@ cellspacing="0" cellpadding="4">
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2014-12-02 13:58:07 EST
+Last updated 2015-01-06 17:51:02 EST
 </div>
 </div>
 </body>
