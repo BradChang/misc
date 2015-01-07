@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
   int rc;
 
   /**********************************************************
-   * create an IPv4/TCP socket, not yet bound to any address
+   * create an IPv6/TCP socket, not yet bound to any address
    *********************************************************/
   int fd = socket(AF_INET6, SOCK_STREAM, 0);
   if (fd == -1) {
