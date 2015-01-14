@@ -39,8 +39,8 @@ typedef struct {
   void (*on_accept)(tcpsrv_client_t *client, void *data, int *flags); // app should renew the slot
   void (*on_data)(tcpsrv_client_t *client, void *data, int *flags);   // app should consume/emit data
   void (*on_close)(tcpsrv_client_t *client, void *data);              // cleanup slot at fd closure
-  int (*on_invoke)(tcpsrv_client_t *client, void *msg, void *data);   // special purpose
   int  (*periodic)(int uptime, void *data);                           // app periodic callback 
+  void (*on_invoke)(tcpsrv_client_t *client, void *ptr, void *data, int *flags); // special purpose
 } tcpsrv_init_t;
 
 /* these are values for flags in the callbacks */
@@ -66,9 +66,9 @@ void tcpsrv_shutdown(void *_t);
 /* used within a control port callback, this causes each io-thread to invoke
  * the on_invoke cb for each active fd slot. this function exists because
  * the slots belong to each thread. we don't inspect them from the main thread,
- * since that would require locking. the msg parameter can be anything, such as
- * a memory buffer that the cb should populate by indexing into by fd,
- * or a file descriptor array that the threads should respond on, etc. */
-void tcpsrv_invoke(void *_t, void *msg);
+ * since that would require locking. the ptr parameter can be anything, such as
+ * to a memory buffer that the thread should populate (by indexing into by 
+ * thread_idx), or a file descriptor array that the threads should respond on.*/
+void tcpsrv_invoke(void *_t, void *ptr);
 
 #endif //__TCPSRV_H__

@@ -105,6 +105,22 @@ static void send_workers(tcpsrv_t *t, char op) {
   }
 }
 
+static void send_workers_ptr(tcpsrv_t *t, char op, void *ptr) {
+  int n,rc;
+
+  char buf[sizeof(op)+sizeof(ptr)];
+  buf[0] = op; memcpy(&buf[1], &ptr, sizeof(ptr));
+
+  for(n=0; n < t->p.nthread; n++) {
+    rc = write(t->tc[n].pipe_fd[1], buf, sizeof(buf));
+    if (rc != sizeof(buf)) {
+      fprintf(stderr,"control pipe: %s\n", (rc<0) ? strerror(errno) : "full");
+      t->shutdown=1;
+    }
+  }
+}
+
+
 static void periodic(tcpsrv_t *t) {
   /* at 1hz we we send a byte on the control pipe to each worker.
    * if dead worker, pipe eventually fills, inducing shutdown. */
@@ -286,12 +302,24 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
   return t;
 }
 
+/* helper to handle DO_EXIT/DO_CLOSE flags from on_data or on_invoke cb */
+static int do_flags(tcpsrv_t *t, tcpsrv_thread_t *tc, int fd, int flags) {
+  if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) return 0;
+  if (flags & TCPSRV_DO_EXIT) t->shutdown=1; // main checks at @1hz
+  if (flags & TCPSRV_DO_CLOSE) {
+    if (t->p.on_close) t->p.on_close(&t->si[fd].client, t->p.data);
+    BIT_CLEAR(tc->fdmask, fd);
+    close(fd); /* at this instant, fd could be re-used- don't use */
+  }
+  return 1;
+}
+
 static void *worker(void *_tc) {
   tcpsrv_thread_t *tc = (tcpsrv_thread_t*)_tc;
-  int thread_idx = tc->thread_idx, i;
+  int thread_idx = tc->thread_idx, i, flags;
   struct epoll_event ev;
   tcpsrv_t *t = tc->t;
-  void *rv=NULL;
+  void *rv=NULL, *ptr;
   char op;
 
   if (t->p.verbose) fprintf(stderr,"thread %d starting\n", thread_idx);
@@ -302,7 +330,7 @@ static void *worker(void *_tc) {
   pthread_sigmask(SIG_BLOCK, &all, NULL);
 
   /* listen to parent */
-  if (add_epoll(tc->epoll_fd, EPOLLIN, tc->pipe_fd[0])) goto done; 
+  if (add_epoll(tc->epoll_fd, EPOLLIN, tc->pipe_fd[0])) goto done;
 
   /* event loop */
   while (epoll_wait(tc->epoll_fd, &ev, 1, -1) > 0) {
@@ -316,27 +344,34 @@ static void *worker(void *_tc) {
     /* is I/O from the from main thread on the control pipe? */ 
     if (ev.data.fd == tc->pipe_fd[0]) { 
       if (read(tc->pipe_fd[0],&op,sizeof(op)) != sizeof(op)) goto done;
-      //fprintf(stderr,"> thread %d: '%c' from main thread\n", thread_idx, op);
-      if (op == WORKER_PING) tc->pong = t->now; // respond to ping
-      if (op == WORKER_SHUTDOWN) goto done;
+      switch(op) {
+        case WORKER_PING: tc->pong = t->now; break;
+        case WORKER_SHUTDOWN: goto done; break;
+        case WORKER_INVOKE:
+          /* get ptr, run on_invoke cb on each of this thread's active slots */
+          if (read(tc->pipe_fd[0],&ptr,sizeof(ptr)) != sizeof(ptr)) goto done;
+          for(i=0; i <= t->p.maxfd; i++) {
+            if (BIT_TEST(tc->fdmask,i) == 0) continue;
+            if (t->p.on_invoke) {
+              flags=0;
+              t->p.on_invoke(&t->si[i].client, ptr, t->p.data, &flags);
+              do_flags(t,tc,ev.data.fd,flags);
+            }
+          }
+          break;
+      }
       continue;
     }
 
     /* regular I/O. */
     char *slot = fd_slot(t,ev.data.fd);
-    int flags = 0;
+    flags = 0;
     if (ev.events & EPOLLIN)  flags |= TCPSRV_CAN_READ;
     if (ev.events & EPOLLOUT) flags |= TCPSRV_CAN_WRITE;
     t->p.on_data(&t->si[ev.data.fd].client, t->p.data, &flags); 
 
     /* did app set terminal condition or close fd? */
-    if (flags & TCPSRV_DO_EXIT) t->shutdown=1; // main checks at @1hz
-    if (flags & TCPSRV_DO_CLOSE) {
-      if (t->p.on_close) t->p.on_close(&t->si[ev.data.fd].client, t->p.data);
-      BIT_CLEAR(tc->fdmask, ev.data.fd);
-      close(ev.data.fd); /* at this instant, fd could be re-used- don't use */
-    }
-    if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) continue;
+    if (do_flags(t,tc,ev.data.fd,flags)) continue;
 
     /* did app modify poll condition? (set neither bit to keep current poll) */
     if (flags & (TCPSRV_POLL_READ | TCPSRV_POLL_WRITE)) {
@@ -472,9 +507,17 @@ void tcpsrv_fini(void *_t) {
   free(t);
 }
 
-/* initiate shutdown procedure. eventually causes tcpsrv_run
- * to return. meant for use in control port callbacks. */
-void tcpsrv_shutdown(void *_t) {
-  tcpsrv_t *t = (tcpsrv_t*)_t;
-  t->shutdown=1;
+/****************************************************************************** 
+ * special API - for use within control port callbacks 
+ ******************************************************************************/
+// start shutdown, causing tcpsrv_run to return eventually 
+void tcpsrv_shutdown(void *_t) { 
+   tcpsrv_t *t = (tcpsrv_t*)_t;
+   t->shutdown=1;
 }
+// queue each thread to run on_invoke cb on each of their active slots
+void tcpsrv_invoke(void *_t, void *ptr) { 
+  tcpsrv_t *t = (tcpsrv_t*)_t;
+  send_workers_ptr(t,WORKER_INVOKE,ptr);
+}
+

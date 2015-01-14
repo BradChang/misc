@@ -19,6 +19,7 @@ typedef struct {
   int epoll_fd;
 #define WORKER_PING     'p'
 #define WORKER_SHUTDOWN 's'
+#define WORKER_INVOKE   'i'
   int pipe_fd[2];  // to main thread; [0]=child read end, [1]=parent write end 
   time_t pong;     // timestamp of last thread ping-reply
   struct _tcpsrv_t *t;
