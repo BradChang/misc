@@ -2,20 +2,14 @@
 #include "libtcpsrv.h"
 
 typedef struct {
-  int fd;
+  int i; // unused
 } slot_t;
 
-char *addr(struct sockaddr_in6 *sa) {
-  char buf[50];
-  int rc = inet_ntop(AF_INET6, &sa->sin6_addr, buf, sizeof(buf));
-  return rc ? buf : "?";
-}
-
-void greet(void *_slot, int fd, struct sockaddr_in6 *sa, void *data, int *flags) {
+void greet(tcpsrv_client_t *c, void *data, int *flags) {
   char buf[] = "welcome (" __FILE__ ")\n";
-  slot_t *slot = (slot_t*)_slot;
-  fprintf(stderr,"accepting fd %d in main thread from %s\n", fd, addr(sa));
-  write(fd, buf, sizeof(buf));
+  slot_t *slot = (slot_t*)c->slot;
+  fprintf(stderr,"accepting fd %d in main thread from %s\n", c->fd, c->ip_str);
+  write(c->fd, buf, sizeof(buf));
   *flags |= TCPSRV_DO_CLOSE;
 }
 

@@ -5,6 +5,16 @@
 #include <netinet/in.h>
 #include "libcontrolport.h"
 
+/* we expose this structure to application describing the connected client */
+typedef struct {
+  int fd;                             /* descriptor to client */
+  void *slot;                         /* app slot for client */
+  struct sockaddr_in6 sa;             /* remote addr, port, */
+  char ip_str[INET6_ADDRSTRLEN];      /* presentation form */
+  int port;                           /* in host order     */
+  time_t accept_ts;                   /* time of socket acceptance */
+} tcpsrv_client_t;
+
 /*****************************************************************************
  * libtcpsrv                                                                 *
  * Provides a threaded TCP server. Interface to application is via callbacks *
@@ -24,11 +34,12 @@ typedef struct {
   void *cp;             /* output: exposes control port handle for cp_add_cmd */
   /* callbacks into the application. may be NULL.  */
   void (*slot_init)(void *slot, int nslots, void *data);           // at program startup
-  void (*on_accept)(void *slot, int fd, struct sockaddr_in6 *sa, void *data, int *flags);   // app should renew the slot
-  void (*on_data)(void *slot, int fd, void *data, int *flags);     // app should consume/emit data
-  void (*on_close)(void *slot, int fd, void *data);                // cleanup slot at fd closure
   void (*slot_fini)(void *slot, int nslots, void *data);           // at program termination
-  int  (*periodic)(int uptime, void *data);                        // app periodic callback 
+  void (*on_accept)(tcpsrv_client_t *client, void *data, int *flags); // app should renew the slot
+  void (*on_data)(tcpsrv_client_t *client, void *data, int *flags);   // app should consume/emit data
+  void (*on_close)(tcpsrv_client_t *client, void *data);              // cleanup slot at fd closure
+  int (*on_thinvoke)(tcpsrv_client_t *client, void *msg, void *data); // special purpose
+  int  (*periodic)(int uptime, void *data);                           // app periodic callback 
 } tcpsrv_init_t;
 
 /* these are values for flags in the callbacks */
@@ -51,5 +62,12 @@ void tcpsrv_fini(void *_t);
  * but it could be called from a signal handler or another thread and be
  * expected to work since it just sets a flag in the tcpserver state. */
 void tcpsrv_shutdown(void *_t);
+/* used within a control port callback, this causes each io-thread to invoke
+ * the on_thinvoke cb for each active fd slot. this function exists because
+ * the slots belong to each thread. we don't inspect them from the main thread,
+ * since that would require locking. the msg parameter can be anything, such as
+ * a memory buffer that the cb should populate by indexing into by thread_id,
+ * or a file descriptor array that the threads should respond on, etc. */
+void tcpsrv_thinvoke(void *_t, void *msg);
 
 #endif //__TCPSRV_H__

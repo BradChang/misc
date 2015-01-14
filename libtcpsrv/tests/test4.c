@@ -2,38 +2,36 @@
 #include "libtcpsrv.h"
 
 typedef struct {
-  int fd;
+  int i;
 } slot_t;
 
-char *addr(struct sockaddr_in6 *sa) {
-  char buf[50];
-  int rc = inet_ntop(AF_INET6, &sa->sin6_addr, buf, sizeof(buf));
-  return rc ? buf : "?";
-}
-
-void greet(void *_slot, int fd, struct sockaddr_in6 *sa, void *data, int *flags) {
+void greet(tcpsrv_client_t *c, void *data, int *flags) {
+  static int count=0;
   char buf[] = "welcome (" __FILE__ ")\n";
-  slot_t *slot = (slot_t*)_slot;
-  fprintf(stderr,"accepting fd %d in main thread from %s\n", fd, addr(sa));
-  write(fd, buf, sizeof(buf));
+  slot_t *slot = (slot_t*)c->slot;
+  slot->i = ++count;
+  fprintf(stderr,"accepting #%d fd %d in main thread from %s\n", slot->i, 
+          c->fd, c->ip_str);
+  write(c->fd, buf, sizeof(buf));
 }
 
-void data(void *_slot, int fd, void *data, int *flags) {
-  slot_t *slot = (slot_t*)_slot;
+void data(tcpsrv_client_t *c, void *data, int *flags) {
+  slot_t *slot = (slot_t*)c->slot;
   char buf[255];
   size_t nc=0;
-  fprintf(stderr,"fd %d in worker thread\n", fd);
-  fprintf(stderr,"fd %d readable: %c writable: %c\n", fd,
+  fprintf(stderr,"fd %d (#%d) in worker thread\n", c->fd, slot->i);
+  fprintf(stderr,"fd %d readable: %c writable: %c\n", c->fd,
     (*flags & TCPSRV_CAN_READ) ? 'y' : 'n',
     (*flags & TCPSRV_CAN_WRITE) ? 'y' : 'n');
-  if (*flags & TCPSRV_CAN_READ) nc=read(fd,buf,sizeof(buf));
-  fprintf(stderr,"fd %d read %d bytes [%.*s]\n", fd, (int)nc, (int)nc, buf);
+  if (*flags & TCPSRV_CAN_READ) nc=read(c->fd,buf,sizeof(buf));
+  fprintf(stderr,"fd %d read %d bytes [%.*s]\n", c->fd, (int)nc, (int)nc, buf);
   *flags |= TCPSRV_DO_CLOSE;
 }
 
-void on_close(void *_slot, int fd, void *data) {
-  slot_t *slot = (slot_t*)_slot;
-  fprintf(stderr,"fd %d in worker thread: on close\n", fd);
+void on_close(tcpsrv_client_t *c, void *data) {
+  slot_t *slot = (slot_t*)c->slot;
+  fprintf(stderr,"fd %d in worker thread: on close %s %d\n", c->fd, c->ip_str, 
+    c->port);
 }
 
 tcpsrv_init_t parms = {

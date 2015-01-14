@@ -117,14 +117,14 @@ static void periodic(tcpsrv_t *t) {
 }
 
 /* drain is a built-in default used if app has no on_data callback */
-static void drain(void *slot, int fd, void *data, int *flags) {
+static void drain(tcpsrv_client_t *client, void *data, int *flags) {
   int rc, pos, *fp;
   char buf[1024];
 
-  rc = read(fd, buf, sizeof(buf));
+  rc = read(client->fd, buf, sizeof(buf));
   switch(rc) { 
     default: fprintf(stderr,"received %d bytes\n", rc);         break;
-    case  0: fprintf(stderr,"fd %d closed\n", fd);              break;
+    case  0: fprintf(stderr,"fd %d closed\n", client->fd);      break;
     case -1: fprintf(stderr, "recv: %s\n", strerror(errno));    break;
   }
 
@@ -135,6 +135,7 @@ static void drain(void *slot, int fd, void *data, int *flags) {
 
 static void accept_client(tcpsrv_t *t) { // always in main thread
   int fd;
+  void *p;
   struct sockaddr_in6 in;
   socklen_t sz = sizeof(in);
 
@@ -151,21 +152,29 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
     goto done;
   }
 
-  /* record info about the session. pick thread to own it */
   if (fd > t->high_watermark) t->high_watermark = fd;
   int thread_idx = fd % t->p.nthread;
-  memcpy(&t->si[fd].sa, &in, sz);
-  t->si[fd].accept_ts = t->now;
   t->num_accepts++;
 
+  /* fill the client structure that we expose to the application */
+  tcpsrv_client_t *c = &t->si[fd].client;
+  c->fd = fd;
+  c->slot = fd_slot(t,fd);
+  memcpy(&c->sa, &in, sz);
+  if (!inet_ntop(AF_INET6, &in.sin6_addr, c->ip_str, sizeof(c->ip_str))) {
+    fprintf(stderr,"inet_ntop: %s\n",strerror(errno)); 
+    t->shutdown=1;
+  }
+  c->port = ntohs(in.sin6_port);
+  c->accept_ts = t->now;
+
   /* if the app has an on-accept callback, invoke it. */ 
-  char *slot = fd_slot(t,fd);
   int flags = TCPSRV_POLL_READ;
   if (t->p.on_accept) {
-    t->p.on_accept(slot, fd, &t->si[fd].sa, t->p.data, &flags);
+    t->p.on_accept(&t->si[fd].client, t->p.data, &flags);
     if (flags & TCPSRV_DO_EXIT) t->shutdown=1;
     if (flags & TCPSRV_DO_CLOSE) {
-      if (t->p.on_close) t->p.on_close(slot, fd, t->p.data);
+      if (t->p.on_close) t->p.on_close(&t->si[fd].client, t->p.data);
       close(fd);
     }
     if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) goto done;
@@ -317,12 +326,12 @@ static void *worker(void *_tc) {
     int flags = 0;
     if (ev.events & EPOLLIN)  flags |= TCPSRV_CAN_READ;
     if (ev.events & EPOLLOUT) flags |= TCPSRV_CAN_WRITE;
-    t->p.on_data(slot, ev.data.fd, t->p.data, &flags); 
+    t->p.on_data(&t->si[ev.data.fd].client, t->p.data, &flags); 
 
     /* did app set terminal condition or close fd? */
     if (flags & TCPSRV_DO_EXIT) t->shutdown=1; // main checks at @1hz
     if (flags & TCPSRV_DO_CLOSE) {
-      if (t->p.on_close) t->p.on_close(slot, ev.data.fd, t->p.data);
+      if (t->p.on_close) t->p.on_close(&t->si[ev.data.fd].client, t->p.data);
       BIT_CLEAR(tc->fdmask, ev.data.fd);
       close(ev.data.fd);
     }

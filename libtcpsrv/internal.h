@@ -26,8 +26,8 @@ typedef struct {
 } tcpsrv_thread_t;
 
 typedef struct {
-  struct sockaddr_in6 sa; /* describes the remote endpoint */
-  time_t accept_ts;       /* unix time of socket acceptance*/
+  tcpsrv_client_t client;  /* this structure is exposed to the application */ 
+  /* management stuff that should stay internal to libtcpsrv can go here */
 } tcpsrv_slotinfo_t;
 
 typedef struct _tcpsrv_t {
