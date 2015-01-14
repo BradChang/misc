@@ -158,6 +158,7 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
 
   /* fill the client structure that we expose to the application */
   tcpsrv_client_t *c = &t->si[fd].client;
+  c->thread_idx = thread_idx;
   c->fd = fd;
   c->slot = fd_slot(t,fd);
   memcpy(&c->sa, &in, sz);
@@ -333,7 +334,7 @@ static void *worker(void *_tc) {
     if (flags & TCPSRV_DO_CLOSE) {
       if (t->p.on_close) t->p.on_close(&t->si[ev.data.fd].client, t->p.data);
       BIT_CLEAR(tc->fdmask, ev.data.fd);
-      close(ev.data.fd);
+      close(ev.data.fd); /* at this instant, fd could be re-used- don't use */
     }
     if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) continue;
 

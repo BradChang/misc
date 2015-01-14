@@ -7,6 +7,7 @@
 
 /* we expose this structure to application describing the connected client */
 typedef struct {
+  int thread_idx;                     /* thread servicing this client */
   int fd;                             /* descriptor to client */
   void *slot;                         /* app slot for client */
   struct sockaddr_in6 sa;             /* remote addr, port, */
@@ -38,7 +39,7 @@ typedef struct {
   void (*on_accept)(tcpsrv_client_t *client, void *data, int *flags); // app should renew the slot
   void (*on_data)(tcpsrv_client_t *client, void *data, int *flags);   // app should consume/emit data
   void (*on_close)(tcpsrv_client_t *client, void *data);              // cleanup slot at fd closure
-  int (*on_thinvoke)(tcpsrv_client_t *client, void *msg, void *data); // special purpose
+  int (*on_invoke)(tcpsrv_client_t *client, void *msg, void *data);   // special purpose
   int  (*periodic)(int uptime, void *data);                           // app periodic callback 
 } tcpsrv_init_t;
 
@@ -63,11 +64,11 @@ void tcpsrv_fini(void *_t);
  * expected to work since it just sets a flag in the tcpserver state. */
 void tcpsrv_shutdown(void *_t);
 /* used within a control port callback, this causes each io-thread to invoke
- * the on_thinvoke cb for each active fd slot. this function exists because
+ * the on_invoke cb for each active fd slot. this function exists because
  * the slots belong to each thread. we don't inspect them from the main thread,
  * since that would require locking. the msg parameter can be anything, such as
- * a memory buffer that the cb should populate by indexing into by thread_id,
+ * a memory buffer that the cb should populate by indexing into by fd,
  * or a file descriptor array that the threads should respond on, etc. */
-void tcpsrv_thinvoke(void *_t, void *msg);
+void tcpsrv_invoke(void *_t, void *msg);
 
 #endif //__TCPSRV_H__

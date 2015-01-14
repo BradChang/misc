@@ -19,7 +19,7 @@ void data(tcpsrv_client_t *c, void *data, int *flags) {
   slot_t *slot = (slot_t*)c->slot;
   char buf[255];
   size_t nc=0;
-  fprintf(stderr,"fd %d (#%d) in worker thread\n", c->fd, slot->i);
+  fprintf(stderr,"fd %d (#%d) in worker thread %d\n", c->fd, slot->i, c->thread_idx);
   fprintf(stderr,"fd %d readable: %c writable: %c\n", c->fd,
     (*flags & TCPSRV_CAN_READ) ? 'y' : 'n',
     (*flags & TCPSRV_CAN_WRITE) ? 'y' : 'n');
