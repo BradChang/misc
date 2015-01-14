@@ -23,7 +23,7 @@ void invoke_cb(tcpsrv_client_t *client, void *ptr, void *data, int *flags) {
     client->thread_idx, client->fd, client->ip_str, client->port);
   write(fds[client->thread_idx][1],buf,strlen(buf));
   /* test the closure ability by closing odd-fd clients */
-  if (client->fd & 1) *flags |= TCPSRV_DO_CLOSE;
+  //if (client->fd & 1) *flags |= TCPSRV_DO_CLOSE;
 }
 
 int ask_cmd(void *cp, int argc, char **argv, void *t) {

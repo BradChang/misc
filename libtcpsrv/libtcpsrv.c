@@ -105,12 +105,15 @@ static void send_workers(tcpsrv_t *t, char op) {
   }
 }
 
-static void send_workers_ptr(tcpsrv_t *t, char op, void *ptr) {
+static void send_workers_ptr(tcpsrv_t *t, char op, 
+   void (*on_invoke)(tcpsrv_client_t *client, void *ptr, void *data, int *flags),
+   void *ptr) {
   int n,rc;
 
-  char buf[sizeof(op)+sizeof(ptr)];
+  char buf[sizeof(op)+sizeof(on_invoke)+sizeof(ptr)];
   buf[0] = op; 
-  memcpy(&buf[1], &ptr, sizeof(ptr));
+  memcpy(&buf[sizeof(op)], &on_invoke, sizeof(on_invoke));
+  memcpy(&buf[sizeof(op)+sizeof(on_invoke)], &ptr, sizeof(ptr));
 
   for(n=0; n < t->p.nthread; n++) {
     rc = write(t->tc[n].pipe_fd[1], buf, sizeof(buf));
@@ -322,6 +325,8 @@ static void *worker(void *_tc) {
   tcpsrv_t *t = tc->t;
   void *rv=NULL, *ptr;
   char op;
+  /* fcn pointer */
+  void (*invoke_cb)(tcpsrv_client_t *client, void *ptr, void *data, int *flags);
 
   if (t->p.verbose) fprintf(stderr,"thread %d starting\n", thread_idx);
 
@@ -349,20 +354,21 @@ static void *worker(void *_tc) {
         case WORKER_PING: tc->pong = t->now; break;
         case WORKER_SHUTDOWN: goto done; break;
         case WORKER_INVOKE:
+          if (read(tc->pipe_fd[0],&invoke_cb,sizeof(invoke_cb)) != sizeof(invoke_cb)) goto done;
           if (read(tc->pipe_fd[0],&ptr,sizeof(ptr)) != sizeof(ptr)) goto done;
           /* run "on_invoke" cb on each of this thread's active slots */
           for(i=0; i <= t->p.maxfd; i++) {
             if (BIT_TEST(tc->fdmask,i) == 0) continue;
-            if (t->p.on_invoke) {
+            if (invoke_cb) {
               flags = 0;
-              t->p.on_invoke(&t->si[i].client, ptr, t->p.data, &flags);
+              invoke_cb(&t->si[i].client, ptr, t->p.data, &flags);
               do_flags(t,tc,i,flags);
             }
           }
           /* invoke cb one last time on a faux slot to indicate iteration done*/
           tcpsrv_client_t end = { .slot=NULL, .thread_idx=thread_idx };
           flags = TCPSRV_OP_COMPLETE;
-          if (t->p.on_invoke) t->p.on_invoke(&end, ptr, t->p.data, &flags);
+          if (invoke_cb) invoke_cb(&end, ptr, t->p.data, &flags);
           break;
       }
       continue;
@@ -526,6 +532,6 @@ void tcpsrv_shutdown(void *_t) {
 // queue each thread to run on_invoke cb on each of their active slots
 void tcpsrv_invoke(void *_t, void *ptr) { 
   tcpsrv_t *t = (tcpsrv_t*)_t;
-  send_workers_ptr(t,WORKER_INVOKE,ptr);
+  send_workers_ptr(t,WORKER_INVOKE,t->p.on_invoke,ptr);
 }
 
