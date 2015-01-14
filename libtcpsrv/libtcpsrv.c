@@ -109,7 +109,8 @@ static void send_workers_ptr(tcpsrv_t *t, char op, void *ptr) {
   int n,rc;
 
   char buf[sizeof(op)+sizeof(ptr)];
-  buf[0] = op; memcpy(&buf[1], &ptr, sizeof(ptr));
+  buf[0] = op; 
+  memcpy(&buf[1], &ptr, sizeof(ptr));
 
   for(n=0; n < t->p.nthread; n++) {
     rc = write(t->tc[n].pipe_fd[1], buf, sizeof(buf));
@@ -304,7 +305,7 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
 
 /* helper to handle DO_EXIT/DO_CLOSE flags from on_data or on_invoke cb */
 static int do_flags(tcpsrv_t *t, tcpsrv_thread_t *tc, int fd, int flags) {
-  if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) return 0;
+  if ((flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) == 0) return 0;
   if (flags & TCPSRV_DO_EXIT) t->shutdown=1; // main checks at @1hz
   if (flags & TCPSRV_DO_CLOSE) {
     if (t->p.on_close) t->p.on_close(&t->si[fd].client, t->p.data);
@@ -348,16 +349,20 @@ static void *worker(void *_tc) {
         case WORKER_PING: tc->pong = t->now; break;
         case WORKER_SHUTDOWN: goto done; break;
         case WORKER_INVOKE:
-          /* get ptr, run on_invoke cb on each of this thread's active slots */
           if (read(tc->pipe_fd[0],&ptr,sizeof(ptr)) != sizeof(ptr)) goto done;
+          /* run "on_invoke" cb on each of this thread's active slots */
           for(i=0; i <= t->p.maxfd; i++) {
             if (BIT_TEST(tc->fdmask,i) == 0) continue;
             if (t->p.on_invoke) {
-              flags=0;
+              flags = 0;
               t->p.on_invoke(&t->si[i].client, ptr, t->p.data, &flags);
-              do_flags(t,tc,ev.data.fd,flags);
+              do_flags(t,tc,i,flags);
             }
           }
+          /* invoke cb one last time on a faux slot to indicate iteration done*/
+          tcpsrv_client_t end = { .slot=NULL, .thread_idx=thread_idx };
+          flags = TCPSRV_OP_COMPLETE;
+          if (t->p.on_invoke) t->p.on_invoke(&end, ptr, t->p.data, &flags);
           break;
       }
       continue;
@@ -387,7 +392,10 @@ static void *worker(void *_tc) {
    * close any open descriptors still in service by this thread. */
   if (t->p.verbose) fprintf(stderr,"thread %d exiting\n", thread_idx);
   for(i=0; i <= t->p.maxfd; i++) {
-    if (BIT_TEST(tc->fdmask,i)) { BIT_CLEAR(tc->fdmask,i); close(i); }
+    if (BIT_TEST(tc->fdmask,i) == 0) continue;
+    if (t->p.on_close) t->p.on_close(&t->si[i].client, t->p.data);
+    BIT_CLEAR(tc->fdmask,i); 
+    close(i); 
   }
   return rv;
 }

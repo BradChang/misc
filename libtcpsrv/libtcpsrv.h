@@ -51,6 +51,7 @@ typedef struct {
 #define TCPSRV_CAN_READ     (1 << 4)
 #define TCPSRV_CAN_WRITE    (1 << 5)
 #define TCPSRV_DO_EXIT      (1 << 6)
+#define TCPSRV_OP_COMPLETE  (1 << 7)  // used in "on_invoke" cb to signal slot iteration done */
 
 /*******************************************************************************
  * API
