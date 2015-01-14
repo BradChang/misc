@@ -49,7 +49,7 @@ void close_cb(tcpsrv_client_t *client, void *data) {
 }
 
 tcpsrv_init_t parms = {
-  //.verbose=1,
+  .verbose=1,
   .nthread=NTHREAD,
   .maxfd = 20,
   .port = 1099,
