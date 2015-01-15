@@ -105,7 +105,7 @@ static void send_workers(tcpsrv_t *t, char op) {
   }
 }
 
-static void send_workers_ptr(tcpsrv_t *t, char op, 
+void send_workers_ptr(tcpsrv_t *t, char op, 
    void (*on_invoke)(tcpsrv_client_t *client, void *ptr, void *data, int *flags),
    void *ptr) {
   int n,rc;
