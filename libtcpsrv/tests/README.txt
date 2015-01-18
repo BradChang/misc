@@ -5,3 +5,4 @@ test4: sends greeting, consumes data once, closes connection invoking on-close c
 test5: use the periodic function
 test6: test integrated control port
 test7: test two control port commands including a halt/shutdown command
+test8: 

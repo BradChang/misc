@@ -6,7 +6,7 @@ Back to the https://github.com/troydhanson/libtcpsrv[libtcpsrv Github page].
 
 libtcpsrv::
   a callback-driven library that sets up and operates a TCP/IPv6 server, and
-  which has an extendable shell-like administrative control port built in
+  has a built in, extendable, shell-like administrative control port 
 
 libtcpsrv: generic TCP/IPv6 server
 ----------------------------------
@@ -41,9 +41,6 @@ clients. (Note that IPv4 clients can generally connect to it too; the kernel
 normally maps IPv4 addresses into IPv6 space for this kind of server). If it
 receives a signal such as SIGINT (Ctrl-C) or SIGTERM it shuts down cleanly.
 
-The rest of this document describes how to provide callbacks to customize the
-server I/O, how to use and add control port commands, and discusses internals.
-
 Control port
 ~~~~~~~~~~~~
 The optional embedded administrative control port is enabled by adding a single
@@ -69,19 +66,26 @@ application can add its own control port commands.
 Using libtcpsrv
 ---------------
 
-API sequence
-~~~~~~~~~~~~
-The application must declare a tcpsrv_init_t structure and populate it, described below.
+General steps
+~~~~~~~~~~~~~
+The application must populate a tcpsrv_init_t structure and call these API functions:
 
   tcpsrv_init_t parms = {
     .port = 1099,
+    /* ... */
   };
+
   t=tcpsrv_init(&parms); 
   tcpsrv_run(t);
   tcpsrv_fini(t);
 
+Note that tcpsrv_run() gives control to the library to run the server indefinitely.
+
+Preliminaries
+~~~~~~~~~~~~~
+
 Connection slot
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 An application can keep state for each connection in the connection slot.  For
 example, to track bytes sent and received on each connection, an application could
 define a data structure like this:
@@ -92,29 +96,168 @@ define a data structure like this:
   }
 
 Libtcpsrv only needs to the size of the data structure being stored in the slot.
-It passes this in the tcpsrv_init_t structure in the slot_sz parameter:
+The application puts the slot size into the tcpsrv_init_t structure:
 
   .slot_sz = sizeof(struct slot)
 
-Libtcpsrv associates a buffer of this size with each connection. Whenever an I/O
-callback is invoked, it gets the slot pointer. A pair of callbacks exist so the
-application can initialize the slots at program startup, and clean them up at exit.
-During regular I/O the application can reset the slot (in the on_accept callback) 
-update it (in the on_data) callback, and finish with its content (in on_close).
-The slots are allocated at program startup. (The slot_sz may be 0, if not needed).
-Each slot is associated with one file descriptor. Just as file descriptors are
-reused through the lifetime of the server, so are the slots.  That is why the slot
-must be reset when a new connection is accepted.
+Libtcpsrv then associates a buffer of this size with each connection.  (The
+slot_sz may be 0 if not needed).  A pair of callbacks exist so the application
+can initialize the slots at program startup, and clean them up at exit. 
 
-Callbacks
-~~~~~~~~~
+  .slot_init = setup_slots
+  .slot_fini = cleanup_slots
 
+Whenever an I/O callback is invoked, it gets the slot pointer passed inside the
+tcpsrv_client_t argument.  
 
-Callbacks
+  void on_data(tcpsrv_client_t *c, void *data, int *flags) {
+      struct slot *s= (struct slot*)c->slot;
+      ...
+  }
 
+The application can reset the slot (in the on_accept callback), update it (in
+the on_data) callback, and finish with it (in on_close).  Slots are allocated
+at program startup.  Each slot is associated permanently with one fixed file
+descriptor.  Just as file descriptors are reused through the lifetime of the
+server, so are the slots.  That is why the slot must be reset when a new
+connection is accepted.
+
+Opaque data pointer
+^^^^^^^^^^^^^^^^^^^
+The application can pass an opaque data pointer into the tcpsrv_init_t.
+
+  tcpsrv_init_t parms = {
+    .data = opaque_data,
+    /* ... */
+  };
+
+This data pointer is passed back to the application callbacks. It may be left
+as NULL.
+
+Initialization
+~~~~~~~~~~~~~~
+Initialization parameters reside in tcpsrv_init_t. The application should
+declare one, populate its members of interest, and pass it to tcpsrv_init.
+The only required parameter of tcpsrv_init_t is port.
+
+  tcpsrv_init_t parms = { .port = 1099, /* ... */ };
+
+The configurable parameters in this structure follows.
+
+.Parameters
+[width="90%",cols="20m,10m,60,10m",grid="none",options="header"]
+|===============================================================================
+|member           | type| description                                    | default
+|port             | int | TCP port to listen on                          | 
+|verbose          | int | 0 (minimal) - higher (more verbose)            | 0
+|nthread          | int | how many worker threads to create              | 1 
+|slot_sz          | int | size of slot structure                         | 0
+|data             |void*| opaque data pointer                            | NULL
+|maxfd            | int | max file descriptor number to accept           | 100
+|periodic_seconds | int | time interval for periodic callback (0=disable)| 0
+|cp_path          |char*| control port pathname (unix domain socket)     | NULL
+|===============================================================================
+
+.Callbacks
+[width="90%",cols="20m,70,10m",grid="none",options="header"]
+|===============================================================================
+|member     | description                                    | default
+|slot_init  | callback for slot init at program start up     | NULL
+|slot_fini  | callback for slot clean up at program exit     | NULL
+|periodic   | callback for periodic background work          | NULL
+|on_accept  | callback for initial I/O on new connection     | NULL
+|on_data    | callback for regular I/O on a connection       | NULL
+|on_close   | callback for final work preceding closure      | NULL
+|on_invoke  | callback for control port special purpose      | NULL
+|===============================================================================
+
+Callback details
+^^^^^^^^^^^^^^^^
+The prototype of each callback is shown along with a description.
+
+.slot_init
+
+  void (*slot_init)(void *slot, int nslots, void *data);
+
+The callback is run once at program startup to initialize the slots. The
+library has already allocated the continguous buffer of slots, so this callback
+is only needed to do initial set up of the slot contents. The callback gets a
+pointer to the first slot, and the number of slots (which is the same as
+maxfd+1). The callback should initialize all of the slots before returning. If
+NULL, the library zeroes the slots. (Called in the main thread).
+
+.slot_fini
+
+  void (*slot_fini)(void *slot, int nslots, void *data);
+
+The callback is run once at program shutdown to clean up the slots. The callback gets
+a pointer to the first slot, and the number of slots (which is the same as maxfd+1). It
+should do any internal or deep clean up the slots before returning. If NULL, no
+clean up is performed.  Do not free the slots; the library does that. 
+(Called in the main thread).
+
+.periodic
+
+  int  (*periodic)(int uptime, void *data);
+
+This callback is invoked every so many seconds for the application to do "background work". 
+The interval between invocations is set by the periodic_seconds parameter. The callback
+should return 0 normally. It can return -1 to initiate shut down of the server, causing
+tcpsrv_run to return in the main function shortly thereafter.
+(Called in the main thread).
+
+.on_accept
+
+  void (*on_accept)(tcpsrv_client_t *client, void *data, int *flags);
+
+Invoked when a new connection is accepted. Typical things the callback may do:
+renew (reset) the slot to clear its old contents (from the previous connection
+that used this file descriptor); send initial output to the client; approve the
+remote peer address. 
+
+TODO document flags
+TODO document tcpsrv_client_t
+(Called in the main thread).
+
+.on_data
+  void (*on_data)(tcpsrv_client_t *client, void *data, int *flags);
+
+This is the regular I/O callback. It is normally called when there is input
+ready to consume on this connection. If NULL, the server uses default callback
+that simply discards any input from the client.
+
+TODO document flags
+TODO document tcpsrv_client_t
+(Called in the worker thread).
+
+.on_close
+  void (*on_close)(tcpsrv_client_t *client, void *data);
+
+When the on_data callback sets the flags to close a connection, the library
+invokes the on_close callback immediately before closing it. This is the last
+chance the application has to do anything with the client before closure. It 
+can also clean up the slot (or that can be done in the on_accept callback).
+
+TODO document tcpsrv_client_t
+(Called in the worker thread).
+
+.on_invoke
+  void (*on_invoke)(tcpsrv_client_t *client, void *ptr, void *data, int *flags);
+
+This special-purpose callback is unlike the others. It is invoked in response to
+a control port command implementation calling tcpsrv_invoke. The on_invoke callback
+gets executed in each worker thread on each active slot. It is a mechanism for the
+control port thread (the main thread) to interact with the worker threads. Its use
+is described later. An example of its capability is that control port can get each
+thread to document its own connections.
+
+(Called in the worker thread).
+
+Control port
+~~~~~~~~~~~~
 
 Internals
-=========
+---------
 Libtcpsrv establishes the listening socket, then uses epoll in its main thread
 to wait for new connections. (This epoll also handles signals to the server, 
 including periodic background timers, and control port I/O). When a new client
