@@ -1,0 +1,153 @@
+libtcpsrv
+=========
+Troy D. Hanson <tdh@tkhanson.net>
+
+Back to the https://github.com/troydhanson/libtcpsrv[libtcpsrv Github page].
+
+libtcpsrv::
+  a callback-driven library that sets up and operates a TCP/IPv6 server, and
+  which has an extendable shell-like administrative control port built in
+
+libtcpsrv: generic TCP/IPv6 server
+----------------------------------
+This is a Linux library that implements a TCP/IPv6 server. To use this library
+an application initializes it, then hands control over to the library for the
+lifetime of the server. All the application logic that drives I/O, periodic
+background work and application-defined control port commands are callbacks.
+
+.Trivial sink server
+---------------------------------------------------------------------------
+#include "libtcpsrv.h"
+
+tcpsrv_init_t parms = {
+  .nthread=2,
+  .maxfd = 13,
+  .port = 1099,
+};
+
+int main() {
+  void *t;
+
+  t=tcpsrv_init(&parms);
+  tcpsrv_run(t);
+  tcpsrv_fini(t);
+}
+---------------------------------------------------------------------------
+
+The program above listens on TCP port 1099. It accepts new client connections,
+drains any input they send, closes the socket after EOF, rejects new clients if
+file descriptors through 13 are all in use, and uses two threads to service the
+clients. (Note that IPv4 clients can generally connect to it too; the kernel
+normally maps IPv4 addresses into IPv6 space for this kind of server). If it
+receives a signal such as SIGINT (Ctrl-C) or SIGTERM it shuts down cleanly.
+
+The rest of this document describes how to provide callbacks to customize the
+server I/O, how to use and add control port commands, and discusses internals.
+
+Control port
+~~~~~~~~~~~~
+The optional embedded administrative control port is enabled by adding a single
+line to the `tcpsrv_init_t` parms: 
+
+  .cp_path = "/tmp/test.socket",
+
+The path can be any filesystem path where the application has write permission.
+The pathname is used to create a UNIX domain socket. Libtcpsrv includes a client
+that can connect to it similar to a shell.
+
+  % controlsh -s /tmp/test.socket
+  Connected to /tmp/test.socket.
+  [controlsh] /tmp/test.socket % help
+  help                 this text
+  quit                 close session
+  who                  list connections
+  halt                 stop server
+
+The control port can be used to interrogate the server or configure it.  The
+application can add its own control port commands.
+
+Using libtcpsrv
+---------------
+
+API sequence
+~~~~~~~~~~~~
+The application must declare a tcpsrv_init_t structure and populate it, described below.
+
+  tcpsrv_init_t parms = {
+    .port = 1099,
+  };
+  t=tcpsrv_init(&parms); 
+  tcpsrv_run(t);
+  tcpsrv_fini(t);
+
+Connection slot
+~~~~~~~~~~~~~~~
+An application can keep state for each connection in the connection slot.  For
+example, to track bytes sent and received on each connection, an application could
+define a data structure like this:
+
+  struct slot {
+    int bytes_in;
+    int bytes_out;
+  }
+
+Libtcpsrv only needs to the size of the data structure being stored in the slot.
+It passes this in the tcpsrv_init_t structure in the slot_sz parameter:
+
+  .slot_sz = sizeof(struct slot)
+
+Libtcpsrv associates a buffer of this size with each connection. Whenever an I/O
+callback is invoked, it gets the slot pointer. A pair of callbacks exist so the
+application can initialize the slots at program startup, and clean them up at exit.
+During regular I/O the application can reset the slot (in the on_accept callback) 
+update it (in the on_data) callback, and finish with its content (in on_close).
+The slots are allocated at program startup. (The slot_sz may be 0, if not needed).
+Each slot is associated with one file descriptor. Just as file descriptors are
+reused through the lifetime of the server, so are the slots.  That is why the slot
+must be reset when a new connection is accepted.
+
+Callbacks
+~~~~~~~~~
+
+
+Callbacks
+
+
+Internals
+=========
+Libtcpsrv establishes the listening socket, then uses epoll in its main thread
+to wait for new connections. (This epoll also handles signals to the server, 
+including periodic background timers, and control port I/O). When a new client
+connection occurs, the accept callback (if one is defined), gets run in the
+server's main thread. Afterward, the new connection gets permanently assigned
+to a worker thread where all further I/O and eventual closure occurs.
+
+The server keeps a pipe to each worker thread. The main thread periodically
+places requests into a worker's pipe, which the worker reads and acts on. This
+is used to implement clean shutdown and other custodial signaling to threads.
+
+The server keeps a structure, tcpsrv_slotinfo_t, for each client connection. It
+is initialized when the connection is accepted. It contains a tcpsrv_client_t 
+structure, which is exposed to the application callbacks. It contains everything
+the application may want to know about the remote client. This includes its 
+IPv6 address, its TCP source port, the timestamp of its acceptance and the file
+descriptor. It also contains a pointer to the application defined data slot.
+
+When input arrives from an established client, the worker thread which services
+that file descriptor gets notified via its epoll. (Each worker thread has its 
+own epoll to get notified of client I/O or messaging from the main thread). The
+worker thread handles client I/O by invoking the application on_data callback.
+That callback can read and write to the file descriptor, and update any state
+it keeps in the application slot for that descriptor. When the application 
+is ready to close the descriptor, it must modify the session flags to set the
+TCPSRV_DO_CLOSE bit. The worker thread sees this bit, runs the on_close 
+callback and then closes the descriptor. It is critical that the flag be used
+to tell the worker thread to close the descriptor, rather than closing it 
+inside the on_data callback. This allows the worker thread to clean up the
+data structures; it also prevents the descriptor from being instantly reused
+in the main thread (when a new session is accepted) prior to this clean up.
+
+The eventual termination of the server application can be initiated by receipt
+of a signal such as SIGTERM or SIGINT, or through other means including a 
+shutdown initiation inside the I/O callbacks or control port commands. At that
+point tcpsrv_run returns, the application calls tcpsrv_fini and exits.

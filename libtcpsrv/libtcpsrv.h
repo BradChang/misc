@@ -27,7 +27,7 @@ typedef struct {
   int timeout;          /* shutdown silent connections after seconds TODO */
   int port;             /* to listen on */
   in_addr_t addr;       /* IP address to listen on */ // TODO or interface
-  int sz;               /* size of structure for each active descriptor */
+  int slot_sz;          /* size of structure for each active descriptor */
   void *data;           /* opaque */
   int periodic_seconds; /* how often to invoke periodic cb, if any */
   /* control port */

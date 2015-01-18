@@ -85,7 +85,7 @@ static int th_cmd(void *cp, int argc, char *argv[], void *_t) {
 }
 
 /* schedule imminent shutdown causing tcpsrv_run to return */
-static int shutdown_cmd(void *cp, int argc, char *argv[], void *_t) {
+static int halt_cmd(void *cp, int argc, char *argv[], void *_t) {
   tcpsrv_t *t = (tcpsrv_t*)_t;
   t->shutdown=1;
   return CP_OK;
@@ -93,7 +93,7 @@ static int shutdown_cmd(void *cp, int argc, char *argv[], void *_t) {
 
 void register_cp_cmds(tcpsrv_t *t) {
    cp_add_cmd(t->cp, "who", who_cmd, "list connections", t);
-   cp_add_cmd(t->cp, "shutdown", shutdown_cmd, "stop server", t);
+   cp_add_cmd(t->cp, "halt", halt_cmd, "stop server", t);
    cp_add_cmd(t->cp, "th", th_cmd, "thread status", t);
 }
 

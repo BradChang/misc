@@ -219,49 +219,25 @@ static void accept_client(tcpsrv_t *t) { // always in main thread
 void *tcpsrv_init(tcpsrv_init_t *p) {
   int rc=-1,n;
 
+  /* alloc. the internal data structure that keeps whole state */
   tcpsrv_t *t = calloc(1,sizeof(*t)); if (!t) goto done;
   t->p = *p; // struct copy
+
+  /* set defaults for unspecified parameters in tcpsrv_init_t */
   if (t->p.on_data == NULL) t->p.on_data = drain;
-  t->slots = calloc(p->maxfd+1, p->sz); 
-  if (t->slots == NULL) goto done;
+  if (p->nthread == 0) p->nthread=1;
+  if (p->maxfd == 0) p->maxfd=100; /* TODO query ulimit */
+
+  /* initialize slots and internal slot_info */
+  t->slots = calloc(p->maxfd+1, p->slot_sz); 
+  if ((p->slot_sz > 0) && (t->slots == NULL)) goto done;
   if (p->slot_init) p->slot_init(t->slots, p->maxfd+1, p->data);
-  t->th = calloc(p->nthread,sizeof(pthread_t));
-  if (t->th == NULL) goto done;
   t->si = calloc(p->maxfd+1, sizeof(tcpsrv_slotinfo_t)); 
   if (t->si == NULL) goto done;
 
-  sigfillset(&t->all);  /* set of all signals */
-  sigemptyset(&t->few); /* set of signals we accept */
-  for(n=0; n < sizeof(sigs)/sizeof(*sigs); n++) sigaddset(&t->few, sigs[n]);
-
-  /* create the signalfd for receiving signals */
-  t->signal_fd = signalfd(-1, &t->few, 0);
-  if (t->signal_fd == -1) {
-    fprintf(stderr,"signalfd: %s\n", strerror(errno));
-    goto done;
-  }
-
-  /* set up the epoll instance */
-  t->epoll_fd = epoll_create(1); 
-  if (t->epoll_fd == -1) {
-    fprintf(stderr,"epoll: %s\n", strerror(errno));
-    goto done;
-  }
-
-  /* set up the control port */
-  if (t->p.cp_path) {
-    if ( (t->cp = cp_init(t->p.cp_path, &t->cp_fd)) == NULL) {
-      fprintf(stderr,"cp_init: failed\n");
-      goto done;
-    }
-    p->cp = t->cp; /* expose the control port handle */
-    t->cp_clients = calloc(1, bytes_nbits(p->maxfd+1));
-    if (t->cp_clients == NULL) goto done;
-
-    register_cp_cmds(t);
-  }
-
-  /* create thread areas */
+  /* create thread structures. they get started later. */
+  t->th = calloc(p->nthread,sizeof(pthread_t));
+  if (t->th == NULL) goto done;
   t->tc = calloc(t->p.nthread,sizeof(tcpsrv_thread_t));
   if (t->tc == NULL) goto done;
   for(n=0; n < t->p.nthread; n++) {
@@ -276,6 +252,37 @@ void *tcpsrv_init(tcpsrv_init_t *p) {
       goto done;
     }
   }
+
+  /* signal handling setup. use signalfd to take signals in epoll */
+  sigfillset(&t->all);  /* all signals */
+  sigemptyset(&t->few); /* signals we accept */
+  for(n=0; n < sizeof(sigs)/sizeof(*sigs); n++) sigaddset(&t->few, sigs[n]);
+  t->signal_fd = signalfd(-1, &t->few, 0);
+  if (t->signal_fd == -1) {
+    fprintf(stderr,"signalfd: %s\n", strerror(errno));
+    goto done;
+  }
+
+  /* set up the primary epoll instance, servicing the main thread */
+  t->epoll_fd = epoll_create(1); 
+  if (t->epoll_fd == -1) {
+    fprintf(stderr,"epoll: %s\n", strerror(errno));
+    goto done;
+  }
+
+  /* set up the control port, if configured to have one */
+  if (t->p.cp_path) {
+    if ( (t->cp = cp_init(t->p.cp_path, &t->cp_fd)) == NULL) {
+      fprintf(stderr,"cp_init: failed\n");
+      goto done;
+    }
+    p->cp = t->cp; /* expose the control port handle */
+    t->cp_clients = calloc(1, bytes_nbits(p->maxfd+1));
+    if (t->cp_clients == NULL) goto done;
+
+    register_cp_cmds(t);
+  }
+
 
   rc=0;
 
@@ -504,7 +511,7 @@ void tcpsrv_fini(void *_t) {
     else if (t->p.verbose) fprintf(stderr,"thread %d exited\n",n);
   }
   if (t->p.slot_fini) t->p.slot_fini(t->slots, t->p.maxfd+1, t->p.data);
-  free(t->slots);
+  if (t->slots) free(t->slots);
   close(t->signal_fd);
   close(t->epoll_fd);
   if (t->cp) cp_fini(t->cp);

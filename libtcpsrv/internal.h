@@ -12,7 +12,7 @@
 #define BIT_CLEAR(c,i) (c[i/8] &= ~(1 << (i % 8)))
 #define bytes_nbits(n) ((n/8) + ((n % 8) ? 1 : 0))
 
-#define fd_slot(t,fd) (t->slots + (fd * t->p.sz))
+#define fd_slot(t,fd) (t->slots + (fd * t->p.slot_sz))
 
 typedef struct {
   int thread_idx;

@@ -1,17 +1,11 @@
 #include <stdio.h>
 #include "libtcpsrv.h"
 
-typedef struct {
-  int fd;
-} slot_t;
-
 tcpsrv_init_t parms = {
   .verbose=1,
   .nthread=2,
   .maxfd = 13,
-  .timeout = 10,
   .port = 1099,
-  .sz = sizeof(slot_t),
 };
 
 int main() {

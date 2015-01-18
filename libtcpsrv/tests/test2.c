@@ -19,7 +19,7 @@ tcpsrv_init_t parms = {
   .maxfd = 13,
   .timeout = 10,
   .port = 1099,
-  .sz = sizeof(slot_t),
+  .slot_sz = sizeof(slot_t),
   .on_accept = greet, 
 };
 
