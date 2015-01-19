@@ -8,11 +8,11 @@ libtcpsrv::
   a callback-driven library that sets up and operates a TCP/IPv6 server, and
   has a built in, extendable, shell-like administrative control port 
 
-libtcpsrv: generic TCP/IPv6 server
-----------------------------------
+libtcpsrv: a TCP/IPv6 server
+----------------------------
 This is a Linux library that implements a TCP/IPv6 server. To use this library
 an application initializes it, then hands control over to the library for the
-lifetime of the server. All the application logic that drives I/O, periodic
+lifetime of the server. All the application logic to drive I/O, any periodic
 background work and application-defined control port commands are callbacks.
 
 .Trivial sink server
@@ -84,6 +84,20 @@ Note that tcpsrv_run() gives control to the library to run the server indefinite
 Preliminaries
 ~~~~~~~~~~~~~
 
+[[tcpsrv_client_t]]
+Connection info
+^^^^^^^^^^^^^^^
+The callbacks for connection I/O have access to the tcpsrv_client_t structure.
+This structure contains the details of the remote peer, and other information:
+
+  int thread_idx;                     /* thread servicing this client */
+  int fd;                             /* file descriptor to client */
+  void *slot;                         /* connection slot for client */
+  struct sockaddr_in6 sa;             /* client address and port  */
+  char ip_str[INET6_ADDRSTRLEN];      /* client address as string */
+  int port;                           /* client port (host order) */
+  time_t accept_ts;                   /* time of socket acceptance */
+
 Connection slot
 ^^^^^^^^^^^^^^^
 An application can keep state for each connection in the connection slot.  For
@@ -108,7 +122,7 @@ can initialize the slots at program startup, and clean them up at exit.
   .slot_fini = cleanup_slots
 
 Whenever an I/O callback is invoked, it gets the slot pointer passed inside the
-tcpsrv_client_t argument.  
+<<tcpsrv_client_t,tcpsrv_client_t>> argument.  
 
   void on_data(tcpsrv_client_t *c, void *data, int *flags) {
       struct slot *s= (struct slot*)c->slot;
@@ -126,19 +140,15 @@ Opaque data pointer
 ^^^^^^^^^^^^^^^^^^^
 The application can pass an opaque data pointer into the tcpsrv_init_t.
 
-  tcpsrv_init_t parms = {
-    .data = opaque_data,
-    /* ... */
-  };
+  tcpsrv_init_t parms = { .data = opaque_data, /* ... */ };
 
-This data pointer is passed back to the application callbacks. It may be left
-as NULL.
+This data pointer is passed back to the application callbacks. It may be NULL.
 
 Initialization
 ~~~~~~~~~~~~~~
-Initialization parameters reside in tcpsrv_init_t. The application should
-declare one, populate its members of interest, and pass it to tcpsrv_init.
-The only required parameter of tcpsrv_init_t is port.
+Initialization parameters reside in tcpsrv_init_t. The application declares one
+of these structures, populates the members of interest, and passes it to
+tcpsrv_init.  The port is the only required parameter of tcpsrv_init_t.
 
   tcpsrv_init_t parms = { .port = 1099, /* ... */ };
 
@@ -158,10 +168,16 @@ The configurable parameters in this structure follows.
 |cp_path          |char*| control port pathname (unix domain socket)     | NULL
 |===============================================================================
 
+The structure also contains callback function pointers as described below.
+
+Callbacks
+^^^^^^^^^
+These are the callback function pointers in tcpsrv_init_t.
+
 .Callbacks
 [width="90%",cols="20m,70,10m",grid="none",options="header"]
 |===============================================================================
-|member     | description                                    | default
+|callback   | description                                    | default
 |slot_init  | callback for slot init at program start up     | NULL
 |slot_fini  | callback for slot clean up at program exit     | NULL
 |periodic   | callback for periodic background work          | NULL
@@ -171,40 +187,38 @@ The configurable parameters in this structure follows.
 |on_invoke  | callback for control port special purpose      | NULL
 |===============================================================================
 
-Callback details
-^^^^^^^^^^^^^^^^
-The prototype of each callback is shown along with a description.
+The prototype of each callback is shown below along with a description.
 
 .slot_init
 
   void (*slot_init)(void *slot, int nslots, void *data);
 
 The callback is run once at program startup to initialize the slots. The
-library has already allocated the continguous buffer of slots, so this callback
-is only needed to do initial set up of the slot contents. The callback gets a
-pointer to the first slot, and the number of slots (which is the same as
-maxfd+1). The callback should initialize all of the slots before returning. If
-NULL, the library zeroes the slots. (Called in the main thread).
+library has already allocated the contiguous buffer of slots. This callback
+sets up the initial slot contents. The callback gets a pointer to the first
+slot, and the number of slots (which is the same as maxfd+1). The callback
+should initialize all of the slots before returning. If NULL, the library
+zeroes the slots. (Called in the main thread).
 
 .slot_fini
 
   void (*slot_fini)(void *slot, int nslots, void *data);
 
-The callback is run once at program shutdown to clean up the slots. The callback gets
-a pointer to the first slot, and the number of slots (which is the same as maxfd+1). It
-should do any internal or deep clean up the slots before returning. If NULL, no
-clean up is performed.  Do not free the slots; the library does that. 
-(Called in the main thread).
+The callback is run once at program shutdown to clean up the slots. The
+callback gets a pointer to the first slot, and the number of slots (which is
+the same as maxfd+1). It should do any internal clean up or deep free on the
+slots before returning. If NULL, no clean up is performed.  Do not free the
+slots- the library does that.  (Called in the main thread).
 
 .periodic
 
   int  (*periodic)(int uptime, void *data);
 
-This callback is invoked every so many seconds for the application to do "background work". 
-The interval between invocations is set by the periodic_seconds parameter. The callback
-should return 0 normally. It can return -1 to initiate shut down of the server, causing
-tcpsrv_run to return in the main function shortly thereafter.
-(Called in the main thread).
+This callback is invoked every so many seconds for the application to do
+"background work".  The number of seconds between invocations is set by the
+periodic_seconds parameter. The callback should return 0 normally. It can
+return -1 to initiate shutdown of the server- causeing tcpsrv_run to return
+in the main function shortly thereafter.  (Called in the main thread).
 
 .on_accept
 
@@ -213,43 +227,89 @@ tcpsrv_run to return in the main function shortly thereafter.
 Invoked when a new connection is accepted. Typical things the callback may do:
 renew (reset) the slot to clear its old contents (from the previous connection
 that used this file descriptor); send initial output to the client; approve the
-remote peer address. 
+remote peer address. The client address as well as the file descriptor and
+additional information are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
 
-TODO document flags
-TODO document tcpsrv_client_t
+The flags argument is a bitmask. The on_accept callback can set these flags in it:
+
+  TCPSRV_DO_CLOSE   /* tell the library to close the connection */
+  TCPSRV_DO_EXIT    /* tell the library to initiate shut down  */
+
+For example to reject a new connection (e.g., suppose its address is disallowed)
+the on_accept callback would do
+
+  *flags |= TCPSRV_DO_CLOSE;
+
 (Called in the main thread).
 
 .on_data
   void (*on_data)(tcpsrv_client_t *client, void *data, int *flags);
 
 This is the regular I/O callback. It is normally called when there is input
-ready to consume on this connection. If NULL, the server uses default callback
-that simply discards any input from the client.
+ready to read on this connection. If NULL, the server uses a default "drain"
+callback that discards any input from the client.  The client address as well
+as the file descriptor and additional information are in the
+<<tcpsrv_client_t,tcpsrv_client_t>> structure.
 
-TODO document flags
-TODO document tcpsrv_client_t
+By default the I/O-ready condition for each connection is "readable" meaning
+that the callback is invoked when data is available to read. The application
+can confirm that this flag is set like this:
+
+  if (*flags & TCPSRV_CAN_READ) { ... }
+
+If the callback needs to write out a long buffer to the client, and wishes
+to poll writability (and readability), it can modify the flags like this:
+
+  *flags |= (TCPSRV_POLL_WRITE | TCPSRV_POLL_READ);
+
+Now when the callback is invoked it can test for the writable condition:
+
+  if (*flags & TCPSRV_CAN_WRITE) { ... }
+
+After the write completes it can reset the polling condition to readable:
+
+  *flags |= TCPSRV_POLL_READ;
+
+In other words, setting TCPSRV_POLL_READ and/or TCPSRV_POLL_WRITE in the flags 
+causes those polling on those conditions; setting neither flag causes the
+existing polling condition to be retained.
+
+The callback can also set these flags before returning:
+
+  TCPSRV_DO_CLOSE   /* tell the library to close the connection */
+  TCPSRV_DO_EXIT    /* tell the library to initiate shut down  */
+
 (Called in the worker thread).
 
 .on_close
   void (*on_close)(tcpsrv_client_t *client, void *data);
 
-When the on_data callback sets the flags to close a connection, the library
-invokes the on_close callback immediately before closing it. This is the last
-chance the application has to do anything with the client before closure. It 
-can also clean up the slot (or that can be done in the on_accept callback).
+The library invokes the on_close callback immediately before closing a
+connection. This is the last chance the application has to do anything with the
+client before closure. It can also clean up the slot (or that can be done in
+the on_accept callback). Note that the on_data callback initiates closure
+of the connection (by setting TCPSRV_DO_CLOSE in the flags); this callback
+runs afterward, immediately prior to the library performing the actual close.
+The client address as well as the file descriptor and additional information
+are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
 
-TODO document tcpsrv_client_t
 (Called in the worker thread).
 
 .on_invoke
   void (*on_invoke)(tcpsrv_client_t *client, void *ptr, void *data, int *flags);
 
-This special-purpose callback is unlike the others. It is invoked in response to
-a control port command implementation calling tcpsrv_invoke. The on_invoke callback
-gets executed in each worker thread on each active slot. It is a mechanism for the
-control port thread (the main thread) to interact with the worker threads. Its use
-is described later. An example of its capability is that control port can get each
-thread to document its own connections.
+This special-purpose callback is invoked when a control port command callback
+uses tcpsrv_invoke. The on_invoke callback gets executed in each worker thread
+on each active slot. It is a mechanism for the control port thread (the main
+thread) to pass information to, or gather information from, the worker threads.
+Further information is described in the control port documentation.
+The client address as well as the file descriptor and additional information
+are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
+
+The callback can also set these flags before returning:
+
+  TCPSRV_DO_CLOSE   /* tell the library to close the connection */
+  TCPSRV_DO_EXIT    /* tell the library to initiate shut down  */
 
 (Called in the worker thread).
 
