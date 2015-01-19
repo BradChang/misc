@@ -153,62 +153,44 @@ static void drain(tcpsrv_client_t *client, void *data, int *flags) {
   }
 }
 
-static void accept_client(tcpsrv_t *t) { // always in main thread
-  int fd;
-  void *p;
+static void accept_client(tcpsrv_t *t) { // in main thread
   struct sockaddr_in6 in;
   socklen_t sz = sizeof(in);
 
-  fd = accept(t->fd,(struct sockaddr*)&in, &sz);
+  int fd = accept(t->fd,(struct sockaddr*)&in, &sz);
   if (fd == -1) {
     fprintf(stderr,"accept: %s\n", strerror(errno)); 
     goto done;
   }
-
   if (fd > t->p.maxfd) {
-    if (t->p.verbose) fprintf(stderr,"overload fd %d > %d\n", fd, t->p.maxfd);
+    fprintf(stderr,"overload fd %d > maxfd %d\n", fd, t->p.maxfd);
     t->num_overloads++;
     close(fd);
     goto done;
   }
-
   if (fd > t->high_watermark) t->high_watermark = fd;
   int thread_idx = fd % t->p.nthread;
   t->num_accepts++;
 
-  /* fill the client structure that we expose to the application */
+  /* fill the client structure that we expose to the callbacks */
   tcpsrv_client_t *c = &t->si[fd].client;
   c->thread_idx = thread_idx;
   c->fd = fd;
   c->slot = fd_slot(t,fd);
+  c->port = ntohs(in.sin6_port);
+  c->accept_ts = t->now;
   memcpy(&c->sa, &in, sz);
   if (!inet_ntop(AF_INET6, &in.sin6_addr, c->ip_str, sizeof(c->ip_str))) {
     fprintf(stderr,"inet_ntop: %s\n",strerror(errno)); 
-    t->shutdown=1;
-  }
-  c->port = ntohs(in.sin6_port);
-  c->accept_ts = t->now;
-
-  /* if the app has an on-accept callback, invoke it. */ 
-  int flags = TCPSRV_POLL_READ;
-  if (t->p.on_accept) {
-    t->p.on_accept(&t->si[fd].client, t->p.data, &flags);
-    if (flags & TCPSRV_DO_EXIT) t->shutdown=1;
-    if (flags & TCPSRV_DO_CLOSE) {
-      if (t->p.on_close) t->p.on_close(&t->si[fd].client, t->p.data);
-      close(fd);
-    }
-    if (flags & (TCPSRV_DO_EXIT | TCPSRV_DO_CLOSE)) goto done;
+    t->shutdown=1; 
   }
 
-  /* hand all further I/O on this fd to the worker. */
-  BIT_SET(t->tc[thread_idx].fdmask, fd);
-  int events = 0;
-  if (flags & TCPSRV_POLL_READ)  events |= EPOLLIN;
-  if (flags & TCPSRV_POLL_WRITE) events |= EPOLLOUT;
-  if (add_epoll(t->tc[thread_idx].epoll_fd, events, fd) == -1) { 
-    fprintf(stderr,"can't give accepted connection to thread %d\n", thread_idx);
-    // close not needed; fd closed in fdmask sweep at exit
+  /* send descriptor to the worker thread via control pipe */
+  char buf[sizeof(char)+sizeof(fd)] = {[0] = WORKER_ACCEPT};
+  memcpy(&buf[1], &fd, sizeof(fd));
+  int rc = write(t->tc[thread_idx].pipe_fd[1], buf, sizeof(buf));
+  if (rc != sizeof(buf)) {
+    fprintf(stderr,"control pipe: %s\n", (rc<0) ? strerror(errno) : "full");
     t->shutdown=1;
   }
 
@@ -327,13 +309,12 @@ static int do_flags(tcpsrv_t *t, tcpsrv_thread_t *tc, int fd, int flags) {
 
 static void *worker(void *_tc) {
   tcpsrv_thread_t *tc = (tcpsrv_thread_t*)_tc;
-  int thread_idx = tc->thread_idx, i, flags;
+  int thread_idx = tc->thread_idx, i, flags, fd;
   struct epoll_event ev;
   tcpsrv_t *t = tc->t;
   void *rv=NULL, *ptr;
   char op;
-  /* fcn pointer */
-  void (*invoke_cb)(tcpsrv_client_t *client, void *ptr, void *data, int *flags);
+  void (*cb)(tcpsrv_client_t *client, void *ptr, void *data, int *flags);
 
   if (t->p.verbose) fprintf(stderr,"thread %d starting\n", thread_idx);
 
@@ -348,37 +329,50 @@ static void *worker(void *_tc) {
   /* event loop */
   while (epoll_wait(tc->epoll_fd, &ev, 1, -1) > 0) {
 
-    if (t->p.verbose) {
+    if (t->p.verbose > 1) {
       fprintf(stderr,"thread %d %s %s fd %d\n", thread_idx, 
         (ev.events & EPOLLIN ) ? "IN " : "   ", 
         (ev.events & EPOLLOUT) ? "OUT" : "   ", ev.data.fd);
     }
 
-    /* is I/O from the from main thread on the control pipe? */ 
-    if (ev.data.fd == tc->pipe_fd[0]) { 
+    /* handle I/O from the from main thread on the control pipe */ 
+    if (ev.data.fd == tc->pipe_fd[0]) {
       if (read(tc->pipe_fd[0],&op,sizeof(op)) != sizeof(op)) goto done;
       switch(op) {
         case WORKER_PING: tc->pong = t->now; break;
         case WORKER_SHUTDOWN: goto done; break;
+
+        case WORKER_ACCEPT:
+          if (read(tc->pipe_fd[0],&fd,sizeof(fd)) != sizeof(fd)) goto done;
+          BIT_SET(tc->fdmask, fd);
+          if (t->p.on_accept) {
+            flags = TCPSRV_POLL_READ;
+            t->p.on_accept(&t->si[fd].client, t->p.data, &flags);
+            if (do_flags(t,tc,i,flags)) break;
+          }
+          int events = 0;
+          if (flags & TCPSRV_POLL_READ)  events |= EPOLLIN;
+          if (flags & TCPSRV_POLL_WRITE) events |= EPOLLOUT;
+          if (add_epoll(tc->epoll_fd, events, fd)) goto done;
+          break;
+
         case WORKER_INVOKE:
-          if (read(tc->pipe_fd[0],&invoke_cb,sizeof(invoke_cb)) != sizeof(invoke_cb)) goto done;
+          if (read(tc->pipe_fd[0],&cb,sizeof(cb)) != sizeof(cb)) goto done;
           if (read(tc->pipe_fd[0],&ptr,sizeof(ptr)) != sizeof(ptr)) goto done;
-          /* run "on_invoke" cb on each of this thread's active slots */
-          for(i=0; i <= t->p.maxfd; i++) {
+          if (cb==NULL) break;
+          for(i=0; i <= t->p.maxfd; i++) { /* run cb on each active slot */
             if (BIT_TEST(tc->fdmask,i) == 0) continue;
-            if (invoke_cb) {
-              flags = 0;
-              invoke_cb(&t->si[i].client, ptr, t->p.data, &flags);
-              do_flags(t,tc,i,flags);
-            }
+            flags = 0;
+            cb(&t->si[i].client, ptr, t->p.data, &flags);
+            do_flags(t,tc,i,flags);
           }
           /* invoke cb one last time on a faux slot to indicate iteration done*/
           tcpsrv_client_t end = { .slot=NULL, .thread_idx=thread_idx };
           flags = TCPSRV_OP_COMPLETE;
-          if (invoke_cb) invoke_cb(&end, ptr, t->p.data, &flags);
+          cb(&end, ptr, t->p.data, &flags);
           break;
       }
-      continue;
+      continue; // back to epoll
     }
 
     /* regular I/O. */
@@ -410,6 +404,7 @@ static void *worker(void *_tc) {
     BIT_CLEAR(tc->fdmask,i); 
     close(i); 
   }
+  t->shutdown=1;
   return rv;
 }
 

@@ -79,7 +79,24 @@ The application must populate a tcpsrv_init_t structure and call these API funct
   tcpsrv_run(t);
   tcpsrv_fini(t);
 
-Note that tcpsrv_run() gives control to the library to run the server indefinitely.
+Note that tcpsrv_run gives control to the library to run the server indefinitely.
+
+tcpsrv_init
+^^^^^^^^^^^
+Call this with the initialization parameters as shown above. It returns an opaque
+void* which is used with the remaining tcpsrv API documented below. If the return
+pointer is NULL the initialization failed.
+
+tcpsrv_run
+^^^^^^^^^^^
+This is the primary API function. It puts the server into operational state by 
+listening on the port and operating the callbacks in response to events. It runs
+indefinitely. It returns only when the server shuts down in response to a signal
+or a shutdown initiated in the control port or in a callback.
+
+tcpsrv_fini
+^^^^^^^^^^^
+This is called at program termination to release all the internal resources.
 
 Preliminaries
 ~~~~~~~~~~~~~
@@ -109,7 +126,7 @@ define a data structure like this:
     int bytes_out;
   }
 
-Libtcpsrv only needs to the size of the data structure being stored in the slot.
+Libtcpsrv only needs the size of the data structure being stored in the slot.
 The application puts the slot size into the tcpsrv_init_t structure:
 
   .slot_sz = sizeof(struct slot)
@@ -121,20 +138,20 @@ can initialize the slots at program startup, and clean them up at exit.
   .slot_init = setup_slots
   .slot_fini = cleanup_slots
 
-Whenever an I/O callback is invoked, it gets the slot pointer passed inside the
-<<tcpsrv_client_t,tcpsrv_client_t>> argument.  
+Whenever an I/O callback is invoked, the callback has access to the slot
+pointer inside the <<tcpsrv_client_t,tcpsrv_client_t>> argument.  
 
   void on_data(tcpsrv_client_t *c, void *data, int *flags) {
       struct slot *s= (struct slot*)c->slot;
       ...
   }
 
-The application can reset the slot (in the on_accept callback), update it (in
-the on_data) callback, and finish with it (in on_close).  Slots are allocated
-at program startup.  Each slot is associated permanently with one fixed file
-descriptor.  Just as file descriptors are reused through the lifetime of the
-server, so are the slots.  That is why the slot must be reset when a new
-connection is accepted.
+Slots are allocated at program startup.  Each slot is permanently associated 
+with one fixed file descriptor.  Just as file descriptors are reused through
+the lifetime of the server, so are the slots.  So the application must clear
+the slot when a new connection is accepted, in the on_accept callback. It
+can then update the slot in the on_data callback. It can do any final work 
+on the slot in the on_close callback.
 
 Opaque data pointer
 ^^^^^^^^^^^^^^^^^^^
@@ -226,8 +243,8 @@ in the main function shortly thereafter.  (Called in the main thread).
 
 Invoked when a new connection is accepted. Typical things the callback may do:
 renew (reset) the slot to clear its old contents (from the previous connection
-that used this file descriptor); send initial output to the client; approve the
-remote peer address. The client address as well as the file descriptor and
+that used this file descriptor); send initial output to the client; validate the
+client address is allowed. The client address as well as the file descriptor and
 additional information are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
 
 The flags argument is a bitmask. The on_accept callback can set these flags in it:
@@ -240,16 +257,15 @@ the on_accept callback would do
 
   *flags |= TCPSRV_DO_CLOSE;
 
-(Called in the main thread).
+(Called in the worker thread).
 
 .on_data
   void (*on_data)(tcpsrv_client_t *client, void *data, int *flags);
 
 This is the regular I/O callback. It is normally called when there is input
 ready to read on this connection. If NULL, the server uses a default "drain"
-callback that discards any input from the client.  The client address as well
-as the file descriptor and additional information are in the
-<<tcpsrv_client_t,tcpsrv_client_t>> structure.
+callback that discards any input from the client.  The client address, file
+descriptor, and more are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
 
 By default the I/O-ready condition for each connection is "readable" meaning
 that the callback is invoked when data is available to read. The application
@@ -284,27 +300,25 @@ The callback can also set these flags before returning:
 .on_close
   void (*on_close)(tcpsrv_client_t *client, void *data);
 
-The library invokes the on_close callback immediately before closing a
-connection. This is the last chance the application has to do anything with the
-client before closure. It can also clean up the slot (or that can be done in
-the on_accept callback). Note that the on_data callback initiates closure
-of the connection (by setting TCPSRV_DO_CLOSE in the flags); this callback
-runs afterward, immediately prior to the library performing the actual close.
-The client address as well as the file descriptor and additional information
-are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
+This callback is invoked immediately before the library closes a connection.
+This is the last chance the application has to do anything with the client.
+It can also clean up the slot (or that can be done in the on_accept callback).
+The on_data callback initiates connection closure by setting TCPSRV_DO_CLOSE in
+the flags; this callback runs afterward.  The client address, file descriptor,
+and more are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
 
 (Called in the worker thread).
 
 .on_invoke
   void (*on_invoke)(tcpsrv_client_t *client, void *ptr, void *data, int *flags);
 
-This special-purpose callback is invoked when a control port command callback
-uses tcpsrv_invoke. The on_invoke callback gets executed in each worker thread
-on each active slot. It is a mechanism for the control port thread (the main
-thread) to pass information to, or gather information from, the worker threads.
-Further information is described in the control port documentation.
-The client address as well as the file descriptor and additional information
-are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
+This callback is invoked when a control port command uses tcpsrv_invoke. The
+on_invoke callback gets executed in each worker thread on each active slot. It
+then gets called one final time with TCPSRV_OP_COMPLETE set in the flags mask.
+This callback is a mechanism for the control port thread (the main thread) to
+pass information to, or gather information from, the worker threads.  Further
+information is described in the control port section.  The client address, 
+file descriptor, and more are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
 
 The callback can also set these flags before returning:
 
@@ -315,15 +329,90 @@ The callback can also set these flags before returning:
 
 Control port
 ~~~~~~~~~~~~
+The embedded administrative control port is an optional feature enabled by 
+setting the cp_path member before initializing the library. When the control
+port is enabled, the administrator can connect to the running libtcpsrv server
+using the included controlsh utility, giving the cp_path pathname to it:
+
+  % controlsh -s /tmp/test.socket
+
+The embedded control port has a few built-in commands such as "help", "halt"
+and "who". These display the list of commands, shut down the server and show
+the list of connections, respectively.  The application can add its own
+commands to manipulate or query application state.  A control port command has
+a name, a callback, and a longer descriptive string.  To add a control port
+command, use cp_add_cmd (after tcpsrv_init and before tcpsrv_run):
+
+  t=tcpsrv_init(&parms);
+  cp_add_cmd(parms.cp, "status", status_cmd, "get status", NULL);
+  tcpsrv_run(t);
+
+cp_add_cmd
+^^^^^^^^^^
+This function has the following prototype:
+
+  void cp_add_cmd(void*cp, char *name, cp_cmd_f *cmd, char *help, void *data);
+
+The initial parameter must be the cp member of the tcpsrv_init_t (after
+tcpsrv_init has returned successfully). The name is the command name, and the
+help is a longer string of help text which may be NULL. The final data pointer
+is an opaque data type that is passed to the command callback. The cmd argument is
+the function pointer of the command callback described next.
+
+Commmand callback
++++++++++++++++++
+
+The command callback is a function pointer which must have this prototype:
+
+  int (*cp_cmd_f)(void *cp, int argc, char **argv, void *data);
+
+It's initial argument, cp, is an opaque type used to send reply text to
+the control port via cp_printf as shown below. The next two arguments argc and
+argv are analogous to the arguments to the main function in C. They indicate
+the command name being run and its arguments. The data pointer is the opaque
+type that was passed into cp_add_cmd.
+
+The callback can use cp_printf to return data to the control port. E.g.,
+
+  cp_printf(cp, "%s: received %d arguments", argv[0], argc);
+
+The callback can also call a few special libtcpsrv API: tcpsrv_shutdown(void *)
+initiates the shutdown of the server. It must take as its argument the opaque
+pointer that tcpsrv_init returned. (This means that you must pass that pointer
+as the data pointer of cp_add_cmd, or pass it inside data in your own structure).
+The other special API that the callback can make use of is tcpsrv_invoke which
+is described separately.
+
+This callback must return CP_OK normally, or CP_CLOSE to cause libtcpsrv to
+disconnect the control port client.
+
+.tcpsrv_invoke
+
+This special API call can be used to build sophisticated control port command
+callbacks that interact with the worker threads to produce the control port
+output.  When a control port command callback invokes tcpsrv_invoke(void *,
+void*) the first argument must be the opaque type returned from tcpsrv_init.
+The second pointer is arbitrary but may be used to facilitate information
+exchange with the worker threads.
+
+When this function is called, the control port command callback in the main
+thread causes each worker thread to invoke the on_invoke callback (defined 
+in tcpsrv_init_t) on each active connection slot. Therefore the on_invoke
+callback works in concert with the control port command. (For example the
+control port command callback can create a pipe for each thread, pass the
+address of the pipe array as the second argument to tcpsrv_invoke, and have
+the on_invoke callback write back on those pipes from each worker thread).
+
+TODO: example.
 
 Internals
 ---------
 Libtcpsrv establishes the listening socket, then uses epoll in its main thread
 to wait for new connections. (This epoll also handles signals to the server, 
 including periodic background timers, and control port I/O). When a new client
-connection occurs, the accept callback (if one is defined), gets run in the
-server's main thread. Afterward, the new connection gets permanently assigned
-to a worker thread where all further I/O and eventual closure occurs.
+connection occurs, it gets accepted in the main thread. Then the new connection
+gets permanently assigned to a worker thread where the accept callback is run,
+and where all further I/O and eventual closure occurs.  
 
 The server keeps a pipe to each worker thread. The main thread periodically
 places requests into a worker's pipe, which the worker reads and acts on. This
