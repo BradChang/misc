@@ -335,7 +335,7 @@ static void *worker(void *_tc) {
         (ev.events & EPOLLOUT) ? "OUT" : "   ", ev.data.fd);
     }
 
-    /* handle I/O from the from main thread on the control pipe */ 
+    /* handle I/O from the main thread on the control pipe */ 
     if (ev.data.fd == tc->pipe_fd[0]) {
       if (read(tc->pipe_fd[0],&op,sizeof(op)) != sizeof(op)) goto done;
       switch(op) {
