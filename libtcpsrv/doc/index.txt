@@ -155,7 +155,10 @@ The application can pass its own opaque data pointer into the tcpsrv_init_t.
 
   tcpsrv_init_t parms = { .data = opaque_data, /* ... */ };
 
+An application can create its own data structure and store its pointer in data.
 This data pointer is passed back to the application callbacks. It may be NULL.
+If the application stores a structure pointer in data, it should include a lock
+if callbacks need to update it.
 
 Initialization
 ~~~~~~~~~~~~~~
@@ -293,12 +296,12 @@ After the write completes it can reset the polling condition to readable:
 
   *flags |= TCPSRV_POLL_READ;
 
-In other words, setting TCPSRV_POLL_READ or TCPSRV_POLL_WRITE changes the
+In other words, setting TCPSRV_POLL_READ and/or TCPSRV_POLL_WRITE changes the
 poll condition to only the given flags; setting neither flag causes the
-existing polling condition to be retained. The flags always have either
-or both of TCPSRV_CAN_READ or TCPSRV_CAN_WRITE set when the callback runs.
-But the TCP_SRV_CAN_WRITE flag is only set if you have modified the poll
-condition to explicitly poll for writability. (Called in the worker thread).
+existing polling condition to be retained. The flags always have either or both
+of TCPSRV_CAN_READ or TCPSRV_CAN_WRITE set when the callback runs.  But
+TCPSRV_CAN_WRITE is only set if you have modified the poll condition to
+explicitly poll for writability. (Called in the worker thread).
 
 .on_close
   void (*on_close)(tcpsrv_client_t *client, void *data);
@@ -308,9 +311,8 @@ This is the last chance the application has to do anything with the client.
 It can also clean up the slot (or that can be done in the on_accept callback).
 The on_data callback initiates connection closure by setting TCPSRV_DO_CLOSE in
 the flags; this callback runs afterward.  The client address, file descriptor,
-and more are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
-
-(Called in the worker thread).
+and more are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.  (Called in
+the worker thread).
 
 .on_invoke
   void (*on_invoke)(tcpsrv_client_t *client, void *ptr, void *data, int *flags);
@@ -322,20 +324,19 @@ This callback is a mechanism for the control port thread (the main thread) to
 pass information to, or gather information from, the worker threads.  Further
 information is described in the control port section.  The client address, 
 file descriptor, and more are in the <<tcpsrv_client_t,tcpsrv_client_t>> structure.
+(Called in the worker thread).
 
 The callback can also set these flags before returning:
 
   TCPSRV_DO_CLOSE   /* tell the library to close the connection */
   TCPSRV_DO_EXIT    /* tell the library to initiate shut down  */
 
-(Called in the worker thread).
-
 Control port
 ~~~~~~~~~~~~
-The embedded administrative control port is an optional feature enabled by 
-setting the cp_path member before initializing the library. When the control
-port is enabled, the administrator can connect to the running libtcpsrv server
-using the included controlsh utility, giving the cp_path pathname to it:
+The embedded administrative control port is enabled by setting the cp_path
+member before initializing the library. When the control port is enabled, the
+administrator can connect to the running libtcpsrv server using the included
+controlsh utility, giving the cp_path pathname to it:
 
   % controlsh -s /tmp/test.socket
 
