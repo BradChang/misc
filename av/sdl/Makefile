@@ -14,4 +14,4 @@ sdl1: sdl1.o
 .PHONY: clean
 
 clean:
-	rm -f $(OBJS)
+	rm -f $(OBJS) *.o
