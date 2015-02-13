@@ -64,6 +64,7 @@ int main(int argc, char *argv[]) {
   if (win) SDL_DestroyWindow(win);
   if (ren) SDL_DestroyRenderer(ren);
   if (bmp) SDL_FreeSurface(bmp);
+  if (tex) SDL_DestroyTexture(tex);
   SDL_Quit();
   return 0;
 }
