@@ -19,4 +19,6 @@ It is recommended to use a GPL-compatible license such as:
   * Dual MIT/GPL
 
 If the license is Proprietary, it flags the kernel as tainted.
+You can view the taint status of a loaded module in sysfs, e.g.
 
+  % cat /sys/module/info/taint
