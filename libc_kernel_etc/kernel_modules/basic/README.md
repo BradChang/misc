@@ -1,6 +1,6 @@
 Basic kernel module
 ===================
-Troy D. Hanson <tdh@tkhanson.net>
+Troy D. Hanson
 February 2015
 
 The "basic" module is a simple loadable kernel module. Its only purpose is to
@@ -43,10 +43,10 @@ To unload the module:
 
 See the artifacts:
 
-  % dmesg | tail -2
-  [65909.284857] basic module init called
+  % dmesg | tail -1
+
+Produces:
+
   [65919.113771] basic module exit called
 
-
-// vim: syntax=asciidoc:
 
