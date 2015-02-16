@@ -40,7 +40,6 @@ typedef struct {
   void (*on_data)(tcpsrv_client_t *client, void *data, int *flags);   // app should consume/emit data
   void (*on_close)(tcpsrv_client_t *client, void *data);              // cleanup slot at fd closure
   int  (*periodic)(int uptime, void *data);                           // app periodic callback 
-  void (*on_invoke)(tcpsrv_client_t *client, void *ptr, void *data, int *flags); // special purpose
 } tcpsrv_init_t;
 
 /* these are values for flags in the callbacks */
@@ -70,6 +69,8 @@ void tcpsrv_shutdown(void *_t);
  * since that would require locking. the ptr parameter can be anything, such as
  * to a memory buffer that the thread should populate (by indexing into by 
  * thread_idx), or a file descriptor array that the threads should respond on.*/
-void tcpsrv_invoke(void *_t, void *ptr);
+void tcpsrv_invoke(void *_t, 
+  void (*on_invoke)(tcpsrv_client_t *client, void *ptr, void *data, int *flags),
+  void *ptr);
 
 #endif //__TCPSRV_H__

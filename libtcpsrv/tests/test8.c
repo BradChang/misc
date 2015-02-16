@@ -31,7 +31,7 @@ int ask_cmd(void *cp, int argc, char **argv, void *t) {
   char buf[100];
   cp_printf(cp, "querying threads.\n");
   for(n=0; n<NTHREAD; n++) pipe(fds[n]);
-  tcpsrv_invoke(t, fds);
+  tcpsrv_invoke(t, invoke_cb, fds);
   // read them all til eof
   for(n=0; n<NTHREAD; n++) {
     do {
@@ -54,7 +54,6 @@ tcpsrv_init_t parms = {
   .maxfd = 20,
   .port = 1099,
   .slot_sz = sizeof(slot_t),
-  .on_invoke = invoke_cb,
   .on_close = close_cb,
   .cp_path = "/tmp/test.socket",
 };

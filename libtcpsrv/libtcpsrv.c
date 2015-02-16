@@ -345,8 +345,8 @@ static void *worker(void *_tc) {
         case WORKER_ACCEPT:
           if (read(tc->pipe_fd[0],&fd,sizeof(fd)) != sizeof(fd)) goto done;
           BIT_SET(tc->fdmask, fd);
+          flags = TCPSRV_POLL_READ;
           if (t->p.on_accept) {
-            flags = TCPSRV_POLL_READ;
             t->p.on_accept(&t->si[fd].client, t->p.data, &flags);
             if (do_flags(t,tc,i,flags)) break;
           }
@@ -532,8 +532,10 @@ void tcpsrv_shutdown(void *_t) {
    t->shutdown=1;
 }
 // queue each thread to run on_invoke cb on each of their active slots
-void tcpsrv_invoke(void *_t, void *ptr) { 
+void tcpsrv_invoke(void *_t, 
+  void (*on_invoke)(tcpsrv_client_t *client, void *ptr, void *data, int *flags),
+  void *ptr) { 
   tcpsrv_t *t = (tcpsrv_t*)_t;
-  send_workers_ptr(t,WORKER_INVOKE,t->p.on_invoke,ptr);
+  send_workers_ptr(t,WORKER_INVOKE,on_invoke,ptr);
 }
 
