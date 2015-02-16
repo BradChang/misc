@@ -18,21 +18,18 @@ These are all placed in the public domain.
 
 
 // this defines an attribute called {t} used below
-:t: https://github.com/troydhanson/misc/tree/master/network/
-:f: http://troydhanson.github.com/misc/Unix_domain_sockets.html
+:t: https://github.com/troydhanson/misc/tree/master/text_handling/
+:f: http://troydhanson.github.com/misc/lemon_notes.html
 
-Networking and communications
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Reading lines, reading files, parsing, and regular expression matching
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 [width="50%",cols="10^m,50",grid="none"]
 |=================================================================================================================
-| {t}tcp/basic[tcp]    | TCP client and server in C 
-| {t}udp/basic[udp]    | UDP client and server in C
-| {t}dns[dns]          | how to do a DNS lookup in C 
-| {t}pcap/basic[pcap]  | using libpcap to capture packets in C 
-| {t}ifinfo[ifinfo]    | how to list network interfaces, IP addresses and MACs in C
-| {t}unixdomain[unixdomain]   | how to use UNIX domain sockets in C {f}[notes] 
-| {t}qcp[qcp]          | a utility to copy files across a network with no authentication 
-| {t}serial[serial]    | how to read the serial port in C and node.js
+| {t}slurp[slurp]      | how to read a whole file in C 
+| {t}looper[looper]    | how to read a file line-by-line in C 
+| {t}pcre[pcre]        | how to use regular expressions in C
+| {t}lemon[lemon]      | how to use the Lemon parser generator in C, {f}[notes]
+| {t}unicode[unicode]  | Unicode handling in C, UTF conversion, etc
 |=================================================================================================================
 
 :t: https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/
@@ -48,20 +45,6 @@ C library, linker and kernel features
 | {s}[peek]            | peek into virtual memory of another process in C 
 | {t}pexit[pexit]      | how to get a signal when parent process exits in C
 | {t}dlsym[dlsym]      | how to read symbol tables of shared libraries in C
-|=================================================================================================================
-
-:t: https://github.com/troydhanson/misc/tree/master/text_handling/
-:f: http://troydhanson.github.com/misc/lemon_notes.html
-
-Reading lines, reading files, parsing, and regular expression matching
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[width="50%",cols="10^m,50",grid="none"]
-|=================================================================================================================
-| {t}slurp[slurp]      | how to read a whole file in C 
-| {t}looper[looper]    | how to read a file line-by-line in C 
-| {t}pcre[pcre]        | how to use regular expressions in C
-| {t}lemon[lemon]      | how to use the Lemon parser generator in C, {f}[notes]
-| {t}unicode[unicode]  | Unicode handling in C, UTF conversion, etc
 |=================================================================================================================
 
 :t: https://github.com/troydhanson/misc/tree/master/compression/
@@ -94,6 +77,7 @@ Server libs and utils
 | {t}controlport[controlport] | library to embed a control port into a C program
 | {t}mworkers[mworkers]| multi-process and multi-thread examples of managing workers in C
 | {t}rw_wrap[rw_wrap]  | macros to deal with partial writes and reads in C
+| {t}serial[serial]    | how to read the serial port in C and node.js
 |=================================================================================================================
 
 :t: https://github.com/troydhanson/misc/tree/master/terminal_io/
