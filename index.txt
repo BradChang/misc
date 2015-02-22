@@ -74,7 +74,6 @@ Server libs and utils
 | {t}uuid[uuid]        | how to use libuuid to get universally unique identifiers
 | {t}tracker[tracker]  | a library to track top strings (URL's, etc) in a stream 
 | {t}tconf[tconf]      | library to read a key-value configuration file in C 
-| {t}controlport[controlport] | library to embed a control port into a C program
 | {t}mworkers[mworkers]| multi-process and multi-thread examples of managing workers in C
 | {t}rw_wrap[rw_wrap]  | macros to deal with partial writes and reads in C
 | {t}serial[serial]    | how to read the serial port in C and node.js
