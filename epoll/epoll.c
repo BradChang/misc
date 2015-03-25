@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 
 struct {
@@ -89,7 +90,7 @@ int handle_signal() {
 }
 
 int main(int argc, char *argv[]) {
-  int opt, rc, n;
+  int opt, n;
   cfg.prog = argv[0];
   struct epoll_event ev;
 
