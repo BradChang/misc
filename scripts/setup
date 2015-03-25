@@ -64,6 +64,7 @@ echo 'git config --global core.editor vim'
 # gcc-doc
 # glibc-doc
 # make-doc
+# bash-doc
 # vim
 # vim-doc
 # autoconf
