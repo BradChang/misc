@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <time.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -8,33 +9,47 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-// i/j TODO
-
 /*
  *
  */
 
 #define NUM_CONFIGS_ALL (1UL << 27U)
 
+/* a few macros used to implement a bit vector */
+#define BIT_TEST(c,i)  (c[i/8] &   (1 << (i % 8)))
+#define BIT_SET(c,i)   (c[i/8] |=  (1 << (i % 8)))
+#define BIT_CLEAR(c,i) (c[i/8] &= ~(1 << (i % 8)))
+
 struct {
   int verbose;
   char *file; /* output file */
   int fd;     /* of file */
-  /* i/j */
-  int index; /* TODO */
-  int workers; /* TODO */
+  int index;  /* TODO */
+  int workers;
   /* internals */
   char *buf;     /* mmap'd output file */
   size_t buf_sz; /* size of above (bytes) */
+  time_t start;  
+  time_t end;  
 } CF = {
   .buf_sz = NUM_CONFIGS_ALL / 8, /* this many bytes to hold that bit array */
   .fd = -1,
+  .file = "3x3x3.dat",
 };
 
 void usage(char *prog) {
   fprintf(stderr, "usage: %s [-v] [-f <file>] [-i <i/j>]\n", prog);
   fprintf(stderr,"        i/j = index of this worker, of j workers\n");
   exit(-1);
+}
+
+void compute() {
+  long i;
+  char *c = CF.buf;
+  for(i=0; i<NUM_CONFIGS_ALL; i++) {
+    /* work goes here */
+    BIT_SET(c,i);
+  }
 }
 
 void cleanup_mapping() {
@@ -84,8 +99,15 @@ int main(int argc, char *argv[]) {
       case 'h': default: usage(argv[0]); break;
     }
   }
-  if (CF.file == NULL) usage(argv[0]);
   if (map() < 0) goto done;
+
+  time(&CF.start);
+  fprintf(stderr,"starting at %s", asctime(localtime(&CF.start)));
+
+  compute();
+
+  time(&CF.end);
+  fprintf(stderr,"ending at %s", asctime(localtime(&CF.end)));
 
  done:
   cleanup_mapping();
