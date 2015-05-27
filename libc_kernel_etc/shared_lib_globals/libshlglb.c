@@ -1,0 +1,1 @@
+char shared[100];
