@@ -118,6 +118,8 @@ int main(int argc, char *argv[]) {
  done:
   if (CF.ibuf) munmap(CF.ibuf, CF.ilen);
   if (CF.obuf) munmap(CF.obuf, CF.olen);
+  free(CF.ifile);
+  free(CF.ofile);
   return rc;
 }
 
