@@ -15,16 +15,16 @@ if [ ! -x ${ECC} ]; then echo "run \"make\" first, then try again"; exit -1; fi
 echo "hello, world!" > ${RAWFILE}
 
 echo encoding...
-${ECC} -e -x -i ${RAWFILE} -o ${ECCFILE}
+${ECC} -i ${RAWFILE} -o ${ECCFILE}
 echo adding excessive noise...
-${ECC} -nn -x -i ${ECCFILE} -o ${NOSFILE}
-echo decoding noisy file... expect failure!
-${ECC} -d -x -i ${NOSFILE} -o ${DECFILE}
+${ECC} -nn -i ${ECCFILE} -o ${NOSFILE}
+echo decoding noisy file...without error detection
+${ECC} -d -i ${NOSFILE} -o ${DECFILE}
 echo resulting files:
 ls -lt ${RAWFILE} ${ECCFILE} ${NOSFILE} ${DECFILE}
 echo dumping hex:
 for f in ${RAWFILE} ${ECCFILE} ${NOSFILE} ${DECFILE}; do echo $f; hexdump -C $f; done
-echo diffing...
+echo diffing... expect undetected difference
 diff -q ${RAWFILE} ${DECFILE}
-if [ $? -eq 0 ]; then rm ${RAWFILE} ${ECCFILE} ${NOSFILE} ${DECFILE}; fi
+#if [ $? -eq 0 ]; then rm ${RAWFILE} ${ECCFILE} ${NOSFILE} ${DECFILE}; fi
 echo done

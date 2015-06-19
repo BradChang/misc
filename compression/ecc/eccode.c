@@ -5,37 +5,32 @@
 size_t ecc_compute_olen( int mode, size_t ilen, size_t *ibits, size_t *obits) {
 
   // 4->7. Every byte becomes 14 bits.
-  if (mode == MODE_ENCODE) { 
+  if ((mode & MODE_ENCODE) && !(mode & MODE_EXTEND)) {
       *ibits = ilen * 8;
       *obits = ilen * 14;
   }
 
   // 7->4. Every 7 bits becomes 4 bits.
-  if (mode == MODE_DECODE) { 
+  if ((mode & MODE_DECODE) && !(mode & MODE_EXTEND)) {
       *ibits = (ilen*8) - ((ilen*8) % 7);
       *obits = (*ibits/7) * 4;
   }
 
-  if ((mode == MODE_NOISE) || (mode == MODE_NOISE_UC)) {
+  if (mode & (MODE_NOISE1 | MODE_NOISE2)) {
       *ibits = ilen * 8;
       *obits = ilen * 8;
   }
 
   // 4->8. Every byte becomes 16 bits.
-  if (mode == MODE_XENCODE) { 
+  if ((mode & MODE_ENCODE) && (mode & MODE_EXTEND)) {
       *ibits = ilen * 8;
       *obits = ilen * 16;
   }
 
   // 8->4. Every byte becomes 4 bits.
-  if (mode == MODE_XDECODE) { 
+  if ((mode & MODE_DECODE) && (mode & MODE_EXTEND)) {
       *ibits = ilen * 8;
       *obits = *ibits / 2;
-  }
-
-  if ((mode == MODE_XNOISE) || (mode == MODE_XNOISE_UC)) {
-      *ibits = ilen * 8;
-      *obits = ilen * 8;
   }
 
   size_t olen = (*obits/8) + ((*obits % 8) ? 1 : 0);
@@ -73,11 +68,11 @@ size_t ecc_compute_olen( int mode, size_t ilen, size_t *ibits, size_t *obits) {
  */ 
 
 int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
-  unsigned char x[8], a, b, c, e=0, p;
+  unsigned char x[8], a, b, c, e=0, p, t;
   size_t i=0, o=0, ibits;
   int rc=-1;
 
-  if (mode == MODE_ENCODE) {
+  if ((mode & MODE_ENCODE) && !(mode & MODE_EXTEND)) {
     ibits = ilen * 8;
     /* iterate over 4 bits at a time, producing 7. */
     while (i < ibits) {
@@ -102,7 +97,7 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
     }
   }
 
-  if (mode == MODE_DECODE) {
+  if ((mode & MODE_DECODE) && !(mode & MODE_EXTEND)) {
     ibits = (ilen*8) - ((ilen*8) % 7);
     /* iterate over 7 bits at a time, producing 4. */
     while (i < ibits) {
@@ -131,7 +126,7 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
     }
   }
 
-  if ((mode == MODE_NOISE) || (mode == MODE_NOISE_UC)) {
+  if ((mode & (MODE_NOISE1|MODE_NOISE2)) && !(mode & MODE_EXTEND)) {
     ibits = (ilen*8) - ((ilen*8) % 7);
     /* iterate over 7 bits at a time, adding noise. */
     while (i < ibits) {
@@ -143,10 +138,8 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
       x[6] = BIT_TEST(ib,i+5) ? 1 : 0;
       x[7] = BIT_TEST(ib,i+6) ? 1 : 0;
 
-      x[e%8] = x[e%8] ? 0 : 1;
-      e++;
-
-      if (mode == MODE_NOISE_UC) {
+      t = (mode & MODE_NOISE1) ? 1 : 2;
+      while (t--) {
         x[e%8] = x[e%8] ? 0 : 1;
         e++;
       }
@@ -164,7 +157,7 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
     }
   }
 
-  if (mode == MODE_XENCODE) {
+  if ((mode & MODE_ENCODE) && (mode & MODE_EXTEND)) {
     ibits = ilen * 8;
     /* iterate over 4 bits at a time, producing 8. */
     while (i < ibits) {
@@ -191,7 +184,7 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
     }
   }
 
-  if (mode == MODE_XDECODE) {
+  if ((mode & MODE_DECODE) && (mode & MODE_EXTEND)) {
     ibits = ilen *8;
     /* iterate over 8 bits at a time, producing 4. */
     while (i < ibits) {
@@ -223,7 +216,7 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
     }
   }
 
-  if ((mode == MODE_XNOISE) || (mode == MODE_XNOISE_UC)) {
+  if ((mode & (MODE_NOISE1|MODE_NOISE2)) && (mode & MODE_EXTEND)) {
     ibits = ilen * 8;
     /* iterate over 8 bits at a time, adding noise. */
     while (i < ibits) {
@@ -236,10 +229,8 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
       x[7] = BIT_TEST(ib,i+6) ? 1 : 0;
       x[0] = BIT_TEST(ib,i+7) ? 1 : 0;
 
-      x[e%8] = x[e%8] ? 0 : 1;
-      e++;
-
-      if (mode == MODE_XNOISE_UC) {
+      t = (mode & MODE_NOISE1) ? 1 : 2;
+      while (t--) {
         x[e%8] = x[e%8] ? 0 : 1;
         e++;
       }

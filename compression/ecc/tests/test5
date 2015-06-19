@@ -2,6 +2,7 @@
 
 # exit immediately if a command fails
 set -e
+#set -x
 
 RAWFILE=/tmp/raw.$$;
 ECCFILE=/tmp/ecc.$$;

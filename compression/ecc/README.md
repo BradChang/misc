@@ -23,20 +23,21 @@ Extended Hamming codes
 
 While the encoding above can correct one error in seven bits, it does
 not correct nor can it detect two or more errors. We can add a parity
-bit to detect up to two errors. This preserves the ability to correct
-one error and also tells us if a second, uncorrectable error occurred.
+bit. This gives us the ability to correct one error among the 8 bits
+and lets us detect if a second, uncorrectable error occurred.
 
     % echo "hello, world!" > original
-    % ./ecc -E -i original -o encoded
-    % ./ecc -N -i encoded -o noisy
-    % ./ecc -D -i noisy -o decoded
+    % ./ecc -x -i original -o encoded
+    % ./ecc -n -x -i encoded -o noisy
+    % ./ecc -d -x -i noisy -o decoded
     % diff original decoded
     %
 
-The parity bit allows us to detect if two errors have occurred.
-If we toggle two bits per byte (using ecc -U), we see this fact.
+We can add too much noise by toggling two bits per byte, using ecc -nn.
+The use of extended coding (-x) allow us to detect the (uncorrectable) 
+error. This is the advantage of extended codes over the standard ones.
 
-    % ./ecc -U -i encoded -o noisy
-    % ./ecc -D -i noisy -o decoded
+    % ./ecc -nn -x -i encoded -o noisy
+    % ./ecc -d -x -i noisy -o decoded
     ecc_recode error
 

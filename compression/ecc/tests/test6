@@ -2,6 +2,7 @@
 
 # exit immediately if a command fails
 set -e
+#set -x
 
 RAWFILE=/tmp/raw.$$;
 ECCFILE=/tmp/ecc.$$;
@@ -14,11 +15,11 @@ if [ ! -x ${ECC} ]; then echo "run \"make\" first, then try again"; exit -1; fi
 echo "hello, world!" > ${RAWFILE}
 
 echo encoding...
-${ECC} -E -i ${RAWFILE} -o ${ECCFILE}
+${ECC} -e -x -i ${RAWFILE} -o ${ECCFILE}
 echo adding noise...
-${ECC} -N -i ${ECCFILE} -o ${NOSFILE}
+${ECC} -n -x -i ${ECCFILE} -o ${NOSFILE}
 echo decoding noisy file...
-${ECC} -D -i ${NOSFILE} -o ${DECFILE}
+${ECC} -d -x -i ${NOSFILE} -o ${DECFILE}
 echo resulting files:
 ls -lt ${RAWFILE} ${ECCFILE} ${NOSFILE} ${DECFILE}
 echo dumping hex:
