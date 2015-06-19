@@ -16,6 +16,11 @@ size_t ecc_compute_olen( int mode, size_t ilen, size_t *ibits, size_t *obits) {
       *obits = (*ibits/7) * 4;
   }
 
+  if (mode == MODE_NOISE) {
+      *ibits = ilen * 8;
+      *obits = ilen * 8;
+  }
+
   size_t olen = (*obits/8) + ((*obits % 8) ? 1 : 0);
   return olen;
 }
@@ -49,7 +54,7 @@ size_t ecc_compute_olen( int mode, size_t ilen, size_t *ibits, size_t *obits) {
  */ 
 
 int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
-  unsigned char x[8], a, b, c, e;
+  unsigned char x[8], a, b, c, e=0;
   size_t i=0, o=0, ibits;
   int rc=-1;
 
@@ -105,6 +110,34 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
 
       i += 7;
       o += 4;
+    }
+  }
+
+  if (mode == MODE_NOISE) {
+    ibits = (ilen*8) - ((ilen*8) % 7);
+    /* iterate over 7 bits at a time, adding noise. */
+    while (i < ibits) {
+      x[1] = BIT_TEST(ib,i+0) ? 1 : 0;
+      x[2] = BIT_TEST(ib,i+1) ? 1 : 0;
+      x[3] = BIT_TEST(ib,i+2) ? 1 : 0;
+      x[4] = BIT_TEST(ib,i+3) ? 1 : 0;
+      x[5] = BIT_TEST(ib,i+4) ? 1 : 0;
+      x[6] = BIT_TEST(ib,i+5) ? 1 : 0;
+      x[7] = BIT_TEST(ib,i+6) ? 1 : 0;
+
+      x[e%8] = x[e%8] ? 0 : 1;
+      e++;
+
+      if (x[1]) BIT_SET(ob,o+0);
+      if (x[2]) BIT_SET(ob,o+1);
+      if (x[3]) BIT_SET(ob,o+2);
+      if (x[4]) BIT_SET(ob,o+3);
+      if (x[5]) BIT_SET(ob,o+4);
+      if (x[6]) BIT_SET(ob,o+5);
+      if (x[7]) BIT_SET(ob,o+6);
+
+      i += 7;
+      o += 7;
     }
   }
 

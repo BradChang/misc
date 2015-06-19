@@ -33,7 +33,7 @@ struct {
 
 
 void usage() {
-  fprintf(stderr,"usage: %s [-v] [-d] -i <file> -o <file>\n", CF.prog);
+  fprintf(stderr,"usage: %s [-v] [-d|-n] -i <file> -o <file>\n", CF.prog);
   exit(-1);
 }
 
@@ -95,10 +95,11 @@ int main(int argc, char *argv[]) {
   int opt, rc=-1;
   CF.prog = argv[0];
 
-  while ( (opt = getopt(argc,argv,"vdhi:o:")) > 0) {
+  while ( (opt = getopt(argc,argv,"vdnhi:o:")) > 0) {
     switch(opt) {
       case 'v': CF.verbose++; break;
       case 'd': CF.mode=MODE_DECODE; break;
+      case 'n': CF.mode=MODE_NOISE; break;
       case 'i': CF.ifile=strdup(optarg); break;
       case 'o': CF.ofile=strdup(optarg); break;
       case 'h': default: usage(); break;
