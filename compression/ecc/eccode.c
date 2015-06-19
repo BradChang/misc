@@ -21,14 +21,33 @@ size_t ecc_compute_olen( int mode, size_t ilen, size_t *ibits, size_t *obits) {
       *obits = ilen * 8;
   }
 
+  // 4->8. Every byte becomes 16 bits.
+  if (mode == MODE_ENCODEX) { 
+      *ibits = ilen * 8;
+      *obits = ilen * 16;
+  }
+
+  // 8->4. Every byte becomes 4 bits.
+  if (mode == MODE_DECODEX) { 
+      *ibits = ilen * 8;
+      *obits = *ibits / 2;
+  }
+
+  if (mode == MODE_NOISEX) {
+      *ibits = ilen * 8;
+      *obits = ilen * 8;
+  }
+
   size_t olen = (*obits/8) + ((*obits % 8) ? 1 : 0);
   return olen;
 }
 
-/* as defined by Claude Shannon in "A Mathematical Theory of Communication",
+/* An implementation of Hamming codes (perfect 1-error correcting codes) and 
+ * extended Hamming codes (2-error detecting codes). The process used below
+ * is described by Claude Shannon in "A Mathematical Theory of Communication",
  * Bell System Technical Journal, July 1948. An Example of Efficient Coding.  
  *
- *"The following example, although somewhat unrealiztic, is a case in which 
+ *"The following example, although somewhat unrealistic, is a case in which 
  * exact matching to a noisy channel is possible. There are two channel 
  * symbols 0 and 1, and the noise affects them in blocks of seven symbols. A
  * block of seven is either transmitted without error, or exactly one symbol of
@@ -36,7 +55,7 @@ size_t ecc_compute_olen( int mode, size_t ilen, size_t *ibits, size_t *obits) {
  *
  *           capacity C = 4/7 bits/symbol
  *
- * An efficient code, allowing complete correctino of errors and transmitting
+ * An efficient code, allowing complete correction of errors and transmitting
  * at the rate C, is the following (found by a method due to R. Hamming):
  *
  * Let a a block of seven symbols be x1,x2,...,x7. Of these x3, x5, x6 and x7
@@ -54,7 +73,7 @@ size_t ecc_compute_olen( int mode, size_t ilen, size_t *ibits, size_t *obits) {
  */ 
 
 int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
-  unsigned char x[8], a, b, c, e=0;
+  unsigned char x[8], a, b, c, e=0, p;
   size_t i=0, o=0, ibits;
   int rc=-1;
 
@@ -140,8 +159,98 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
     }
   }
 
+  if (mode == MODE_ENCODEX) {
+    ibits = ilen * 8;
+    /* iterate over 4 bits at a time, producing 8. */
+    while (i < ibits) {
+      x[3] = BIT_TEST(ib,i+0) ? 1 : 0;
+      x[5] = BIT_TEST(ib,i+1) ? 1 : 0;
+      x[6] = BIT_TEST(ib,i+2) ? 1 : 0;
+      x[7] = BIT_TEST(ib,i+3) ? 1 : 0;
+      x[4] = (x[5] + x[6] + x[7]) % 2;
+      x[2] = (x[3] + x[6] + x[7]) % 2;
+      x[1] = (x[3] + x[5] + x[7]) % 2;
+      x[0] = (x[1] + x[2] + x[3] + x[4] + x[5] + x[6] + x[7]) % 2;
+
+      if (x[1]) BIT_SET(ob,o+0);
+      if (x[2]) BIT_SET(ob,o+1);
+      if (x[3]) BIT_SET(ob,o+2);
+      if (x[4]) BIT_SET(ob,o+3);
+      if (x[5]) BIT_SET(ob,o+4);
+      if (x[6]) BIT_SET(ob,o+5);
+      if (x[7]) BIT_SET(ob,o+6);
+      if (x[0]) BIT_SET(ob,o+7);
+
+      i += 4;
+      o += 8;
+    }
+  }
+
+  if (mode == MODE_DECODEX) {
+    ibits = ilen *8;
+    /* iterate over 8 bits at a time, producing 4. */
+    while (i < ibits) {
+      x[1] = BIT_TEST(ib,i+0) ? 1 : 0;
+      x[2] = BIT_TEST(ib,i+1) ? 1 : 0;
+      x[3] = BIT_TEST(ib,i+2) ? 1 : 0;
+      x[4] = BIT_TEST(ib,i+3) ? 1 : 0;
+      x[5] = BIT_TEST(ib,i+4) ? 1 : 0;
+      x[6] = BIT_TEST(ib,i+5) ? 1 : 0;
+      x[7] = BIT_TEST(ib,i+6) ? 1 : 0;
+      x[0] = BIT_TEST(ib,i+7) ? 1 : 0;
+
+      a = (x[4] + x[5] + x[6] + x[7]) % 2;
+      b = (x[2] + x[3] + x[6] + x[7]) % 2;
+      c = (x[1] + x[3] + x[5] + x[7]) % 2;
+
+      e = (a << 2U) | (b << 1U) | c;
+      if (e) x[e] = x[e] ? 0 : 1;
+      p = (x[0] + x[1] + x[2] + x[3] + x[4] + x[5] + x[6] + x[7]) % 2;
+      if (p && e) goto done;
+
+      if (x[3]) BIT_SET(ob,o+0);
+      if (x[5]) BIT_SET(ob,o+1);
+      if (x[6]) BIT_SET(ob,o+2);
+      if (x[7]) BIT_SET(ob,o+3);
+
+      i += 8;
+      o += 4;
+    }
+  }
+
+  if (mode == MODE_NOISEX) {
+    ibits = ilen * 8;
+    /* iterate over 8 bits at a time, adding noise. */
+    while (i < ibits) {
+      x[1] = BIT_TEST(ib,i+0) ? 1 : 0;
+      x[2] = BIT_TEST(ib,i+1) ? 1 : 0;
+      x[3] = BIT_TEST(ib,i+2) ? 1 : 0;
+      x[4] = BIT_TEST(ib,i+3) ? 1 : 0;
+      x[5] = BIT_TEST(ib,i+4) ? 1 : 0;
+      x[6] = BIT_TEST(ib,i+5) ? 1 : 0;
+      x[7] = BIT_TEST(ib,i+6) ? 1 : 0;
+      x[0] = BIT_TEST(ib,i+7) ? 1 : 0;
+
+      x[e%8] = x[e%8] ? 0 : 1;
+      e++;
+
+      if (x[1]) BIT_SET(ob,o+0);
+      if (x[2]) BIT_SET(ob,o+1);
+      if (x[3]) BIT_SET(ob,o+2);
+      if (x[4]) BIT_SET(ob,o+3);
+      if (x[5]) BIT_SET(ob,o+4);
+      if (x[6]) BIT_SET(ob,o+5);
+      if (x[7]) BIT_SET(ob,o+6);
+      if (x[0]) BIT_SET(ob,o+7);
+
+      i += 8;
+      o += 8;
+    }
+  }
+
   rc = 0;
 
+ done:
   return rc;
 }
 
