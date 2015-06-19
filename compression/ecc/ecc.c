@@ -112,6 +112,7 @@ int main(int argc, char *argv[]) {
   if (mmap_output() < 0) goto done;
 
   rc = ecc_recode(CF.mode, CF.ibuf, CF.ilen, CF.obuf);
+  if (rc) fprintf(stderr,"ecc_recode error\n");
 
  done:
   if (CF.ibuf) munmap(CF.ibuf, CF.ilen);
