@@ -33,7 +33,11 @@ struct {
 
 
 void usage() {
-  fprintf(stderr,"usage: %s [-v] [-d|-n] -i <file> -o <file>\n", CF.prog);
+  fprintf(stderr,"usage: %s <options> -i <file> -o <file>\n", CF.prog);
+  fprintf(stderr," options: -v (verbose)\n");
+  fprintf(stderr,"          -e (encode) [default]\n");
+  fprintf(stderr,"          -d (decode)\n");
+  fprintf(stderr,"          -n (add noise)\n");
   exit(-1);
 }
 
@@ -95,9 +99,10 @@ int main(int argc, char *argv[]) {
   int opt, rc=-1;
   CF.prog = argv[0];
 
-  while ( (opt = getopt(argc,argv,"vdnhi:o:")) > 0) {
+  while ( (opt = getopt(argc,argv,"vednhi:o:")) > 0) {
     switch(opt) {
       case 'v': CF.verbose++; break;
+      case 'e': CF.mode=MODE_ENCODE; break;
       case 'd': CF.mode=MODE_DECODE; break;
       case 'n': CF.mode=MODE_NOISE; break;
       case 'i': CF.ifile=strdup(optarg); break;
