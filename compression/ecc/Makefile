@@ -5,7 +5,7 @@ all: $(PROGS)
 CFLAGS += -g
 CFLAGS += -Wall 
 
-$(OBJS): %.o: %.c
+$(OBJS): %.o: %.c eccode.h
 	$(CC) -c $(CFLAGS) $< 
 
 ecc: $(OBJS)
