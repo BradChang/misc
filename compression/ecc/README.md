@@ -12,3 +12,7 @@ The decoding can correct for 1 erroneous bit in each group of 7.
     % diff original decoded
     %     
 
+Any such noise function (such as a random 1/7 toggle) is correctable.
+Our 'noise adding' mode (ecc -n) perturbs one bit in each group of 7.
+It toggles bit 0 in the first group, bit 1 in the second group, etc.
+Because of its determinism it is reversible by repeating the command.
