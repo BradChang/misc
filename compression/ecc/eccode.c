@@ -101,7 +101,6 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
 
       e = (a << 2U) | (b << 1U) | c;
       if (e) x[e] = x[e] ? 0 : 1;
-      if ((e==1) || (e==2) || (e==4)) goto done;
 
       if (x[3]) BIT_SET(ob,o+0);
       if (x[5]) BIT_SET(ob,o+1);
@@ -143,7 +142,6 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
 
   rc = 0;
 
- done:
   return rc;
 }
 
