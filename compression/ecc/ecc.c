@@ -40,8 +40,10 @@ void usage() {
   fprintf(stderr,"          -d (decode)\n");
   fprintf(stderr,"          -E (extended encode)\n");
   fprintf(stderr,"          -D (extended decode)\n");
-  fprintf(stderr,"          -n (noise- disturb 1/7 bits)\n");
-  fprintf(stderr,"          -N (noise- disturb 2/8 bits)\n");
+  fprintf(stderr,"          -n (correctable noise- disturb 1/7 bits)\n");
+  fprintf(stderr,"          -N (correctable noise- disturb 1/8 bits)\n");
+  fprintf(stderr,"          -u (uncorrectable noise- disturb 2/7 bits)\n");
+  fprintf(stderr,"          -U (uncorrectable noise- disturb 2/8 bits)\n");
   exit(-1);
 }
 
@@ -103,15 +105,17 @@ int main(int argc, char *argv[]) {
   int opt, rc=-1;
   CF.prog = argv[0];
 
-  while ( (opt = getopt(argc,argv,"vednEDNhi:o:")) > 0) {
+  while ( (opt = getopt(argc,argv,"vednEDNuUhi:o:")) > 0) {
     switch(opt) {
       case 'v': CF.verbose++; break;
       case 'e': CF.mode=MODE_ENCODE; break;
       case 'd': CF.mode=MODE_DECODE; break;
       case 'n': CF.mode=MODE_NOISE; break;
-      case 'E': CF.mode=MODE_ENCODEX; break;
-      case 'D': CF.mode=MODE_DECODEX; break;
-      case 'N': CF.mode=MODE_NOISEX; break;
+      case 'u': CF.mode=MODE_NOISE_UC; break;
+      case 'E': CF.mode=MODE_XENCODE; break;
+      case 'D': CF.mode=MODE_XDECODE; break;
+      case 'N': CF.mode=MODE_XNOISE; break;
+      case 'U': CF.mode=MODE_XNOISE_UC; break;
       case 'i': CF.ifile=strdup(optarg); break;
       case 'o': CF.ofile=strdup(optarg); break;
       case 'h': default: usage(); break;

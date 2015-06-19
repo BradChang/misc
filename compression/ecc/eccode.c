@@ -16,24 +16,24 @@ size_t ecc_compute_olen( int mode, size_t ilen, size_t *ibits, size_t *obits) {
       *obits = (*ibits/7) * 4;
   }
 
-  if (mode == MODE_NOISE) {
+  if ((mode == MODE_NOISE) || (mode == MODE_NOISE_UC)) {
       *ibits = ilen * 8;
       *obits = ilen * 8;
   }
 
   // 4->8. Every byte becomes 16 bits.
-  if (mode == MODE_ENCODEX) { 
+  if (mode == MODE_XENCODE) { 
       *ibits = ilen * 8;
       *obits = ilen * 16;
   }
 
   // 8->4. Every byte becomes 4 bits.
-  if (mode == MODE_DECODEX) { 
+  if (mode == MODE_XDECODE) { 
       *ibits = ilen * 8;
       *obits = *ibits / 2;
   }
 
-  if (mode == MODE_NOISEX) {
+  if ((mode == MODE_XNOISE) || (mode == MODE_XNOISE_UC)) {
       *ibits = ilen * 8;
       *obits = ilen * 8;
   }
@@ -131,7 +131,7 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
     }
   }
 
-  if (mode == MODE_NOISE) {
+  if ((mode == MODE_NOISE) || (mode == MODE_NOISE_UC)) {
     ibits = (ilen*8) - ((ilen*8) % 7);
     /* iterate over 7 bits at a time, adding noise. */
     while (i < ibits) {
@@ -146,6 +146,11 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
       x[e%8] = x[e%8] ? 0 : 1;
       e++;
 
+      if (mode == MODE_NOISE_UC) {
+        x[e%8] = x[e%8] ? 0 : 1;
+        e++;
+      }
+
       if (x[1]) BIT_SET(ob,o+0);
       if (x[2]) BIT_SET(ob,o+1);
       if (x[3]) BIT_SET(ob,o+2);
@@ -159,7 +164,7 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
     }
   }
 
-  if (mode == MODE_ENCODEX) {
+  if (mode == MODE_XENCODE) {
     ibits = ilen * 8;
     /* iterate over 4 bits at a time, producing 8. */
     while (i < ibits) {
@@ -186,7 +191,7 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
     }
   }
 
-  if (mode == MODE_DECODEX) {
+  if (mode == MODE_XDECODE) {
     ibits = ilen *8;
     /* iterate over 8 bits at a time, producing 4. */
     while (i < ibits) {
@@ -218,7 +223,7 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
     }
   }
 
-  if (mode == MODE_NOISEX) {
+  if ((mode == MODE_XNOISE) || (mode == MODE_XNOISE_UC)) {
     ibits = ilen * 8;
     /* iterate over 8 bits at a time, adding noise. */
     while (i < ibits) {
@@ -233,6 +238,11 @@ int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob) {
 
       x[e%8] = x[e%8] ? 0 : 1;
       e++;
+
+      if (mode == MODE_XNOISE_UC) {
+        x[e%8] = x[e%8] ? 0 : 1;
+        e++;
+      }
 
       if (x[1]) BIT_SET(ob,o+0);
       if (x[2]) BIT_SET(ob,o+1);

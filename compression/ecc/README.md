@@ -33,9 +33,10 @@ one error and also tells us if a second, uncorrectable error occurred.
     % diff original decoded
     %
 
-We can detect the error if we now provoke two bit errors in each byte:
+The parity bit allows us to detect if two errors have occurred.
+If we toggle two bits per byte (using ecc -U), we see this fact.
 
-    % tests/noise.pl encoded 2 > uncorrectable
-    % ./ecc -D -i uncorrectable -o decoded
+    % ./ecc -U -i encoded -o noisy
+    % ./ecc -D -i noisy -o decoded
     ecc_recode error
 
