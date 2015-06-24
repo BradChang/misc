@@ -111,19 +111,20 @@ size_t ecc_compute_olen( int mode, unsigned char *ib, size_t ilen, size_t *ibits
 }
 
 void dump_symbol_stats(symbol_stats *s) {
-  unsigned i,j;
+  unsigned i,j,b;
   fprintf(stderr,"byte c count rank code-len bitcode\n");
   fprintf(stderr,"---- - ----- ---- -------- ----------\n");
   for(i=0; i < 256; i++) {
-    if (s->count[i] == 0) continue;
-    fprintf(stderr,"0x%02x %c %5ld %3d %8d ", i, 
-    (i>=' ' && i <= '~') ? i : ' ',
-    (long)s->count[i],
-    s->rank[i],
-    s->code_length[i]);
+    b = s->irank[i];
+    if (s->count[b] == 0) continue;
+    fprintf(stderr,"0x%02x %c %5ld %3d %8d ", b,
+    (b>=' ' && b <= '~') ? b : ' ',
+    (long)s->count[b],
+    s->rank[b],
+    s->code_length[b]);
 
-    j = s->code_length[i];
-    while (j--) fprintf(stderr,"%c",(s->code[i] & (1U << j)) ? '1':'0');
+    j = s->code_length[b];
+    while (j--) fprintf(stderr,"%c",(s->code[b] & (1U << j)) ? '1':'0');
     fprintf(stderr,"\n");
   }
 }
