@@ -19,16 +19,19 @@ static void count_symbols(symbol_stats *s, unsigned char *ib, size_t ilen) {
  */
 #define log2(a) (log(a)/log(2))
 static void find_code_lengths(symbol_stats *s) {
-  double pv, m;
   int i;
 
   for(i=0; i < 256; i++) {
     if (s->count[i] == 0) continue;
-    pv = s->nbytes*1.0 / s->count[i]; /* 1/p(i) */
-    m = log2(pv);                     /* m(i) */
+
+    double lb = log(s->nbytes);
+    double lc = log(s->count[i]);
+    double dv = lb - lc;
+    double m = dv/log(2);
+
     if (m == 0.0) m = 1.0;            /* only one symbol */
     s->code_length[i] = ceil(m);      /* "round up" */
-    assert(s->code_length[i] <= 8);
+    assert(s->code_length[i] <= sizeof(unsigned)*8);
   }
 }
 
@@ -42,11 +45,6 @@ static int sort_by_count_desc(const void *_a, const void *_b, void *_arg) {
   if (s->count[a] > s->count[b])  rc = -1;
   if (s->count[a] == s->count[b]) rc =  0;
 
-  fprintf(stderr,"comparing count[%x]=%lu %c count[%x]=%lu\n", 
-     a, s->count[a],
-     ((rc == 0) ? '=' : ((rc == -1) ? '<' : '>')),
-     b, s->count[b]);
-
   return rc;
 }
 
@@ -57,8 +55,8 @@ static int sort_by_count_desc(const void *_a, const void *_b, void *_arg) {
  * taken only to the m(i) digit.
  */
 static void generate_codes(symbol_stats *s) {
-  unsigned char c;
-  int i,j;
+  unsigned int c;
+  unsigned int i,j;
 
   /* sort bytes (desc) by their probabilities */
   for(i=0; i < 256; i++) s->irank[i] = i;  /* [0,255] unsorted */
@@ -80,7 +78,8 @@ static void generate_codes(symbol_stats *s) {
     size_t Pn = s->Pcount[i] << s->code_length[i];
     size_t Pd = s->nbytes;
 
-    for(j = s->code_length[i]-1; j >= 0; j--) {
+    j = s->code_length[i];
+    while (j--) {
       c = s->code[i] | (1U << j);
       if (c <= (Pn/Pd)) s->code[i] = c;
     }
@@ -112,23 +111,20 @@ size_t ecc_compute_olen( int mode, unsigned char *ib, size_t ilen, size_t *ibits
 }
 
 void dump_symbol_stats(symbol_stats *s) {
-  int i;
-  fprintf(stderr,"byte c count rank bitcode\n");
-  fprintf(stderr,"---- - ----- ---- --------\n");
+  unsigned i,j;
+  fprintf(stderr,"byte c count rank code-len bitcode\n");
+  fprintf(stderr,"---- - ----- ---- -------- ----------\n");
   for(i=0; i < 256; i++) {
     if (s->count[i] == 0) continue;
-    fprintf(stderr,"0x%02x %c %5ld %3d %c%c%c%c%c%c%c%c\n", i, 
+    fprintf(stderr,"0x%02x %c %5ld %3d %8d ", i, 
     (i>=' ' && i <= '~') ? i : ' ',
     (long)s->count[i],
     s->rank[i],
-    (s->code_length[i] < 8) ? ' ' : (s->code[i] & 0x80 ? '1' : '0'),
-    (s->code_length[i] < 7) ? ' ' : (s->code[i] & 0x40 ? '1' : '0'),
-    (s->code_length[i] < 6) ? ' ' : (s->code[i] & 0x20 ? '1' : '0'),
-    (s->code_length[i] < 5) ? ' ' : (s->code[i] & 0x10 ? '1' : '0'),
-    (s->code_length[i] < 4) ? ' ' : (s->code[i] & 0x08 ? '1' : '0'),
-    (s->code_length[i] < 3) ? ' ' : (s->code[i] & 0x04 ? '1' : '0'),
-    (s->code_length[i] < 2) ? ' ' : (s->code[i] & 0x02 ? '1' : '0'),
-    (s->code_length[i] < 1) ? '-' : (s->code[i] & 0x01 ? '1' : '0'));
+    s->code_length[i]);
+
+    j = s->code_length[i];
+    while (j--) fprintf(stderr,"%c",(s->code[i] & (1U << j)) ? '1':'0');
+    fprintf(stderr,"\n");
   }
 }
 

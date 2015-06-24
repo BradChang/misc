@@ -8,7 +8,7 @@ typedef struct {
   size_t count[256];             /* =count of byte [n] */
   size_t nbytes;                 /* count of all bytes */
   unsigned char code_length[256];/* =#bits to encode [n] (Shannon's m) */
-  unsigned char code[256];       /* binary code in the lower bits */
+  unsigned int  code[256];       /* binary code in the lower bits */
 
   unsigned char rank[256]; /* =rank of byte [n] by frequency (0=highest) */
   unsigned char irank[256];/* =byte whose rank is [n] (inverse of rank) */
