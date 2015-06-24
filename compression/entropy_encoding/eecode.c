@@ -6,19 +6,23 @@
  *   log2( 1/p(i) ) <= m(i) < 1 + log2( 1/p(i) )
  * In other words- if the left side isn't an integer, round it up.
  */
+#define log2(a) (log(a)/log(2))
 void find_code_lengths(symbol_stats *s) {
   int i;
 
   for(i=0; i < 256; i++) {
-    s->code_length[i] = (s->count[i] == 0) ? 0 :
-            ceil(log(s->total / s->count[i]*1.0) / log(2));
+    if (s->count[i] == 0) continue;
+    double ivp = s->total*1.0 / s->count[i]; /* 1/p(i) */
+    double mlb = log2(ivp);                  /* m(i) lower bound */
+    if (mlb == 0.0) mlb = 1.0;               /* case of one symbol */
+    s->code_length[i] = ceil( mlb );         /* "round up" */
   }
 }
 
 void count_symbols(symbol_stats *s, unsigned char *ib, size_t ilen) {
   size_t i;
   for(i=0; i < ilen; i++) s->count[ ib[i] ]++;
-  for(i=0; i < ilen; i++) s->total += s->count[i];
+  for(i=0; i < 256; i++) s->total += s->count[i];
 }
 
 /* call before encoding or decoding to determine the necessary

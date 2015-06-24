@@ -12,9 +12,9 @@ Method:
  Suppose you have N symbols.
  Sort them in order of decreasing probability p(i)
  For each symbol i, 
-  m(i) is how many binary digits will encode it
-  P(i) is the cumulative probability of the symbols more likely than itself
+  m(i) is how many binary digits will encode it, specifically:
   m(i) is the integer satisfying: log2(1/p(i)) <= m(i) < 1 + log2(1/p(i)) 
+  P(i) is the cumulative probability of the symbols more likely than itself
  Encode symbol i as the binary expansion of P(i) to m(i) digits.
 
 Since P(i) is a fractional probability (like 1/2), its binary expansion
