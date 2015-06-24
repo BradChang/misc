@@ -5,13 +5,14 @@
 #include <stddef.h>
 
 typedef struct {
-  size_t count[256];       /* [n]=count of byte n */
-  size_t total;            /* count of all bytes */
-  char code_length[256];   /* [n]=#bits to encode symbol n [Shannon's m] */
+  size_t count[256];             /* =count of byte [n] */
+  size_t nbytes;                 /* count of all bytes */
+  unsigned char code_length[256];/* =#bits to encode [n] (Shannon's m) */
+  unsigned char code[256];       /* binary code in the lower bits */
 
-  unsigned char rank[256]; /* [n]=rank of byte n by frequency (0=highest) */
-  unsigned char irank[256];/* [n]=byte whose rank is n (inverse of rank) */
-  size_t Pcount[256];      /* [n]=count of bytes more probable than byte n */
+  unsigned char rank[256]; /* =rank of byte [n] by frequency (0=highest) */
+  unsigned char irank[256];/* =byte whose rank is [n] (inverse of rank) */
+  size_t Pcount[256];      /* =count of bytes more probable than [n] */
 } symbol_stats;
 
 /* standard bit vector macros */
@@ -26,5 +27,6 @@ typedef struct {
 
 int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob, symbol_stats *s);
 size_t ecc_compute_olen(int mode, unsigned char *ib, size_t ilen, size_t *ibits, size_t *obits, symbol_stats *s);
+void dump_symbol_stats(symbol_stats *s);
 
 #endif /* _ECCODE_H_ */
