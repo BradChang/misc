@@ -20,7 +20,7 @@ typedef struct {
 } symbol_stats;
 
 /* standard bit vector macros */
-#define BIT_TEST(c,i)  (c[(i)/8] &   (1 << ((i) % 8)))
+#define BIT_TEST(c,i)  ((c[(i)/8] &   (1 << ((i) % 8))) ? 1 : 0)
 #define BIT_SET(c,i)   (c[(i)/8] |=  (1 << ((i) % 8)))
 #define BIT_CLEAR(c,i) (c[(i)/8] &= ~(1 << ((i) % 8)))
 
@@ -29,8 +29,7 @@ typedef struct {
 #define MODE_ENCODE     (1U << 0)
 #define MODE_DECODE     (1U << 1)
 
-int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob, symbol_stats *s);
-size_t ecc_compute_olen(int mode, unsigned char *ib, size_t ilen, size_t *ibits, size_t *obits, symbol_stats *s);
-void dump_symbol_stats(symbol_stats *s);
+int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob, symbol_stats *s, int verbose);
+size_t ecc_compute_olen(int mode, unsigned char *ib, size_t ilen, size_t *ibits, size_t *obits, symbol_stats *s, int verbose);
 
 #endif /* _ECCODE_H_ */

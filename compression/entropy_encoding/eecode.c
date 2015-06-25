@@ -6,6 +6,17 @@
 #include <string.h> /* memcpy */
 #include "eecode.h"
 
+/* see section 9 of Claude Shannon's 1948 paper 
+ * A Mathematical Theory of Communication for the
+ * example of entropy encoding code used here */
+
+/* 
+ * TODO the code table is stored raw in the encoded form.
+ *      it keeps the example of entropy encoding the data bytes
+ *      simple, but the resulting encoded file has this huge
+ *      table stored there. encode it concisely some day.
+ */
+
 static void count_symbols(symbol_stats *s, unsigned char *ib, size_t ilen) {
   size_t i;
   for(i=0; i < ilen; i++) s->count[ ib[i] ]++;
@@ -86,36 +97,7 @@ static void generate_codes(symbol_stats *s) {
   }
 }
 
-/* header is all code lengths (256 chars) then codes (256 ints).
- * we'd use a tighter header but it'd just complicate this example */
-#define header_len (256*sizeof(unsigned char) + 256*sizeof(unsigned int))
-
-/* call before encoding or decoding to determine the necessary
- * output buffer size to perform the (de-)encoding operation. */
-size_t ecc_compute_olen( int mode, unsigned char *ib, size_t ilen, size_t *ibits, size_t *obits, symbol_stats *s) {
-  size_t i;
-
-  if (mode == MODE_ENCODE) {
-    *ibits = ilen * 8;
-    *obits = 0;
-    count_symbols(s, ib, ilen);
-    find_code_lengths(s);
-    generate_codes(s);
-    for(i=0; i < ilen; i++) *obits += s->code_length[ ib[i] ];
-    *obits += header_len*8;
-  }
-
-  if (mode == MODE_DECODE) {
-    /* consult dictionary and stored olen in ib */
-    *ibits = ilen * 8;
-    *obits = 0;
-  }
-
-  size_t olen = (*obits/8) + ((*obits % 8) ? 1 : 0);
-  return olen;
-}
-
-void dump_symbol_stats(symbol_stats *s) {
+static void dump_symbol_stats(symbol_stats *s) {
   unsigned i,j,b;
   fprintf(stderr,"byte c count rank code-len bitcode\n");
   fprintf(stderr,"---- - ----- ---- -------- ----------\n");
@@ -136,6 +118,64 @@ void dump_symbol_stats(symbol_stats *s) {
   }
 }
 
+/* header is all code lengths (256 chars) then codes (256 ints).
+ * we'd use a tighter header but it'd just complicate this example */
+#define header_len (    sizeof(size_t) +         \
+                    256*sizeof(unsigned char) +  \
+                    256*sizeof(unsigned int))
+
+/* call before encoding or decoding to determine the necessary
+ * output buffer size to perform the (de-)encoding operation. */
+size_t ecc_compute_olen( int mode, unsigned char *ib, size_t ilen, size_t *ibits, size_t *obits, symbol_stats *s, int verbose) {
+  size_t i,olen;
+
+  if (mode == MODE_ENCODE) {
+    *ibits = ilen * 8;
+    *obits = 0;
+    count_symbols(s, ib, ilen);
+    find_code_lengths(s);
+    generate_codes(s);
+    if (verbose) dump_symbol_stats(s);
+    for(i=0; i < ilen; i++) *obits += s->code_length[ ib[i] ];
+    *obits += header_len*8;
+  }
+
+  if (mode == MODE_DECODE) {
+    *ibits = ilen * 8;
+    *obits = 0;
+    /* get olen from header */
+    assert(ilen >= sizeof(olen));
+    memcpy(&olen, ib, sizeof(olen));
+    *obits = olen*8;
+  }
+
+  olen = (*obits/8) + ((*obits % 8) ? 1 : 0);
+
+  if (verbose) {
+    fprintf(stderr,"recoding %lu data bytes into %lu data bytes\n", 
+      ilen-((mode==MODE_ENCODE)?0:header_len), 
+      olen-((mode==MODE_ENCODE)?header_len:0));
+    fprintf(stderr,"using a code table of %lu bytes\n", header_len);
+  }
+  return olen;
+}
+/* given a potential code of "len" bits, check whether it is a 
+ * code; if so, store the byte it decodes to in decode and return 1.
+ * this function is a linear scan, it is not efficient. 
+ */
+int is_code(unsigned int code, size_t len, unsigned char *decode, symbol_stats *s, int verbose) {
+  size_t i;
+  for(i=0; i < 256; i++) {
+    if (s->code_length[i] != len) continue;
+    if (s->code[i] != code) continue;
+    *decode = (unsigned char)i;
+    if (verbose) fprintf(stderr,"%d is a code of length %lu\n", code, len);
+    return 1;
+  }
+  if (verbose) fprintf(stderr,"%d is NOT a code of length %lu\n", code, len);
+  return 0;
+}
+
 /* 
  * Entropy encoding is a method of producing a binary code
  * that gives shorter codes to common symbols and longer code
@@ -149,31 +189,51 @@ void dump_symbol_stats(symbol_stats *s) {
  * 
  */ 
 
-int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob, symbol_stats *s) {
-  int rc=-1;
-  size_t i,l,b=0;
+int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob, symbol_stats *s, int verbose) {
+  unsigned char *i = ib;
   unsigned char *o = ob;
-  unsigned int c;
+  unsigned char d, n=0;
+  unsigned int c=0;
+  int rc=-1;
+  size_t l=0,b=0,olen;
 
   if (mode == MODE_ENCODE) {
     /* dump header */
+    l = sizeof(size_t);            memcpy(o, &ilen, l);          o += l;
     l = sizeof(unsigned char)*256; memcpy(o, s->code_length, l); o += l;
     l = sizeof(unsigned int)*256;  memcpy(o, s->code, l);        o += l;
+    assert(header_len == (o-ob));
     /* dump encoding of input into codes. write the code bits msb to lsb. */
-    for(i=0; i < ilen; i++) {
-      c = s->code[i];
-      l = s->code_length[i]; /* in bits */
-
+    while (i < ib+ilen) {
+      c = s->code[ *i ];
+      l = s->code_length[ *i ]; /* in bits */
       while(l--) {
         if (c & (1U << l)) BIT_SET(o,b);
         b++;
       }
+      i++;
+    }
+  }
+
+  if (mode == MODE_DECODE) {
+    /* read header */
+    l = sizeof(size_t);            memcpy(&olen, i, l);          i += l;
+    l = sizeof(unsigned char)*256; memcpy(s->code_length, i, l); i += l;
+    l = sizeof(unsigned int)*256;  memcpy(s->code, i, l);        i += l;
+    /* read code bits (msb to lsb) until a code is recognized, write byte */
+    while((o - ob) < olen) {
+      if ((i + b/8) >= (ib + ilen)) goto done;
+      n++; // length of code c
+      c |= BIT_TEST(i,b);
+      if (is_code(c,n,&d,s,verbose)) { *o = d; o++; c = 0; n = 0; } /* emit byte, reset */
+      else { c = (c << 1U); };
+      b++;
     }
   }
 
   rc = 0;
 
- //done:
+ done:
   return rc;
 }
 

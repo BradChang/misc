@@ -113,11 +113,10 @@ int main(int argc, char *argv[]) {
   if ((!CF.ifile) || (!CF.ofile)) usage();
   if (mmap_input() < 0) goto done;
 
-  CF.olen = ecc_compute_olen(CF.mode, CF.ibuf, CF.ilen, &CF.ibits, &CF.obits, &CF.s);
-  if (CF.verbose) dump_symbol_stats(&CF.s);
+  CF.olen = ecc_compute_olen(CF.mode, CF.ibuf, CF.ilen, &CF.ibits, &CF.obits, &CF.s, CF.verbose);
   if (mmap_output() < 0) goto done;
 
-  rc = ecc_recode(CF.mode, CF.ibuf, CF.ilen, CF.obuf, &CF.s);
+  rc = ecc_recode(CF.mode, CF.ibuf, CF.ilen, CF.obuf, &CF.s, CF.verbose);
   if (rc) fprintf(stderr,"ecc_recode error\n");
 
  done:
