@@ -57,8 +57,8 @@ static void generate_codes(symbol_stats *s) {
   unsigned int c;
   unsigned int i,j;
 
-  /* sort bytes (desc) by their probabilities */
-  for(i=0; i < 256; i++) s->irank[i] = i;  /* [0,255] unsorted */
+  /* sort to produce byte ranking */
+  for(i=0; i < 256; i++) s->irank[i] = i; /* to be ranked */
   qsort_r(s->irank,256,sizeof(*s->irank),sort_by_count_desc,s);
   for(i=0; i < 256; i++) s->rank[ s->irank[i] ] = i;
 
@@ -116,14 +116,16 @@ void dump_symbol_stats(symbol_stats *s) {
   for(i=0; i < 256; i++) {
     b = s->irank[i];
     if (s->count[b] == 0) continue;
-    fprintf(stderr,"0x%02x %c %5ld %3d %8d ", b,
+    fprintf(stderr,"0x%02x %c %5ld %4d %8d ", b,
     (b>=' ' && b <= '~') ? b : ' ',
     (long)s->count[b],
     s->rank[b],
     s->code_length[b]);
 
     j = s->code_length[b];
-    while (j--) fprintf(stderr,"%c",(s->code[b] & (1U << j)) ? '1':'0');
+    while (j--) {
+      fprintf(stderr,"%c",(s->code[b] & (1U << j)) ? '1':'0');
+    }
     fprintf(stderr,"\n");
   }
 }
