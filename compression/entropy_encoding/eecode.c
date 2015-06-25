@@ -12,19 +12,18 @@ static void count_symbols(symbol_stats *s, unsigned char *ib, size_t ilen) {
 }
 
 /* Determine the code length in bits, for each byte value [0-255].
- * Code length m[i] is in [1,8] because 8 bits is maximum entropy.
  * The Shannon paper describes m[i] as the integer that satisfies:
  *   log2( 1/p(i) ) <= m(i) < 1 + log2( 1/p(i) )
  * In other words- if the left side isn't an integer, round it up.
  */
-#define log2(a) (log(a)/log(2))
 static void find_code_lengths(symbol_stats *s) {
   int i;
+
+  double lb = log(s->nbytes);
 
   for(i=0; i < 256; i++) {
     if (s->count[i] == 0) continue;
 
-    double lb = log(s->nbytes);
     double lc = log(s->count[i]);
     double dv = lb - lc;
     double m = dv/log(2);
