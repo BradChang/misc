@@ -53,11 +53,11 @@ byte is shown below. Below that we have log2 of the probability.
 p(i)    1/2         1/4          1/8          1/8
 lg p(i) -1          -2           -3           -3
 
-The beauty of the log2 of the probability is that:
+The beauty of the (negated) log2 of the probability is that it:
 
-  * it increases as the probability decreases
-  * it equals the number of bits needed to encode the denominator 
-  * it equals the number of bits needed to encode that symbol (negated)
+  * increases as the probability decreases
+  * equals the number of bits needed to encode the denominator 
+  * equals the number of bits needed to encode that symbol 
 
          A           B            C            D
 code len 1           2            3            3
@@ -82,11 +82,11 @@ it take to label the states/symbols uniquely?
 
   number-of-bits-you-need = log2(number-of-states-you-have)
 
-A series of    n    bits can take on 2^n different states.
+A series of    n    bits can label 2^n different states.
 
 if 2^n = x then by its definition log2(x)=n. Substituting:
 
-A series of log2(x) bits can take on  x  different states.
+A series of log2(x) bits can label x  different states.
 
 
 --------------------------------------------------------------------------------

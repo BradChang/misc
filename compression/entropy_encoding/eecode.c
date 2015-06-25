@@ -3,6 +3,7 @@
 #include <stdlib.h> /* qsort_r */
 #include <stdio.h>  /* fprintf */
 #include <assert.h> 
+#include <string.h> /* memcpy */
 #include "eecode.h"
 
 static void count_symbols(symbol_stats *s, unsigned char *ib, size_t ilen) {
@@ -85,6 +86,10 @@ static void generate_codes(symbol_stats *s) {
   }
 }
 
+/* header is all code lengths (256 chars) then codes (256 ints).
+ * we'd use a tighter header but it'd just complicate this example */
+#define header_len (256*sizeof(unsigned char) + 256*sizeof(unsigned int))
+
 /* call before encoding or decoding to determine the necessary
  * output buffer size to perform the (de-)encoding operation. */
 size_t ecc_compute_olen( int mode, unsigned char *ib, size_t ilen, size_t *ibits, size_t *obits, symbol_stats *s) {
@@ -97,6 +102,7 @@ size_t ecc_compute_olen( int mode, unsigned char *ib, size_t ilen, size_t *ibits
     find_code_lengths(s);
     generate_codes(s);
     for(i=0; i < ilen; i++) *obits += s->code_length[ ib[i] ];
+    *obits += header_len*8;
   }
 
   if (mode == MODE_DECODE) {
@@ -145,8 +151,24 @@ void dump_symbol_stats(symbol_stats *s) {
 
 int ecc_recode(int mode, unsigned char *ib, size_t ilen, unsigned char *ob, symbol_stats *s) {
   int rc=-1;
+  size_t i,l,b=0;
+  unsigned char *o = ob;
+  unsigned int c;
 
   if (mode == MODE_ENCODE) {
+    /* dump header */
+    l = sizeof(unsigned char)*256; memcpy(o, s->code_length, l); o += l;
+    l = sizeof(unsigned int)*256;  memcpy(o, s->code, l);        o += l;
+    /* dump encoding of input into codes. write the code bits msb to lsb. */
+    for(i=0; i < ilen; i++) {
+      c = s->code[i];
+      l = s->code_length[i]; /* in bits */
+
+      while(l--) {
+        if (c & (1U << l)) BIT_SET(o,b);
+        b++;
+      }
+    }
   }
 
   rc = 0;
