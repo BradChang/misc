@@ -11,10 +11,9 @@
  * example of entropy encoding code used here */
 
 /* 
- * TODO the code table is stored raw in the encoded form.
- *      it keeps the example of entropy encoding the data bytes
- *      simple, but the resulting encoded file has this huge
- *      table stored there. encode it concisely some day.
+ * TODO while this program compresses the data bytes, it 
+ *      could store its code table (mapping of codes to
+ *      bytes) concisely. Currently its a 1k+ raw table.
  */
 
 static void count_symbols(symbol_stats *s, unsigned char *ib, size_t ilen) {
@@ -126,7 +125,8 @@ static void dump_symbol_stats(symbol_stats *s) {
 
 /* call before encoding or decoding to determine the necessary
  * output buffer size to perform the (de-)encoding operation. */
-size_t ecc_compute_olen( int mode, unsigned char *ib, size_t ilen, size_t *ibits, size_t *obits, symbol_stats *s, int verbose) {
+size_t ecc_compute_olen( int mode, unsigned char *ib, size_t ilen, 
+     size_t *ibits, size_t *obits, symbol_stats *s, int verbose) {
   size_t i,olen;
 
   if (mode == MODE_ENCODE) {
@@ -163,7 +163,8 @@ size_t ecc_compute_olen( int mode, unsigned char *ib, size_t ilen, size_t *ibits
  * code; if so, store the byte it decodes to in decode and return 1.
  * this function is a linear scan, it is not efficient. 
  */
-int is_code(unsigned int code, size_t len, unsigned char *decode, symbol_stats *s, int verbose) {
+int is_code(unsigned int code, size_t len, unsigned char *decode, 
+          symbol_stats *s, int verbose) {
   size_t i;
   for(i=0; i < 256; i++) {
     if (s->code_length[i] != len) continue;
