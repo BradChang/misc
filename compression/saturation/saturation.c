@@ -38,6 +38,7 @@ void report_saturation(unsigned char *ib, size_t ilen) {
   size_t set=0, n = ilen * 8;
   while (n--) set += BIT_TEST(ib,n);
   fprintf(stderr,"%.2f\n", set/(ilen*8.0));
+  if (CF.verbose) fprintf(stderr,"%lu / %lu\n", set, ilen*8);
 }
 
 int mmap_input(void) {
