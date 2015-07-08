@@ -9,6 +9,7 @@
 #include "tpl.h"
 
 extern int ungz(char *in, size_t ilen, char **out, size_t *olen);
+extern int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen);
 
 struct {
   int verbose;
@@ -59,8 +60,8 @@ char *slurp(char *file, size_t *flen) {
 
 int main( int argc, char *argv[]) {
   int rc=-1, opt;
-  size_t ilen, olen;
-  char *file=NULL, *in, *out=NULL;
+  size_t ilen, ulen, img_len;
+  char *file=NULL, *in, *unz=NULL, *img=NULL;
 
   while ( (opt = getopt(argc,argv,"vhz")) > 0) {
     switch(opt) {
@@ -76,15 +77,19 @@ int main( int argc, char *argv[]) {
   in = slurp(file, &ilen);
   if (in == NULL) goto done;
 
-  rc = ungz(in, ilen, &out, &olen);
+  rc = ungz(in, ilen, &unz, &ulen);
   if (rc) goto done;
 
-  if (CF.zcat) write(STDOUT_FILENO,out,olen);
+  if (CF.zcat) write(STDOUT_FILENO,unz,ulen);
+
+  rc = make_schem_tpl(unz, ulen, &img, &img_len);
+  if (rc) goto done;
 
   rc = 0;
 
  done:
   if (in) free(in);
-  if (out) free(out);
+  if (unz) free(unz);
+  if (img) free(img);
   return rc;
 }
