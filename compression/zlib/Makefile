@@ -1,9 +1,12 @@
 all: gz ungz
 LDFLAGS=-lz
 
-gz: gz.c
+gz: gz.o
+	$(CC) -o $@ $< $(LDFLAGS)
 
-ungz: ungz.c
+ungz: ungz.o
+	$(CC) -o $@ $< $(LDFLAGS)
+
 
 .PHONY: clean
 
