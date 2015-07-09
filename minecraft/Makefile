@@ -3,10 +3,13 @@ all: $(OBJS)
 CFLAGS=-g
 LDFLAGS=-lz
 
-read_schematic: read_schematic.o tpl.o ungz.o schem.o
+read_schematic: read_schematic.o tpl.o ungz.o schem.o utvector.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 read_schematic.o: read_schematic.c
+	$(CC) $(CFLAGS) -c $^ 
+
+utvector.o: utvector.c
 	$(CC) $(CFLAGS) -c $^ 
 
 tpl.o: tpl.c
