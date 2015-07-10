@@ -11,10 +11,8 @@
 extern int ungz(char *in, size_t ilen, char **out, size_t *olen);
 extern int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen);
 
-struct {
-  int verbose;
-  int zcat; // dump unzipped data to stdout
-} CF;
+int verbose;
+int zcat; // dump unzipped data to stdout
 
 void usage(char *exe) {
   fprintf(stderr,"usage: %s [options] <file>\n", exe);
@@ -65,8 +63,8 @@ int main( int argc, char *argv[]) {
 
   while ( (opt = getopt(argc,argv,"vhz")) > 0) {
     switch(opt) {
-      case 'v': CF.verbose++; break;
-      case 'z': CF.zcat = 1; break;
+      case 'v': verbose++; break;
+      case 'z': zcat = 1; break;
       case 'h': default: usage(argv[0]); break;
     }
   }
@@ -80,7 +78,7 @@ int main( int argc, char *argv[]) {
   rc = ungz(in, ilen, &unz, &ulen);
   if (rc) goto done;
 
-  if (CF.zcat) write(STDOUT_FILENO,unz,ulen);
+  if (zcat) write(STDOUT_FILENO,unz,ulen);
 
   rc = make_schem_tpl(unz, ulen, &img, &img_len);
   if (rc) goto done;

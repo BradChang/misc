@@ -3,39 +3,90 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <arpa/inet.h>
 #include "utvector.h"
 #include "tpl.h"
 
+extern int verbose;
+
 typedef struct {
-  int tag;  /* TAG_Compound or TAG_List */
+  char tag;  /* TAG_Compound or TAG_List */
+  char *tag_name; /* points into buffer */
+  uint16_t name_len;
   struct {  /* for TAG_List, items are: */
-    int tag;
-    int count;
+    char tag;
+    uint32_t left;
+    uint32_t total;
   } list;
 } nbt_parse;
 const UT_vector_mm nbt_parse_mm = {.sz=sizeof(nbt_parse)};
 
-#define TAG_End        0 
-#define TAG_Byte       1 
-#define TAG_Short      2 /* 16-bit, signed, big endian */
-#define TAG_Int        3 /* 32-bit, signed, big endian */
-#define TAG_Long       4 /* 64-bit signed, big endian */
-#define TAG_Float      5 /* 32-bit, big endian, IEEE 754-2008 binary32 */
-#define TAG_Double     6 /* 64-bit, big endian, IEEE 754-2008 binary64 */
-#define TAG_Byte_Array 7 /* length (TAG_Int)-prefixed byte array */
-#define TAG_String     8 /* length (TAG_Short)-prefixed UTF8 */
-#define TAG_List       9 /* TAG_Byte tagID, TAG_Int length, array */
-#define TAG_Compound  10 /* list of named tags unti TAG_End */
+#define TAGS                                                                  \
+ x( TAG_End,        0, 0 )                                                    \
+ x( TAG_Byte,       1, sizeof(int8_t)  )                                      \
+ x( TAG_Short,      2, sizeof(int16_t) ) /* 16-bit, signed, big endian */     \
+ x( TAG_Int,        3, sizeof(int32_t) ) /* 32-bit, signed, big endian */     \
+ x( TAG_Long,       4, sizeof(int64_t) ) /* 64-bit signed, big endian */      \
+ x( TAG_Float,      5, sizeof(int32_t) ) /* 32-bit, big endian, IEEE 754 */   \
+ x( TAG_Double,     6, sizeof(int64_t) ) /* 64-bit, big endian, IEEE 754 */   \
+ x( TAG_Byte_Array, 7, 0 )               /* TAG_Int length-prefixed bytes */  \
+ x( TAG_String,     8, 0 )               /* TAG_Short length-prefixed UTF8 */ \
+ x( TAG_List,       9, 0 )               /* tag type, TAG_Int length, data */ \
+ x( TAG_Compound,  10, 0 )               /* list of named tags unti TAG_End */
+
+#define x(t,i,s) t=i,
+enum { TAGS } tag;
+#undef x
+#define x(t,i,s) #t,
+const char *tag_str[] = { TAGS NULL };
+#undef x
+#define x(t,i,s) [i]=s,
+size_t tag_sizes[] = { TAGS };
+#undef x
+
 #define TAG_MAX TAG_Compound
 
-size_t tag_sizes[TAG_MAX+1] = { /* the payload sizes for the simple tags */
-  [TAG_Byte] =  sizeof(int8_t),
-  [TAG_Short] = sizeof(int16_t),
-  [TAG_Int] =   sizeof(int32_t),
-  [TAG_Long] =  sizeof(int64_t),
-  [TAG_Float]=  sizeof(int32_t),
-  [TAG_Double]= sizeof(int64_t),
-};
+/* this function is rather special. it consults the stack. if we're
+ * parsing a list, we are not expecting a named tag, so it returns 0.
+ * in that case, it also sets tag_type to the list's per-element type,
+ * and decrements the list count. if we're not in a list, return 1.
+ */
+int expect_named_tag(UT_vector *nbt_stack, char *tag_type) {
+  nbt_parse *top;
+
+  top = (nbt_parse*)utvector_tail(nbt_stack);
+  if (top == NULL) return 1;
+  if (top->tag == TAG_Compound) return 1;
+  assert(top->tag == TAG_List);
+  if (top->list.left == 0) {
+    utvector_pop(nbt_stack);
+    return 1;
+  }
+
+  /* in a list with remaining elements */
+  *tag_type = top->list.tag;
+  top->list.left--;
+
+  return 0;
+}
+
+void dump(char tag, char *tag_name, uint16_t name_len, UT_vector *nbt_stack) {
+  nbt_parse *top;
+  uint32_t seen;
+  int indent;
+
+  indent = utvector_len(nbt_stack);
+  while(indent--) fprintf(stderr," ");
+
+  /* print list elements by their position, others by their name */
+  top = (nbt_parse*)utvector_tail(nbt_stack);
+  if (top && (top->tag == TAG_List)) { 
+    seen = top->list.total - top->list.left;
+    fprintf(stderr,"%u/%u (%s)\n", seen, top->list.total, tag_str[top->list.tag]);
+  } else {
+    fprintf(stderr,"%.*s (%s)\n", (int)name_len, tag_name, tag_str[tag]);
+  }
+}
 
 /* here is a sample of the start of a .schematic file 
 *  see Minecraft wiki for NBT file format and Schematic file format 
@@ -76,7 +127,7 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
   char *p = in;
   size_t len = ilen, tag_size;
   UT_vector *nbt_stack;
-  char tag_type, *tag_name, *tag_payload;
+  char tag_type, *tag_name, *tag_payload, list_type;
   uint16_t name_len, str_len;
   int32_t array_len;
   nbt_parse np, *top;
@@ -93,26 +144,31 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
   if (tn==NULL) goto done;
 
   /* parse the .schematic NBT. we only want dimensions and block ids */
-  while(len) {
-    tag_type = *p;
+  while(len > 0) {
+  
 
-    if (tag_type == TAG_End) { /* special case */
-      top = (nbt_parse*)utvector_tail(nbt_stack);
-      if (top->tag != TAG_Compound) goto done;
-      utvector_pop(nbt_stack);
-      len--;
-      continue;
+    if (expect_named_tag(nbt_stack, &tag_type)) {
+
+      tag_type = *p;
+      len--; p++;
+
+      if (tag_type == TAG_End) { /* special case */
+        top = (nbt_parse*)utvector_pop(nbt_stack);
+        if (top == NULL) goto done;
+        continue;
+      }
+
+      /* get length-prefixed name */
+      if (len < sizeof(uint16_t)) goto done;
+      memcpy(&name_len, p, sizeof(uint16_t)); name_len = ntohs(name_len);
+      len -= sizeof(uint16_t); p += sizeof(uint16_t);
+      if (len < name_len) goto done;
+      tag_name = p;
+      len -= name_len; p += name_len;
+      tag_payload = p;
     }
 
-    /* other tags all have a length-prefixed name */
-    if (len < sizeof(uint16_t)) goto done;
-    memcpy(&name_len, p, sizeof(uint16_t)); name_len = ntohs(name_len);
-    len -= sizeof(uint16_t); p += sizeof(uint16_t);
-    if (len < name_len) goto done;
-    tag_name = p;
-    len -= name_len; p += name_len;
-    tag_payload = p;
-    //notate(tag_type, tag_name, name_len, tag_payload, len);
+    if (verbose) dump(tag_type, tag_name, name_len, nbt_stack);
 
     switch(tag_type) {
       case TAG_Byte:
@@ -124,8 +180,9 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
         tag_size = tag_sizes[tag_type]; assert(tag_size > 0);
         if (len < tag_size) goto done;
         len -= tag_size; p += tag_size;
+        /* note if you were to parse the datum - endian swap needed */
         break;
-      case TAG_Byte_Array: 
+      case TAG_Byte_Array:
         if (len < sizeof(array_len)) goto done;
         memcpy(&array_len, p, sizeof(array_len)); array_len = ntohl(array_len);
         len -= sizeof(array_len); p += sizeof(array_len);
@@ -133,7 +190,7 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
         if (len < tag_size) goto done;
         len -= tag_size; p += tag_size;
         break;
-      case TAG_String: 
+      case TAG_String:
         if (len < sizeof(str_len)) goto done;
         memcpy(&str_len, p, sizeof(str_len)); str_len = ntohs(str_len);
         len -= sizeof(str_len); p += sizeof(str_len);
@@ -141,27 +198,43 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
         if (len < tag_size) goto done;
         len -= tag_size; p += tag_size;
         break;
-      case TAG_List: 
+      case TAG_List:
+        if (len < sizeof(list_type)) goto done;
+        list_type = *p;
+        len -= sizeof(list_type); p += sizeof(list_type);
+        if (len < sizeof(array_len)) goto done;
+        memcpy(&array_len, p, sizeof(array_len)); array_len = ntohl(array_len);
+        len -= sizeof(array_len); p += sizeof(array_len);
+        /* p now points at the start of the list payload.
+         * while processing the list payload we need to 
+         * decrement the remaining-item count at each datum.
+         * well, list is also terminated with TAG_End.
+         * list elements lack a tag and name - just payload.
+         */
+        np.tag = TAG_List;
+        np.tag_name = tag_name;
+        np.name_len = name_len;
+        np.list.tag = list_type;
+        np.list.left = array_len;
+        np.list.total = array_len;
+        utvector_push(nbt_stack, &np);
         break;
-      case TAG_Compound: 
+      case TAG_Compound:
+        np.tag = TAG_Compound;
+        np.tag_name = tag_name;
+        np.name_len = name_len;
+        utvector_push(nbt_stack, &np);
         break;
-      case TAG_End: 
+      case TAG_End:  /* handled above */
         assert(0); 
         break;
-      default: 
+      default:       /* unknown tag */
         goto done; 
         break;
     }
   }
 
-  /* first we want TAG_Compound, with a payload of Tag_String "Schematic" */
-  if (len < 1 + 2 + 9) goto done;
-  if (*p != TAG_Compound) goto done; p++;
-  memcpy(&l, p, sizeof(l)); l = ntohs(l);
-  if (l != 9) goto done; p += sizeof(l);
-  if (memcmp(p,"Schematic",9)) goto done;
-  np.tag = TAG_Compound;
-  utvector_push(nbt_stack, &np);
+  if (utvector_len(nbt_stack) >0) goto done;
 
   rc = tpl_dump(tn, TPL_MEM, out, olen);
   if (rc < 0) goto done;
@@ -169,6 +242,7 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
   rc = 0;
 
  done:
+  if (rc < 0) fprintf(stderr,"nbt parse failed\n");
   if (tn) tpl_free(tn);
   utvector_free(nbt_stack);
   return rc;
