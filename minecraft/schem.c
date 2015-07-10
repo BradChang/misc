@@ -205,12 +205,6 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
         if (len < sizeof(array_len)) goto done;
         memcpy(&array_len, p, sizeof(array_len)); array_len = ntohl(array_len);
         len -= sizeof(array_len); p += sizeof(array_len);
-        /* p now points at the start of the list payload.
-         * while processing the list payload we need to 
-         * decrement the remaining-item count at each datum.
-         * well, list is also terminated with TAG_End.
-         * list elements lack a tag and name - just payload.
-         */
         np.tag = TAG_List;
         np.tag_name = tag_name;
         np.name_len = name_len;

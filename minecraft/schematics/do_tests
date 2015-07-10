@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+my $tool = "../read_schematic";
+
+die "run make in parent directory!\n" unless -x $tool;
+
+my @tests;
+for (glob "*.schematic *.nbt") {
+    push @tests, $_ if -e "$_.ans";
+}
+
+my $num_failed=0;
+
+for my $test (@tests) {
+    `$tool -v $test > $test.out 2>&1`;
+    `diff $test.out $test.ans`;
+    print "$test failed\n" if $?;
+    $num_failed++ if $?;
+}
+
+print scalar @tests . " tests conducted, $num_failed failed.\n";
+exit $num_failed;
