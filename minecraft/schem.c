@@ -10,10 +10,10 @@
 extern int verbose;
 
 typedef struct {
-  char tag;  /* TAG_Compound or TAG_List */
+  char tag;       /* TAG_Compound or TAG_List */
   char *tag_name; /* points into buffer */
   uint16_t name_len;
-  struct {  /* for TAG_List, items are: */
+  struct {        /* for TAG_List, items are: */
     char tag;
     uint32_t left;
     uint32_t total;
@@ -70,6 +70,7 @@ int expect_named_tag(UT_vector *nbt_stack, char *tag_type) {
   return 0;
 }
 
+
 void dump(char tag, char *tag_name, uint16_t name_len, UT_vector *nbt_stack) {
   nbt_parse *top;
   uint32_t seen;
@@ -86,6 +87,11 @@ void dump(char tag, char *tag_name, uint16_t name_len, UT_vector *nbt_stack) {
   } else {
     fprintf(stderr,"%.*s (%s)\n", (int)name_len, tag_name, tag_str[tag]);
   }
+}
+
+void record(char tag, char *tag_name, uint16_t name_len, 
+            char *pos, UT_vector *nbt_stack) {
+  if (verbose) dump(tag, tag_name, name_len, nbt_stack);
 }
 
 /* here is a sample of the start of a .schematic file 
@@ -120,32 +126,18 @@ void dump(char tag, char *tag_name, uint16_t name_len, UT_vector *nbt_stack) {
 00000090  00 11 67 65 6e 65 72 69  63 2e 6d 61 78 48 65 61  |..generic.maxHea|
 */
 
-/* make a tpl image from the unzipped schematic input buffer */
-int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
-  int rc = -1;
-  tpl_node *tn=NULL;
-  char *p = in;
+int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_parse */ *nbt) {
+  char *p = in, tag_type, *tag_name, *tag_payload, list_type;
   size_t len = ilen, tag_size;
-  UT_vector *nbt_stack;
-  char tag_type, *tag_name, *tag_payload, list_type;
   uint16_t name_len, str_len;
-  int32_t array_len;
+  UT_vector *nbt_stack;
   nbt_parse np, *top;
+  int32_t array_len;
+  int rc = -1;
 
   nbt_stack = utvector_new(&nbt_parse_mm);
 
-  int16_t width, height, length, x, y, z, l;
-  char id;
-
-  tn = tpl_map("jjj" /* width height length */
-               "A(jjjc)", /* x y z block-id */
-               &width, &height, &length,
-               &x, &y, &z, &id);
-  if (tn==NULL) goto done;
-
-  /* parse the .schematic NBT. we only want dimensions and block ids */
   while(len > 0) {
-  
 
     if (expect_named_tag(nbt_stack, &tag_type)) {
 
@@ -168,7 +160,7 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
       tag_payload = p;
     }
 
-    if (verbose) dump(tag_type, tag_name, name_len, nbt_stack);
+    record(tag_type, tag_name, name_len, p, nbt_stack);
 
     switch(tag_type) {
       case TAG_Byte:
@@ -229,6 +221,30 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
   }
 
   if (utvector_len(nbt_stack) >0) goto done;
+  rc = 0;
+
+ done:
+  if (rc < 0) fprintf(stderr,"nbt parse failed\n");
+  utvector_free(nbt_stack);
+  return rc;
+}
+
+/* make a tpl image from the unzipped schematic input buffer */
+int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
+  int16_t width, height, length, x, y, z, l;
+  int rc = -1;
+  tpl_node *tn=NULL;
+  UT_vector *nbt;
+  nbt_parse *np;
+
+  nbt = utvector_new(&nbt_parse_mm);
+  rc = parse_schem(in, ilen, nbt);
+  if (rc < 0) goto done;
+
+  tn = tpl_map("jjj" /* width height length */
+               "A(jjj)", /* x y z block-id */
+               &width, &height, &length,
+               &x, &y, &z);
 
   rc = tpl_dump(tn, TPL_MEM, out, olen);
   if (rc < 0) goto done;
@@ -236,9 +252,8 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
   rc = 0;
 
  done:
-  if (rc < 0) fprintf(stderr,"nbt parse failed\n");
   if (tn) tpl_free(tn);
-  utvector_free(nbt_stack);
+  utvector_free(nbt);
   return rc;
 }
 
