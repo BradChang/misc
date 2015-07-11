@@ -9,14 +9,24 @@
 
 extern int verbose;
 
-typedef struct {
+struct tag {
+  /* info about the name */
   char type;
   char *name;
   uint16_t len;
-} tag_id_name;
 
-typedef struct {  /* this structure is for TAG_List or TAG_Compound */
-  tag_id_name tag;
+  /* info about the payload:
+   * TAG_String: data is the start of UTF8, count is the number of bytes.
+   * TAG_List/TAG_Byte_Array: data is payload, count is the number count.
+   * TAG_Compound: data is payload, count is 0, it is not known a priori.
+   * Other types: count is 1. If you parse, note NBT data are big-endian.
+   */
+  char *data;
+  uint32_t count;  
+};
+
+typedef struct {  /* to parse TAG_List or TAG_Compound */
+  struct tag tag;
   struct {        /* for TAG_List, sub-items have this tag type and count */
     char type;
     uint32_t left;
@@ -74,8 +84,14 @@ int expect_named_tag(UT_vector *nbt_stack, char *tag_type) {
   return 0;
 }
 
+int is_list_item(UT_vector *nbt_stack) {
+  nbt_stack_frame *top;
+  top = (nbt_stack_frame*)utvector_tail(nbt_stack);
+  if (top && (top->tag.type == TAG_List)) return 1;
+  return 0;
+}
 
-void dump(tag_id_name *tag, UT_vector *nbt_stack) {
+void dump(struct tag *tag, UT_vector *nbt_stack) {
   nbt_stack_frame *top;
   uint32_t seen;
   int indent;
@@ -84,8 +100,8 @@ void dump(tag_id_name *tag, UT_vector *nbt_stack) {
   while(indent--) fprintf(stderr," ");
 
   /* print list elements by their position, others by their name */
-  top = (nbt_stack_frame*)utvector_tail(nbt_stack);
-  if (top && (top->tag.type == TAG_List)) { 
+  if (is_list_item(nbt_stack)) {
+    top = (nbt_stack_frame*)utvector_tail(nbt_stack);
     seen = top->list.total - top->list.left;
     fprintf(stderr,"%u/%u (%s)\n", seen, top->list.total, tag_str[top->list.type]);
   } else {
@@ -93,8 +109,8 @@ void dump(tag_id_name *tag, UT_vector *nbt_stack) {
   }
 }
 
-void record(tag_id_name *tag, char *pos, UT_vector *nbt_stack) {
-  if (verbose) dump(tag, nbt_stack);
+void record(struct tag *tag, char *pos, uint32_t count, UT_vector *nbt_stack) {
+  if (is_list_item(nbt_stack)) return;
 }
 
 /* here is a sample of the start of a .schematic file 
@@ -131,12 +147,12 @@ void record(tag_id_name *tag, char *pos, UT_vector *nbt_stack) {
 
 int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_stack_frame */ *nbt) {
   char *p = in, list_type;
-  size_t len = ilen, tag_size;
+  size_t len = ilen, sz;
   uint16_t str_len;
   UT_vector *nbt_stack;
   nbt_stack_frame np, *top;
-  int32_t array_len;
-  tag_id_name tag;
+  int32_t alen;
+  struct tag tag;
   int rc = -1;
 
   nbt_stack = utvector_new(&nbt_stack_frame_mm);
@@ -163,7 +179,7 @@ int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_stack_frame */ *nbt) 
       len -= tag.len; p += tag.len;
     }
 
-    record(&tag, p, nbt_stack);
+    if (verbose) dump(&tag, nbt_stack);
 
     switch(tag.type) {
       case TAG_Byte:
@@ -171,43 +187,45 @@ int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_stack_frame */ *nbt) 
       case TAG_Int:
       case TAG_Long:
       case TAG_Float:
-      case TAG_Double:
-        tag_size = tag_sizes[tag.type]; assert(tag_size > 0);
-        if (len < tag_size) goto done;
-        len -= tag_size; p += tag_size;
-        /* note if you were to parse the datum - endian swap needed */
+      case TAG_Double: /* note if you parse these - endian swap needed */
+        sz = tag_sizes[tag.type]; assert(sz > 0);
+        if (len < sz) goto done;
+        len -= sz; p += sz;
+        record(&tag,p,1,nbt_stack);
         break;
       case TAG_Byte_Array:
-        if (len < sizeof(array_len)) goto done;
-        memcpy(&array_len, p, sizeof(array_len)); array_len = ntohl(array_len);
-        len -= sizeof(array_len); p += sizeof(array_len);
-        tag_size = array_len;
-        if (len < tag_size) goto done;
-        len -= tag_size; p += tag_size;
+        if (len < sizeof(alen)) goto done;
+        memcpy(&alen, p, sizeof(alen)); alen = ntohl(alen);
+        len -= sizeof(alen); p += sizeof(alen);
+        if (len < alen) goto done;
+        record(&tag,p,alen,nbt_stack);
+        len -= alen; p += alen;
         break;
       case TAG_String:
         if (len < sizeof(str_len)) goto done;
         memcpy(&str_len, p, sizeof(str_len)); str_len = ntohs(str_len);
         len -= sizeof(str_len); p += sizeof(str_len);
-        tag_size = str_len;
-        if (len < tag_size) goto done;
-        len -= tag_size; p += tag_size;
+        if (len < str_len) goto done;
+        record(&tag,p,str_len,nbt_stack);
+        len -= str_len; p += str_len;
         break;
       case TAG_List:
         if (len < sizeof(list_type)) goto done;
         list_type = *p;
         len -= sizeof(list_type); p += sizeof(list_type);
-        if (len < sizeof(array_len)) goto done;
-        memcpy(&array_len, p, sizeof(array_len)); array_len = ntohl(array_len);
-        len -= sizeof(array_len); p += sizeof(array_len);
+        if (len < sizeof(alen)) goto done;
+        memcpy(&alen, p, sizeof(alen)); alen = ntohl(alen);
+        len -= sizeof(alen); p += sizeof(alen);
+        record(&tag,p,alen,nbt_stack);
         np.tag = tag;
         np.list.type = list_type;
-        np.list.left = array_len;
-        np.list.total = array_len;
+        np.list.left = alen;
+        np.list.total = alen;
         utvector_push(nbt_stack, &np);
         break;
       case TAG_Compound:
         np.tag = tag;
+        record(&tag,p,0,nbt_stack);
         utvector_push(nbt_stack, &np);
         break;
       case TAG_End:  /* handled above */
