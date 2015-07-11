@@ -75,7 +75,7 @@ int expect_named_tag(UT_vector *nbt_stack, char *tag_type) {
 }
 
 
-void dump(char tag, char *tag_name, uint16_t name_len, UT_vector *nbt_stack) {
+void dump(tag_id_name *tag, UT_vector *nbt_stack) {
   nbt_stack_frame *top;
   uint32_t seen;
   int indent;
@@ -89,13 +89,12 @@ void dump(char tag, char *tag_name, uint16_t name_len, UT_vector *nbt_stack) {
     seen = top->list.total - top->list.left;
     fprintf(stderr,"%u/%u (%s)\n", seen, top->list.total, tag_str[top->list.type]);
   } else {
-    fprintf(stderr,"%.*s (%s)\n", (int)name_len, tag_name, tag_str[tag]);
+    fprintf(stderr,"%.*s (%s)\n", (int)tag->len, tag->name, tag_str[tag->type]);
   }
 }
 
-void record(char tag, char *tag_name, uint16_t name_len, 
-            char *pos, UT_vector *nbt_stack) {
-  if (verbose) dump(tag, tag_name, name_len, nbt_stack);
+void record(tag_id_name *tag, char *pos, UT_vector *nbt_stack) {
+  if (verbose) dump(tag, nbt_stack);
 }
 
 /* here is a sample of the start of a .schematic file 
@@ -131,24 +130,25 @@ void record(char tag, char *tag_name, uint16_t name_len,
 */
 
 int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_stack_frame */ *nbt) {
-  char *p = in, tag_type, *tag_name, *tag_payload, list_type;
+  char *p = in, list_type;
   size_t len = ilen, tag_size;
-  uint16_t name_len, str_len;
+  uint16_t str_len;
   UT_vector *nbt_stack;
   nbt_stack_frame np, *top;
   int32_t array_len;
+  tag_id_name tag;
   int rc = -1;
 
   nbt_stack = utvector_new(&nbt_stack_frame_mm);
 
   while(len > 0) {
 
-    if (expect_named_tag(nbt_stack, &tag_type)) {
+    if (expect_named_tag(nbt_stack, &tag.type)) {
 
-      tag_type = *p;
+      tag.type = *p;
       len--; p++;
 
-      if (tag_type == TAG_End) { /* special case */
+      if (tag.type == TAG_End) { /* special case */
         top = (nbt_stack_frame*)utvector_pop(nbt_stack);
         if (top == NULL) goto done;
         continue;
@@ -156,24 +156,23 @@ int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_stack_frame */ *nbt) 
 
       /* get length-prefixed name */
       if (len < sizeof(uint16_t)) goto done;
-      memcpy(&name_len, p, sizeof(uint16_t)); name_len = ntohs(name_len);
+      memcpy(&tag.len, p, sizeof(uint16_t)); tag.len = ntohs(tag.len);
       len -= sizeof(uint16_t); p += sizeof(uint16_t);
-      if (len < name_len) goto done;
-      tag_name = p;
-      len -= name_len; p += name_len;
-      tag_payload = p;
+      if (len < tag.len) goto done;
+      tag.name = p;
+      len -= tag.len; p += tag.len;
     }
 
-    record(tag_type, tag_name, name_len, p, nbt_stack);
+    record(&tag, p, nbt_stack);
 
-    switch(tag_type) {
+    switch(tag.type) {
       case TAG_Byte:
       case TAG_Short:
       case TAG_Int:
       case TAG_Long:
       case TAG_Float:
       case TAG_Double:
-        tag_size = tag_sizes[tag_type]; assert(tag_size > 0);
+        tag_size = tag_sizes[tag.type]; assert(tag_size > 0);
         if (len < tag_size) goto done;
         len -= tag_size; p += tag_size;
         /* note if you were to parse the datum - endian swap needed */
@@ -201,18 +200,14 @@ int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_stack_frame */ *nbt) 
         if (len < sizeof(array_len)) goto done;
         memcpy(&array_len, p, sizeof(array_len)); array_len = ntohl(array_len);
         len -= sizeof(array_len); p += sizeof(array_len);
-        np.tag.type = TAG_List;
-        np.tag.name = tag_name;
-        np.tag.len = name_len;
+        np.tag = tag;
         np.list.type = list_type;
         np.list.left = array_len;
         np.list.total = array_len;
         utvector_push(nbt_stack, &np);
         break;
       case TAG_Compound:
-        np.tag.type = TAG_Compound;
-        np.tag.name = tag_name;
-        np.tag.len = name_len;
+        np.tag = tag;
         utvector_push(nbt_stack, &np);
         break;
       case TAG_End:  /* handled above */
