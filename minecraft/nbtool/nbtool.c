@@ -6,10 +6,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
-#include "tpl.h"
-
-extern int ungz(char *in, size_t ilen, char **out, size_t *olen);
-extern int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen);
+#include "nbt.h"
 
 int verbose;
 int zcat; // dump unzipped data to stdout
@@ -58,8 +55,8 @@ char *slurp(char *file, size_t *flen) {
 
 int main( int argc, char *argv[]) {
   int rc=-1, opt;
-  size_t ilen, ulen, img_len;
-  char *file=NULL, *in, *unz=NULL, *img=NULL;
+  size_t ilen, ulen;
+  char *file=NULL, *in, *unz=NULL;
 
   while ( (opt = getopt(argc,argv,"vhz")) > 0) {
     switch(opt) {
@@ -80,7 +77,7 @@ int main( int argc, char *argv[]) {
 
   if (zcat) write(STDOUT_FILENO,unz,ulen);
 
-  rc = make_schem_tpl(unz, ulen, &img, &img_len);
+  rc = parse_nbt(unz, ulen, verbose);
   if (rc) goto done;
 
   rc = 0;
@@ -88,6 +85,5 @@ int main( int argc, char *argv[]) {
  done:
   if (in) free(in);
   if (unz) free(unz);
-  if (img) free(img);
   return rc;
 }

@@ -4,7 +4,7 @@
 #include <inttypes.h>
 #include "utvector.h"
 
-struct tag {
+struct nbt_tag {
   /* info about the name */
   char type;
   char *name;
@@ -19,16 +19,6 @@ struct tag {
   char *data;
   uint32_t count;  
 };
-
-typedef struct {  /* to parse TAG_List or TAG_Compound */
-  struct tag tag;
-  struct {        /* for TAG_List, sub-items have this tag type and count */
-    char type;
-    uint32_t left;
-    uint32_t total;
-  } list;
-} nbt_stack_frame;
-const UT_vector_mm nbt_stack_frame_mm = {.sz=sizeof(nbt_stack_frame)};
 
 #define TAGS                                                                  \
  x( TAG_End,        0, 0 )                                                    \
@@ -46,13 +36,17 @@ const UT_vector_mm nbt_stack_frame_mm = {.sz=sizeof(nbt_stack_frame)};
 #define TAG_MAX TAG_Compound
 
 #define x(t,i,s) t=i,
-enum { TAGS } tag;
+enum { TAGS } nbt_tag;
 #undef x
 #define x(t,i,s) #t,
-static const char *tag_str[] = { TAGS NULL };
+static const char *nbt_tag_str[] = { TAGS NULL };
 #undef x
 #define x(t,i,s) [i]=s,
-static size_t tag_sizes[] = { TAGS };
+static size_t nbt_tag_sizes[] = { TAGS };
 #undef x
+
+/* API */
+int ungz(char *in, size_t ilen, char **out, size_t *olen);
+int parse_nbt(char *in, size_t ilen, int verbose);
 
 #endif /* _NBT_H_ */

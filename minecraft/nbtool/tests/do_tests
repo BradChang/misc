@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-my $tool = "../read_schematic";
+my $tool = "../nbtool";
 
 die "run make in parent directory!\n" unless -x $tool;
 

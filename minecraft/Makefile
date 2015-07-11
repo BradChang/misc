@@ -1,28 +1,10 @@
-OBJS=read_schematic
-all: $(OBJS)
-CFLAGS=-g
-#CFLAGS+=-Wall
-LDFLAGS=-lz
+SUBDIRS=nbtlib nbtool
+all: $(SUBDIRS)
 
-read_schematic: read_schematic.o tpl.o ungz.o schem.o utvector.o
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+.PHONY: clean $(SUBDIRS)
 
-read_schematic.o: read_schematic.c
-	$(CC) $(CFLAGS) -c $^ 
+$(SUBDIRS):
+	$(MAKE) -C $@
 
-utvector.o: utvector.c
-	$(CC) $(CFLAGS) -c $^ 
-
-tpl.o: tpl.c
-	$(CC) $(CFLAGS) -c $^ 
-
-ungz.o: ungz.c
-	$(CC) $(CFLAGS) -c $^ 
-
-schem.o: schem.c
-	$(CC) $(CFLAGS) -c $^ 
-
-.PHONY: clean
-
-clean: 
-	rm -f $(OBJS) *.o
+clean:
+	for d in $(SUBDIRS); do $(MAKE) -C $$d $@; done
