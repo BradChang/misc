@@ -10,16 +10,20 @@
 extern int verbose;
 
 typedef struct {
-  char tag;       /* TAG_Compound or TAG_List */
-  char *tag_name; /* points into buffer */
-  uint16_t name_len;
-  struct {        /* for TAG_List, items are: */
-    char tag;
+  char type;
+  char *name;
+  uint16_t len;
+} tag_id_name;
+
+typedef struct {  /* this structure is for TAG_List or TAG_Compound */
+  tag_id_name tag;
+  struct {        /* for TAG_List, sub-items have this tag type and count */
+    char type;
     uint32_t left;
     uint32_t total;
   } list;
-} nbt_parse;
-const UT_vector_mm nbt_parse_mm = {.sz=sizeof(nbt_parse)};
+} nbt_stack_frame;
+const UT_vector_mm nbt_stack_frame_mm = {.sz=sizeof(nbt_stack_frame)};
 
 #define TAGS                                                                  \
  x( TAG_End,        0, 0 )                                                    \
@@ -52,19 +56,19 @@ size_t tag_sizes[] = { TAGS };
  * and decrements the list count. if we're not in a list, return 1.
  */
 int expect_named_tag(UT_vector *nbt_stack, char *tag_type) {
-  nbt_parse *top;
+  nbt_stack_frame *top;
 
-  top = (nbt_parse*)utvector_tail(nbt_stack);
+  top = (nbt_stack_frame*)utvector_tail(nbt_stack);
   if (top == NULL) return 1;
-  if (top->tag == TAG_Compound) return 1;
-  assert(top->tag == TAG_List);
+  if (top->tag.type == TAG_Compound) return 1;
+  assert(top->tag.type == TAG_List);
   if (top->list.left == 0) {
     utvector_pop(nbt_stack);
     return 1;
   }
 
   /* in a list with remaining elements */
-  *tag_type = top->list.tag;
+  *tag_type = top->list.type;
   top->list.left--;
 
   return 0;
@@ -72,7 +76,7 @@ int expect_named_tag(UT_vector *nbt_stack, char *tag_type) {
 
 
 void dump(char tag, char *tag_name, uint16_t name_len, UT_vector *nbt_stack) {
-  nbt_parse *top;
+  nbt_stack_frame *top;
   uint32_t seen;
   int indent;
 
@@ -80,10 +84,10 @@ void dump(char tag, char *tag_name, uint16_t name_len, UT_vector *nbt_stack) {
   while(indent--) fprintf(stderr," ");
 
   /* print list elements by their position, others by their name */
-  top = (nbt_parse*)utvector_tail(nbt_stack);
-  if (top && (top->tag == TAG_List)) { 
+  top = (nbt_stack_frame*)utvector_tail(nbt_stack);
+  if (top && (top->tag.type == TAG_List)) { 
     seen = top->list.total - top->list.left;
-    fprintf(stderr,"%u/%u (%s)\n", seen, top->list.total, tag_str[top->list.tag]);
+    fprintf(stderr,"%u/%u (%s)\n", seen, top->list.total, tag_str[top->list.type]);
   } else {
     fprintf(stderr,"%.*s (%s)\n", (int)name_len, tag_name, tag_str[tag]);
   }
@@ -126,16 +130,16 @@ void record(char tag, char *tag_name, uint16_t name_len,
 00000090  00 11 67 65 6e 65 72 69  63 2e 6d 61 78 48 65 61  |..generic.maxHea|
 */
 
-int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_parse */ *nbt) {
+int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_stack_frame */ *nbt) {
   char *p = in, tag_type, *tag_name, *tag_payload, list_type;
   size_t len = ilen, tag_size;
   uint16_t name_len, str_len;
   UT_vector *nbt_stack;
-  nbt_parse np, *top;
+  nbt_stack_frame np, *top;
   int32_t array_len;
   int rc = -1;
 
-  nbt_stack = utvector_new(&nbt_parse_mm);
+  nbt_stack = utvector_new(&nbt_stack_frame_mm);
 
   while(len > 0) {
 
@@ -145,7 +149,7 @@ int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_parse */ *nbt) {
       len--; p++;
 
       if (tag_type == TAG_End) { /* special case */
-        top = (nbt_parse*)utvector_pop(nbt_stack);
+        top = (nbt_stack_frame*)utvector_pop(nbt_stack);
         if (top == NULL) goto done;
         continue;
       }
@@ -197,18 +201,18 @@ int parse_schem(char *in, size_t ilen, UT_vector /* of nbt_parse */ *nbt) {
         if (len < sizeof(array_len)) goto done;
         memcpy(&array_len, p, sizeof(array_len)); array_len = ntohl(array_len);
         len -= sizeof(array_len); p += sizeof(array_len);
-        np.tag = TAG_List;
-        np.tag_name = tag_name;
-        np.name_len = name_len;
-        np.list.tag = list_type;
+        np.tag.type = TAG_List;
+        np.tag.name = tag_name;
+        np.tag.len = name_len;
+        np.list.type = list_type;
         np.list.left = array_len;
         np.list.total = array_len;
         utvector_push(nbt_stack, &np);
         break;
       case TAG_Compound:
-        np.tag = TAG_Compound;
-        np.tag_name = tag_name;
-        np.name_len = name_len;
+        np.tag.type = TAG_Compound;
+        np.tag.name = tag_name;
+        np.tag.len = name_len;
         utvector_push(nbt_stack, &np);
         break;
       case TAG_End:  /* handled above */
@@ -235,9 +239,9 @@ int make_schem_tpl(char *in, size_t ilen, char **out, size_t *olen) {
   int rc = -1;
   tpl_node *tn=NULL;
   UT_vector *nbt;
-  nbt_parse *np;
+  nbt_stack_frame *np;
 
-  nbt = utvector_new(&nbt_parse_mm);
+  nbt = utvector_new(&nbt_stack_frame_mm);
   rc = parse_schem(in, ilen, nbt);
   if (rc < 0) goto done;
 
