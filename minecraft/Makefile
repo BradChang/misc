@@ -1,4 +1,4 @@
-SUBDIRS=nbtlib nbtool
+SUBDIRS=libnbt nbtool
 all: $(SUBDIRS)
 
 .PHONY: clean $(SUBDIRS)

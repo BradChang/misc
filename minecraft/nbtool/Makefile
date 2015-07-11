@@ -1,7 +1,7 @@
 OBJS=nbtool 
 all: $(OBJS) tests
 
-LIB=../nbtlib
+LIB=../libnbt
 CFLAGS=-g
 CFLAGS+=-I$(LIB)
 LDFLAGS=-L$(LIB) -lnbt -lz
