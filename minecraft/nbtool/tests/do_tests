@@ -15,7 +15,7 @@ for (glob "*.schematic *.nbt") {
 my $num_failed=0;
 
 for my $test (@tests) {
-    `$tool -v $test > $test.out 2>&1`;
+    `$tool -v $test 2> $test.out`;
     `diff $test.out $test.ans`;
     print "$test failed\n" if $?;
     $num_failed++ if $?;

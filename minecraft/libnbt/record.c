@@ -60,9 +60,5 @@ void nbt_record_tag(struct nbt_tag *tag, off_t pos, uint32_t count,
   utvector_push(records, r);
 }
 
-struct nbt *nbt_flatten_records(UT_vector *records) {
-  struct nbt *nbt;
-  return nbt;
-}
 
 

@@ -2,16 +2,8 @@
 #define _NBT_H
 
 #include <inttypes.h>
-
-/* result of parsing. it is one contiguous memory buffer the caller can free */
-struct nbt {
-  char *tagc;           /* count of tags */
-  char *typev;          /* type of tag[i]*/
-  char **tagv;          /* "fully qualified" name of each tag */
-  off_t *tagp;          /* offset of tag payload (in buffer) */
-  uint32_t *countv;     /* item count in tagp; varies by tag  */
-  unsigned char data[]; /* c99 flexible array member - names */
-};
+#include "utvector.h"
+#include "utstring.h"
 
 struct nbt_tag {
   char type;
@@ -19,6 +11,13 @@ struct nbt_tag {
   uint16_t len;
 };
 
+struct nbt_record {
+  struct nbt_tag tag;
+  off_t pos;
+  uint32_t count;
+  UT_string fqname;
+};
+ 
 #define TAGS                                                                  \
  x( TAG_End,        0, 0 )                                                    \
  x( TAG_Byte,       1, sizeof(int8_t)  )                                      \
@@ -56,6 +55,6 @@ typedef struct {  /* to parse TAG_List or TAG_Compound */
 
 /* API */
 int ungz(char *in, size_t ilen, char **out, size_t *olen);
-int parse_nbt(char *in, size_t ilen, int verbose);
+int parse_nbt(char *in, size_t len, UT_vector **records, int verbose);
 
 #endif /* _NBT_H_ */

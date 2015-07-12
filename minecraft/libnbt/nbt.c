@@ -56,8 +56,8 @@ static void dump(struct nbt_tag *tag, UT_vector *nbt_stack) {
   }
 }
 
-int parse_nbt(char *in, size_t ilen, int verbose) {
-  UT_vector *nbt_stack, *nbt_records;
+int parse_nbt(char *in, size_t ilen, UT_vector **nbt_records, int verbose) {
+  UT_vector *nbt_stack;
   nbt_stack_frame np, *top;
   char *p = in, list_type;
   size_t len = ilen, sz;
@@ -68,7 +68,9 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
   int rc = -1;
 
   nbt_stack = utvector_new(&nbt_stack_frame_mm);
-  nbt_records = utvector_new(&nbt_record_mm);
+  if (nbt_stack == NULL) goto done;
+  *nbt_records = utvector_new(&nbt_record_mm);
+  if (*nbt_records == NULL) goto done;
 
   while(len > 0) {
 
@@ -104,14 +106,14 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
         sz = nbt_tag_sizes[tag.type]; assert(sz > 0);
         if (len < sz) goto done;
         len -= sz; p += sz;
-        nbt_record_tag(&tag,p-in,1,nbt_stack,nbt_records);
+        nbt_record_tag(&tag,p-in,1,nbt_stack,*nbt_records);
         break;
       case TAG_Byte_Array:
         if (len < sizeof(alen)) goto done;
         memcpy(&alen, p, sizeof(alen)); alen = ntohl(alen);
         len -= sizeof(alen); p += sizeof(alen);
         if (len < alen) goto done;
-        nbt_record_tag(&tag,p-in,alen,nbt_stack,nbt_records);
+        nbt_record_tag(&tag,p-in,alen,nbt_stack,*nbt_records);
         len -= alen; p += alen;
         break;
       case TAG_String:
@@ -119,7 +121,7 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
         memcpy(&str_len, p, sizeof(str_len)); str_len = ntohs(str_len);
         len -= sizeof(str_len); p += sizeof(str_len);
         if (len < str_len) goto done;
-        nbt_record_tag(&tag,p-in,str_len,nbt_stack,nbt_records);
+        nbt_record_tag(&tag,p-in,str_len,nbt_stack,*nbt_records);
         len -= str_len; p += str_len;
         break;
       case TAG_List:
@@ -129,7 +131,7 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
         if (len < sizeof(alen)) goto done;
         memcpy(&alen, p, sizeof(alen)); alen = ntohl(alen);
         len -= sizeof(alen); p += sizeof(alen);
-        nbt_record_tag(&tag,p-in,alen,nbt_stack,nbt_records);
+        nbt_record_tag(&tag,p-in,alen,nbt_stack,*nbt_records);
         np.tag = tag;
         np.list.type = list_type;
         np.list.left = alen;
@@ -138,7 +140,7 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
         break;
       case TAG_Compound:
         np.tag = tag;
-        nbt_record_tag(&tag,p-in,0,nbt_stack,nbt_records);
+        nbt_record_tag(&tag,p-in,0,nbt_stack,*nbt_records);
         utvector_push(nbt_stack, &np);
         break;
       case TAG_End:  /* handled above */
@@ -151,13 +153,11 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
   }
 
   if (utvector_len(nbt_stack) >0) goto done;
-  nbt = nbt_flatten_records(nbt_records);
   rc = 0;
 
  done:
   if (rc < 0) fprintf(stderr,"nbt parse failed\n");
   utvector_free(nbt_stack);
-  utvector_free(nbt_records);
   return rc;
 }
 
