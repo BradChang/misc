@@ -110,7 +110,21 @@ static const UT_vector_mm nbt_record_mm = {
 static void record(struct nbt_tag *tag, off_t pos, uint32_t count, 
                   UT_vector /* of nbt_stack_frame */ *nbt_stack, 
                   UT_vector /* of struct nbt_record */ *records) {
+
   if (is_list_item(nbt_stack)) return;
+
+  struct nbt_record *r;
+  r = (struct nbt_record*)utvector_extend(records);
+  r->tag = *tag;
+  r->pos = pos;
+  r->count = count;
+  nbt_stack_frame *f = NULL;
+  /* fully qualify the tag by prepending the names from the stack */
+  while ( (f = (nbt_stack_frame*)utvector_next(nbt_stack,f))) {
+    utstring_printf(&r->fqname, "%.*s.", (int)f->tag.len, f->tag.name);
+  }
+  utstring_printf(&r->fqname, "%.*s", (int)tag->len, tag->name);
+  utvector_push(records, r);
 }
 
 
