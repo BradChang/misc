@@ -2,7 +2,6 @@
 #define _NBT_H
 
 #include <inttypes.h>
-#include "utvector.h"
 
 /* result of parsing. it is one contiguous memory buffer the caller can free */
 struct nbt {
@@ -44,6 +43,16 @@ static const char *nbt_tag_str[] = { TAGS NULL };
 #define x(t,i,s) [i]=s,
 static size_t nbt_tag_sizes[] = { TAGS };
 #undef x
+
+/* used internally during parsing to track nested structure */
+typedef struct {  /* to parse TAG_List or TAG_Compound */
+  struct nbt_tag tag;
+  struct {        /* for TAG_List, sub-items have this tag type and count */
+    char type;
+    uint32_t left;
+    uint32_t total;
+  } list;
+} nbt_stack_frame;
 
 /* API */
 int ungz(char *in, size_t ilen, char **out, size_t *olen);
