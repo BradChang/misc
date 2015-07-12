@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <arpa/inet.h>
+#include "utstring.h"
 #include "nbt.h"
 
 typedef struct {  /* to parse TAG_List or TAG_Compound */
@@ -69,22 +70,62 @@ static void dump(struct nbt_tag *tag, UT_vector *nbt_stack) {
   }
 }
 
-static void record(struct nbt_tag *tag, char *pos, uint32_t count, UT_vector *nbt_stack) {
+struct nbt_record {
+  struct nbt_tag tag;
+  off_t pos;
+  uint32_t count;
+  UT_string fqname;
+};
+static void _nbt_record_init(void *_r, unsigned num) {
+  struct nbt_record *r = (struct nbt_record *)_r;
+  while(num--) { utstring_init(&r->fqname); r++; }
+}
+static void _nbt_record_fini(void *_r, unsigned num) {
+  struct nbt_record *r = (struct nbt_record *)_r;
+  while(num--) { utstring_done(&r->fqname); r++; }
+}
+static void _nbt_record_clear(void *_r, unsigned num) {
+  struct nbt_record *r = (struct nbt_record *)_r;
+  while(num--) { utstring_clear(&r->fqname); r++; }
+}
+static void _nbt_record_copy(void *_dst, void *_src, unsigned num) {
+  struct nbt_record *dst = (struct nbt_record *)_dst;
+  struct nbt_record *src = (struct nbt_record *)_src;
+  while(num--) { 
+    dst->tag = src->tag;
+    dst->pos = src->pos;
+    dst->count = src->count;
+    utstring_concat(&dst->fqname, &src->fqname); 
+    dst++; src++;
+  }
+}
+static const UT_vector_mm nbt_record_mm = {
+  .sz=sizeof(struct nbt_record),
+  .init=_nbt_record_init,
+  .fini=_nbt_record_fini,
+  .clear=_nbt_record_clear,
+  .copy=_nbt_record_copy
+};
+
+static void record(struct nbt_tag *tag, off_t pos, uint32_t count, 
+                  UT_vector /* of nbt_stack_frame */ *nbt_stack, 
+                  UT_vector /* of struct nbt_record */ *records) {
   if (is_list_item(nbt_stack)) return;
 }
 
 
 int parse_nbt(char *in, size_t ilen, int verbose) {
+  UT_vector *nbt_stack, *nbt_records;
+  nbt_stack_frame np, *top;
   char *p = in, list_type;
   size_t len = ilen, sz;
-  uint16_t str_len;
-  UT_vector *nbt_stack;
-  nbt_stack_frame np, *top;
-  int32_t alen;
   struct nbt_tag tag;
+  uint16_t str_len;
+  int32_t alen;
   int rc = -1;
 
   nbt_stack = utvector_new(&nbt_stack_frame_mm);
+  nbt_records = utvector_new(&nbt_record_mm);
 
   while(len > 0) {
 
@@ -120,14 +161,14 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
         sz = nbt_tag_sizes[tag.type]; assert(sz > 0);
         if (len < sz) goto done;
         len -= sz; p += sz;
-        record(&tag,p,1,nbt_stack);
+        record(&tag,p-in,1,nbt_stack,nbt_records);
         break;
       case TAG_Byte_Array:
         if (len < sizeof(alen)) goto done;
         memcpy(&alen, p, sizeof(alen)); alen = ntohl(alen);
         len -= sizeof(alen); p += sizeof(alen);
         if (len < alen) goto done;
-        record(&tag,p,alen,nbt_stack);
+        record(&tag,p-in,alen,nbt_stack,nbt_records);
         len -= alen; p += alen;
         break;
       case TAG_String:
@@ -135,7 +176,7 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
         memcpy(&str_len, p, sizeof(str_len)); str_len = ntohs(str_len);
         len -= sizeof(str_len); p += sizeof(str_len);
         if (len < str_len) goto done;
-        record(&tag,p,str_len,nbt_stack);
+        record(&tag,p-in,str_len,nbt_stack,nbt_records);
         len -= str_len; p += str_len;
         break;
       case TAG_List:
@@ -145,7 +186,7 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
         if (len < sizeof(alen)) goto done;
         memcpy(&alen, p, sizeof(alen)); alen = ntohl(alen);
         len -= sizeof(alen); p += sizeof(alen);
-        record(&tag,p,alen,nbt_stack);
+        record(&tag,p-in,alen,nbt_stack,nbt_records);
         np.tag = tag;
         np.list.type = list_type;
         np.list.left = alen;
@@ -154,7 +195,7 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
         break;
       case TAG_Compound:
         np.tag = tag;
-        record(&tag,p,0,nbt_stack);
+        record(&tag,p-in,0,nbt_stack,nbt_records);
         utvector_push(nbt_stack, &np);
         break;
       case TAG_End:  /* handled above */
@@ -172,6 +213,7 @@ int parse_nbt(char *in, size_t ilen, int verbose) {
  done:
   if (rc < 0) fprintf(stderr,"nbt parse failed\n");
   utvector_free(nbt_stack);
+  utvector_free(nbt_records);
   return rc;
 }
 

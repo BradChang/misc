@@ -4,20 +4,20 @@
 #include <inttypes.h>
 #include "utvector.h"
 
+/* result of parsing. it is one contiguous memory buffer the caller can free */
+struct nbt {
+  char *tagc;           /* count of tags */
+  char *typev;          /* type of tag[i]*/
+  char **tagv;          /* "fully qualified" name of each tag */
+  off_t *tagp;          /* offset of tag payload (in buffer) */
+  uint32_t *countv;     /* item count in tagp; varies by tag  */
+  unsigned char data[]; /* c99 flexible array member - names */
+};
+
 struct nbt_tag {
-  /* info about the name */
   char type;
   char *name;
   uint16_t len;
-
-  /* info about the payload:
-   * TAG_String: data is the start of UTF8, count is the number of bytes.
-   * TAG_List/TAG_Byte_Array: data is payload, count is the number count.
-   * TAG_Compound: data is payload, count is 0, it is not known a priori.
-   * Other types: count is 1. If you parse, note NBT data are big-endian.
-   */
-  char *data;
-  uint32_t count;  
 };
 
 #define TAGS                                                                  \
