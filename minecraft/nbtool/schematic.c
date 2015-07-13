@@ -2,11 +2,13 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 #include "nbt.h"
+#include "tpl.h"
 
 extern int verbose;
 
@@ -36,9 +38,13 @@ struct nbt_record *find_record(UT_vector *records, char *name) {
   return NULL;
 }
 
-int schem_to_tpl(UT_vector *records, char *outfile) {
+#define BLOCK_AIR 0x00
+
+int schem_to_tpl(char *buf, size_t len, UT_vector *records, char *outfile) {
   struct nbt_record *h, *l, *w, *b;
+  char *eob = buf + len, *blocks;
   int rc = -1;
+  size_t i;
 
   h = find_record(records, "Schematic.Height");
   l = find_record(records, "Schematic.Length");
@@ -46,6 +52,33 @@ int schem_to_tpl(UT_vector *records, char *outfile) {
   b = find_record(records, "Schematic.Blocks");
 
   if ((!h) || (!l) || (!w) || (!b)) goto done;
+
+  if (buf + h->pos + sizeof(uint16_t) > eob) goto done;
+  if (buf + l->pos + sizeof(uint16_t) > eob) goto done;
+  if (buf + w->pos + sizeof(uint16_t) > eob) goto done;
+  if (buf + b->pos + b->count > eob) goto done;
+
+  uint16_t height, length, width, x, y, z;
+  memcpy(&height, buf + h->pos, sizeof(uint16_t)); height = ntohs(height);
+  memcpy(&length, buf + l->pos, sizeof(uint16_t)); length = ntohs(length);
+  memcpy(&width,  buf + w->pos, sizeof(uint16_t)); width  = ntohs(width );
+  if (!height || !length || !width) goto done;
+  blocks = buf + b->pos;
+
+  tpl_node *tn = tpl_map("jjjA(jjj)", &height, &length, &width, &x, &y, &z);
+  tpl_pack(tn,0);
+
+  /* iterate over the blocks, keep the ones except air. compute its xyz */
+  for(i=0; i < b->count; i++) {
+    //if (blocks[i] == BLOCK_AIR) continue; 
+    x= (i % (width * length)) % width; 
+    y= (i % (width * length)) / width; 
+    z=  i / (width * length);
+    tpl_pack(tn,1);
+  }
+
+  tpl_dump(tn, TPL_FILE, outfile);
+  tpl_free(tn);
   
   rc = 0;
 

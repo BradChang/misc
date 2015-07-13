@@ -11,7 +11,7 @@
 int verbose;
 int zcat; // dump unzipped data to stdout
 
-extern int schem_to_tpl(UT_vector *records, char *outfile);
+extern int schem_to_tpl(char *buf, size_t len, UT_vector *records, char *outfile);
 
 void usage(char *exe) {
   fprintf(stderr,"usage: %s [options] [-t <out.tpl>] <file.nbt>\n", exe);
@@ -95,7 +95,7 @@ int main( int argc, char *argv[]) {
   if (rc) goto done;
 
   if (verbose > 1) dump_records(records);
-  if (tpl && (schem_to_tpl(records, tpl) < 0)) goto done;
+  if (tpl && (schem_to_tpl(unz, ulen, records, tpl) < 0)) goto done;
 
   rc = 0;
 
@@ -103,5 +103,6 @@ int main( int argc, char *argv[]) {
   if (records) utvector_free(records);
   if (in) free(in);
   if (unz) free(unz);
+  if (tpl) free(tpl);
   return rc;
 }

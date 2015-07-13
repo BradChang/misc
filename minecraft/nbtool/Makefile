@@ -1,18 +1,21 @@
 OBJS=nbtool 
-all: $(OBJS) tests
+all: $(OBJS) 
 
 LIB=../libnbt
 CFLAGS=-g
 CFLAGS+=-I$(LIB)
 LDFLAGS=-L$(LIB) -lnbt -lz
 
-nbtool: nbtool.o schematic.o
+nbtool: nbtool.o schematic.o tpl.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 nbtool.o: nbtool.c
 	$(CC) $(CFLAGS) -c $<
 
 schematic.o: schematic.c
+	$(CC) $(CFLAGS) -c $<
+
+tpl.o: tpl.c
 	$(CC) $(CFLAGS) -c $<
 
 .PHONY: clean tests
