@@ -105,8 +105,8 @@ int parse_nbt(char *in, size_t ilen, UT_vector **nbt_records, int verbose) {
       case TAG_Double: /* note if you parse these - endian swap needed */
         sz = nbt_tag_sizes[tag.type]; assert(sz > 0);
         if (len < sz) goto done;
-        len -= sz; p += sz;
         nbt_record_tag(&tag,p-in,1,nbt_stack,*nbt_records);
+        len -= sz; p += sz;
         break;
       case TAG_Byte_Array:
         if (len < sizeof(alen)) goto done;

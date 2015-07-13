@@ -74,6 +74,7 @@ int schem_to_tpl(char *buf, size_t len, UT_vector *records, char *outfile) {
     x= (i % (width * length)) % width; 
     y= (i % (width * length)) / width; 
     z=  i / (width * length);
+    //fprintf(stderr,"x %u y %u z %u\n", (int)x, (int)y, (int)z );
     tpl_pack(tn,1);
   }
 
