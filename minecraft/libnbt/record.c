@@ -57,7 +57,6 @@ void nbt_record_tag(struct nbt_tag *tag, off_t pos, uint32_t count,
     utstring_printf(&r->fqname, "%.*s.", (int)f->tag.len, f->tag.name);
   }
   utstring_printf(&r->fqname, "%.*s", (int)tag->len, tag->name);
-  utvector_push(records, r);
 }
 
 

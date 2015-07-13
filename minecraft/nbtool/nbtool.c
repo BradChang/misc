@@ -12,10 +12,20 @@ int verbose;
 int zcat; // dump unzipped data to stdout
 
 void usage(char *exe) {
-  fprintf(stderr,"usage: %s [options] <file>\n", exe);
-  fprintf(stderr,"          -v  (verbose)\n");
+  fprintf(stderr,"usage: %s [options] <file.nbt>\n", exe);
+  fprintf(stderr,"          -v  (verbose- tag parsing)\n");
+  fprintf(stderr,"          -vv (verbose- see records)\n");
   fprintf(stderr,"          -z  (unzip to stdout)\n");
   exit(-1);
+}
+
+void dump_records(UT_vector *records) {
+  struct nbt_record *r=NULL;
+  while ( (r = (struct nbt_record*)utvector_next(records,r))) {
+    printf("%s [tag %.*s type:%u pos:%lu count:%u]\n", 
+      utstring_body(&r->fqname), r->tag.len, r->tag.name, 
+      (int)r->tag.type, (long)r->pos, r->count);
+  }
 }
 
 char *slurp(char *file, size_t *flen) {
@@ -81,7 +91,7 @@ int main( int argc, char *argv[]) {
   rc = parse_nbt(unz, ulen, &records, verbose);
   if (rc) goto done;
 
-  printf("%u records\n", utvector_len(records));
+  if (verbose > 1) dump_records(records);
   utvector_free(records);
 
   rc = 0;
