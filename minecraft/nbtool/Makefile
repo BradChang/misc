@@ -6,10 +6,13 @@ CFLAGS=-g
 CFLAGS+=-I$(LIB)
 LDFLAGS=-L$(LIB) -lnbt -lz
 
-nbtool: nbtool.o
+nbtool: nbtool.o schematic.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 nbtool.o: nbtool.c
+	$(CC) $(CFLAGS) -c $<
+
+schematic.o: schematic.c
 	$(CC) $(CFLAGS) -c $<
 
 .PHONY: clean tests

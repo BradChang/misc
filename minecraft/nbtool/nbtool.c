@@ -11,8 +11,10 @@
 int verbose;
 int zcat; // dump unzipped data to stdout
 
+extern int schem_to_tpl(UT_vector *records, char *outfile);
+
 void usage(char *exe) {
-  fprintf(stderr,"usage: %s [options] <file.nbt>\n", exe);
+  fprintf(stderr,"usage: %s [options] [-t <out.tpl>] <file.nbt>\n", exe);
   fprintf(stderr,"          -v  (verbose- tag parsing)\n");
   fprintf(stderr,"          -vv (verbose- see records)\n");
   fprintf(stderr,"          -z  (unzip to stdout)\n");
@@ -66,13 +68,14 @@ char *slurp(char *file, size_t *flen) {
 int main( int argc, char *argv[]) {
   int rc=-1, opt;
   size_t ilen, ulen;
-  char *file=NULL, *in, *unz=NULL;
-  UT_vector *records;
+  char *file=NULL, *in, *unz=NULL, *tpl=NULL;
+  UT_vector *records=NULL;
 
-  while ( (opt = getopt(argc,argv,"vhz")) > 0) {
+  while ( (opt = getopt(argc,argv,"vhzt:")) > 0) {
     switch(opt) {
       case 'v': verbose++; break;
       case 'z': zcat = 1; break;
+      case 't': tpl = strdup(optarg); break;
       case 'h': default: usage(argv[0]); break;
     }
   }
@@ -92,11 +95,12 @@ int main( int argc, char *argv[]) {
   if (rc) goto done;
 
   if (verbose > 1) dump_records(records);
-  utvector_free(records);
+  if (tpl && (schem_to_tpl(records, tpl) < 0)) goto done;
 
   rc = 0;
 
  done:
+  if (records) utvector_free(records);
   if (in) free(in);
   if (unz) free(unz);
   return rc;
