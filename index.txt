@@ -56,7 +56,6 @@ Compression and compressability
 [width="50%",cols="10^m,50",grid="none"]
 |=================================================================================================================
 | {t}zlib[zlib]        | how to use zlib in C to gzip or gunzip 
-| {t}entropy[entropy]  | how to measure entropy in C, {e}[notes] 
 | {t}bloom[bloom]      | how to build a Bloom filter in C, {f}[notes]
 |=================================================================================================================
 
