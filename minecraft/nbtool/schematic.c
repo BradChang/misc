@@ -71,10 +71,10 @@ int schem_to_tpl(char *buf, size_t len, UT_vector *records, char *outfile) {
   /* iterate over the blocks, keep the ones except air. compute its xyz */
   for(i=0; i < b->count; i++) {
     if (blocks[i] == BLOCK_AIR) continue; 
-    x= (i % (width * length)) % width; 
-    y= (i % (width * length)) / width; 
-    z=  i / (width * length);
-    //fprintf(stderr,"x %u y %u z %u\n", (int)x, (int)y, (int)z );
+    x= (i % (width * length)) % width; // x=width
+    z= (i % (width * length)) / width; // z=length
+    y=  i / (width * length);          // y=height
+    fprintf(stderr,"x %u y %u z %u\n", (int)x, (int)y, (int)z );
     tpl_pack(tn,1);
   }
 
