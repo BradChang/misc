@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 //char *socket_path = "./socket";
-char *socket_path = "\0hidden";
+char socket_path[] = "\0hidden";
 
 int main(int argc, char *argv[]) {
   struct sockaddr_un addr;
@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
 
   memset(&addr, 0, sizeof(addr));
   addr.sun_family = AF_UNIX;
-  strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path)-1);
+  memcpy(addr.sun_path, socket_path, sizeof(socket_path));
 
   if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
     perror("connect error");
