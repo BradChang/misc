@@ -4,6 +4,11 @@ Troy D. Hanson <tdh@tkhanson.net>
 
 Here's a link back to my http://troydhanson.github.io/[main GitHub page].
 
+Things that moved
+~~~~~~~~~~~~~~~~~
+Sound synthesis from sines, and ALSA playback is now https://github.com/troydhanson/sound[here].
+Compression, entropy, Bloom filters, error-correcting Hamming codes are https://github.com/troydhanson/info-theory[here].
+
 About
 ~~~~~
 These are miscellaneous examples and basic techniques for C programmers on Linux.
@@ -47,17 +52,9 @@ C library, linker and kernel features
 | {t}dlsym[dlsym]      | how to read symbol tables of shared libraries in C
 |=================================================================================================================
 
-:t: https://github.com/troydhanson/misc/tree/master/compression/
-:e: http://troydhanson.github.com/misc/Entropy.html
-:f: http://troydhanson.github.com/misc/bloom.html
-
 Compression and compressability
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-[width="50%",cols="10^m,50",grid="none"]
-|=================================================================================================================
-| {t}zlib[zlib]        | how to use zlib in C to gzip or gunzip 
-| {t}bloom[bloom]      | how to build a Bloom filter in C, {f}[notes]
-|=================================================================================================================
+This has moved https://github.com/troydhanson/info-theory[here].
 
 :t: https://github.com/troydhanson/misc/tree/master/server_tools/
 :i: http://troydhanson.github.io/misc/initscripts.html
@@ -90,13 +87,12 @@ Terminal I/O
 
 :t: https://github.com/troydhanson/misc/tree/master/av/
 
-DMX Lighting, Sound, etc
-~~~~~~~~~~~~~~~~~~~~~~~~
+DMX Lighting, etc
+~~~~~~~~~~~~~~~~~
 [width="50%",cols="10^m,50",grid="none"]
 |=================================================================================================================
 | {t}dmx_lighting/ftdi[ftdi]        | how to use libftdi to drive a DMX controller 
 | {t}dmx_lighting/artnet[artnet]    | how to talk to an ArtNet DMX device using UDP
-| {t}sound[sound]                   | synthesizing sound (PCM) from sines, playing
 | {t}joystick[joystick]             | use SDL to read joystick axes and buttons in C 
 | {t}geometry/hexagons[hexagons]    | notes and code on geometry of drawing hexagons 
 | {t}cairo[cairo]                   | a few basic examples of 2D drawing with Cairo
