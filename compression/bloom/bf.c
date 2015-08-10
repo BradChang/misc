@@ -34,9 +34,9 @@ void get_hashv(char *in, size_t len, unsigned *out) {
 }
 
 /* standard bit vector macros */
-#define BIT_TEST(c,i)  (c[(i)/8] &   (1 << ((i) % 8)))
-#define BIT_SET(c,i)   (c[(i)/8] |=  (1 << ((i) % 8)))
-#define BIT_CLEAR(c,i) (c[(i)/8] &= ~(1 << ((i) % 8)))
+#define BIT_TEST(c,i)  ((c[(i)/8] &   (1 << ((i) % 8))) ? 1 : 0)
+#define BIT_SET(c,i)    (c[(i)/8] |=  (1 << ((i) % 8)))
+#define BIT_CLEAR(c,i)  (c[(i)/8] &= ~(1 << ((i) % 8)))
 /* number of bytes needed to store 2^n bits */
 #define byte_len(n) (((1UL << n) / 8) + (((1UL << n) % 8) ? 1 : 0))
 /* number of bytes needed to store n bits */
