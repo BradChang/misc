@@ -11,4 +11,4 @@ ungz: ungz.o
 .PHONY: clean
 
 clean: 
-	rm -f gz ungz
+	rm -f gz ungz *.o
