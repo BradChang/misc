@@ -738,18 +738,32 @@ asciidoc.install();
 <div class="sect1">
 <h2 id="_c_miscellany">C Miscellany</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>Troy D. Hanson &lt;<a href="mailto:tdh@tkhanson.net">tdh@tkhanson.net</a>&gt;</p></div>
 <div class="paragraph"><p>Here&#8217;s a link back to my <a href="http://troydhanson.github.io/">main GitHub page</a>.</p></div>
 <div class="sect2">
 <h3 id="_things_that_moved">Things that moved</h3>
-<div class="paragraph"><p>Sound synthesis from sines, and ALSA playback is now <a href="https://github.com/troydhanson/sound">here</a>.
-Compression, entropy, Bloom filters, error-correcting Hamming codes are <a href="https://github.com/troydhanson/info-theory">here</a>.</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+<a href="https://github.com/troydhanson/network">Network</a> example code in C.
+</p>
+</li>
+<li>
+<p>
+<a href="https://github.com/troydhanson/sound">Sound</a> synthesis from sines, and ALSA playback in C.
+</p>
+</li>
+<li>
+<p>
+<a href="https://github.com/troydhanson/info-theory">Info-theory</a> compression, Bloom filters, Hamming codes, etc.
+</p>
+</li>
+</ul></div>
 </div>
 <div class="sect2">
 <h3 id="_about">About</h3>
 <div class="paragraph"><p>These are miscellaneous examples and basic techniques for C programmers on Linux.
 These are all placed in the public domain.</p></div>
-<div class="ulist"><div class="title">How to use</div><ul>
+<div class="ulist"><ul>
 <li>
 <p>
 you can browse the links below, or
@@ -802,6 +816,10 @@ cellspacing="0" cellpadding="4">
 <td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/text_handling/unicode">unicode</a></code></p></td>
 <td align="left" valign="top"><p class="table">Unicode handling in C, UTF conversion, etc</p></td>
 </tr>
+<tr>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/text_handling/template">template</a></code></p></td>
+<td align="left" valign="top"><p class="table">using getopt to read options and open a file in C</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -816,6 +834,10 @@ cellspacing="0" cellpadding="4">
 <col width="16%" />
 <col width="83%" />
 <tbody>
+<tr>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/epoll">epoll</a></code></p></td>
+<td align="left" valign="top"><p class="table">epoll usage in C</p></td>
+</tr>
 <tr>
 <td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/libc_kernel_etc/sigio">sigio</a></code></p></td>
 <td align="left" valign="top"><p class="table">signal driven I/O in C</p></td>
@@ -843,10 +865,6 @@ cellspacing="0" cellpadding="4">
 </tbody>
 </table>
 </div>
-</div>
-<div class="sect2">
-<h3 id="_compression_and_compressability">Compression and compressability</h3>
-<div class="paragraph"><p>This has moved <a href="https://github.com/troydhanson/info-theory">here</a>.</p></div>
 </div>
 <div class="sect2">
 <h3 id="_server_libs_and_utils">Server libs and utils</h3>
@@ -887,16 +905,34 @@ cellspacing="0" cellpadding="4">
 <td align="left" valign="top"><p class="table">library to read a key-value configuration file in C</p></td>
 </tr>
 <tr>
-<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/mworkers">mworkers</a></code></p></td>
-<td align="left" valign="top"><p class="table">multi-process and multi-thread examples of managing workers in C</p></td>
-</tr>
-<tr>
 <td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/rw_wrap">rw_wrap</a></code></p></td>
 <td align="left" valign="top"><p class="table">macros to deal with partial writes and reads in C</p></td>
 </tr>
 <tr>
 <td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/server_tools/serial">serial</a></code></p></td>
-<td align="left" valign="top"><p class="table">how to read the serial port in C and node.js</p></td>
+<td align="left" valign="top"><p class="table">how to read the serial port in C</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_multiprocess_workers">Multiprocess workers</h3>
+<div class="tableblock">
+<table rules="none"
+width="50%"
+frame="border"
+cellspacing="0" cellpadding="4">
+<col width="16%" />
+<col width="83%" />
+<tbody>
+<tr>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/workers/one-shot">compute</a></code></p></td>
+<td align="left" valign="top"><p class="table">one-shot multiprocess workers sharing an mmap</p></td>
+</tr>
+<tr>
+<td align="center" valign="top"><p class="table"><code><a href="https://github.com/troydhanson/misc/tree/master/workers/persistent">mworkers</a></code></p></td>
+<td align="left" valign="top"><p class="table">persistent multiprocess managed workers in C</p></td>
 </tr>
 </tbody>
 </table>
@@ -1011,7 +1047,7 @@ cellspacing="0" cellpadding="4">
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2015-08-10 15:39:56 EDT
+Last updated 2015-08-14 09:08:14 EDT
 </div>
 </div>
 </body>
