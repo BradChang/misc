@@ -6,11 +6,6 @@
 #include <unistd.h>
 #include "hiredis/hiredis.h"
 
-#define BUFSZ 2000
-char buf[BUFSZ];
-char tmp[BUFSZ];
-int port = 3001;             /* no significance */
-char *conf = "cmds.conf";
 int verbose;
 char *redis_host="127.0.0.1";
 int redis_port=6379;
@@ -55,15 +50,63 @@ int main(int argc, char *argv[]) {
   for(i=0; i < sizeof(big_str); i++) big_str[i] = 'a'+(i%10);
   big_str[sizeof(big_str)-1] = '\0';
 
+  /*************************************************************
+   * big string push
+   ************************************************************/
   gettimeofday(&tv_a,NULL);
   for(i=0; i < n; i++) {
-    snprintf(tmp,sizeof(tmp),"\"%.*s\"",rc,buf);
     reply = redisCommand(c, "LPUSH list %s", big_str);
     if (reply) freeReplyObject(reply);
     else fprintf(stderr,"redisCommand: %s\n", c->errstr);
   }
   gettimeofday(&tv_b,NULL);
   print_result(n,"big string push", tv_a, tv_b);
+
+  reply = redisCommand(c, "DEL list");
+  if (reply) freeReplyObject(reply);
+  else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+
+  /*************************************************************
+   * big string push/trim 
+   ************************************************************/
+  gettimeofday(&tv_a,NULL);
+  for(i=0; i < n; i++) {
+    reply = redisCommand(c, "LPUSH list %s", big_str);
+    if (reply) freeReplyObject(reply);
+    else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+    reply = redisCommand(c, "LTRIM list 0 %u", n/2);
+    if (reply) freeReplyObject(reply);
+    else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+  }
+  gettimeofday(&tv_b,NULL);
+  print_result(n,"big string push/trim", tv_a, tv_b);
+
+  reply = redisCommand(c, "DEL list");
+  if (reply) freeReplyObject(reply);
+  else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+
+  /*************************************************************
+   * pipelined big string push/trim 
+   ************************************************************/
+  gettimeofday(&tv_a,NULL);
+  for(i=0; i < n; i++) {
+    redisAppendCommand(c, "LPUSH list %s", big_str);
+    redisAppendCommand(c, "LTRIM list 0 %u", n/2);
+    redisGetReply(c, &reply);
+    if (reply) freeReplyObject(reply);
+    else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+    redisGetReply(c, &reply);
+    if (reply) freeReplyObject(reply);
+    else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+  }
+  gettimeofday(&tv_b,NULL);
+  print_result(n,"pipelined big string push/trim", tv_a, tv_b);
+
+  reply = redisCommand(c, "DEL list");
+  if (reply) freeReplyObject(reply);
+  else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+
+
 
  done:
   return rc;
