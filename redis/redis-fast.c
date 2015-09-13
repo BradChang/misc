@@ -106,6 +106,37 @@ int main(int argc, char *argv[]) {
   if (reply) freeReplyObject(reply);
   else fprintf(stderr,"redisCommand: %s\n", c->errstr);
 
+  /*************************************************************
+   * pipelined big string push/trim with precomputed arg len
+   ************************************************************/
+  char half_n[10];
+  sprintf(half_n, "%u", n/2);
+  size_t half_n_len = strlen(half_n);
+  gettimeofday(&tv_a,NULL);
+  for(i=0; i < n; i++) {
+    const char *cmds[] = { "LPUSH list ", big_str };
+    size_t len[] = { 11, sizeof(big_str) };
+    redisAppendCommandArgv(c, 2, cmds, len);
+
+    const char *cmds2[] = { "LTRIM list 0 ", half_n};
+    size_t len2[] = { 13, half_n_len };
+    redisAppendCommandArgv(c, 2, cmds2, len2);
+
+    redisGetReply(c, &reply);
+    if (reply) freeReplyObject(reply);
+    else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+    redisGetReply(c, &reply);
+    if (reply) freeReplyObject(reply);
+    else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+  }
+  gettimeofday(&tv_b,NULL);
+  print_result(n,"pipelined big string push/trim precomputed arg len", tv_a, tv_b);
+
+  reply = redisCommand(c, "DEL list");
+  if (reply) freeReplyObject(reply);
+  else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+
+
 
 
  done:

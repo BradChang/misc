@@ -1,6 +1,7 @@
 all: libtconf.a redis-udp redis-fast
 
 CFLAGS=-I/usr/local/include 
+CFLAGS+=-O2
 LDFLAGS=-lhiredis -L. -ltconf
 
 redis-udp: redis-udp.c
