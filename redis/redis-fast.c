@@ -114,13 +114,13 @@ int main(int argc, char *argv[]) {
   size_t half_n_len = strlen(half_n);
   gettimeofday(&tv_a,NULL);
   for(i=0; i < n; i++) {
-    const char *cmds[] = { "LPUSH list ", big_str };
-    size_t len[] = { 11, sizeof(big_str) };
-    redisAppendCommandArgv(c, 2, cmds, len);
+    const char *cmds[] = { "LPUSH", "list", big_str };
+    size_t len[] = { 5, 4, sizeof(big_str) };
+    redisAppendCommandArgv(c, 3, cmds, len);
 
-    const char *cmds2[] = { "LTRIM list 0 ", half_n};
-    size_t len2[] = { 13, half_n_len };
-    redisAppendCommandArgv(c, 2, cmds2, len2);
+    const char *cmds2[] = { "LTRIM", "list", "0", half_n};
+    size_t len2[] = { 5, 4, 1, half_n_len };
+    redisAppendCommandArgv(c, 4, cmds2, len2);
 
     redisGetReply(c, &reply);
     if (reply) freeReplyObject(reply);
@@ -132,9 +132,11 @@ int main(int argc, char *argv[]) {
   gettimeofday(&tv_b,NULL);
   print_result(n,"pipelined big string push/trim precomputed arg len", tv_a, tv_b);
 
+  /*
   reply = redisCommand(c, "DEL list");
   if (reply) freeReplyObject(reply);
   else fprintf(stderr,"redisCommand: %s\n", c->errstr);
+  */
 
 
 

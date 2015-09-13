@@ -1,0 +1,4 @@
+big string push 42855/s
+big string push/trim 17494/s
+pipelined big string push/trim 33041/s
+pipelined big string push/trim precomputed arg len 24935/s
