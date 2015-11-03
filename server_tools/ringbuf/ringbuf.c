@@ -20,7 +20,8 @@ void ringbuf_free(ringbuf* r) {
 
 /* copy data in. fails if ringbuf has insuff space. */
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
-int ringbuf_put(ringbuf *r, char *data, size_t len) {
+int ringbuf_put(ringbuf *r, const void *_data, size_t len) {
+  char *data = (char*)_data;
   size_t a,b,c;
   if (r->i < r->o) {  // available space is a contiguous buffer
     a = r->o - r->i; 

@@ -16,7 +16,7 @@ typedef struct _ringbuf {
 } ringbuf;
 
 ringbuf *ringbuf_new(size_t sz);
-int ringbuf_put(ringbuf *, char *data, size_t len);
+int ringbuf_put(ringbuf *, const void *data, size_t len);
 size_t ringbuf_get_pending_size(ringbuf *);
 size_t ringbuf_get_next_chunk(ringbuf *, char **data);
 void ringbuf_mark_consumed(ringbuf *, size_t);
