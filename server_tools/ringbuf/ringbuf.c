@@ -74,3 +74,6 @@ void ringbuf_mark_consumed(ringbuf *r, size_t len) {
   r->u -= len;
 }
 
+void ringbuf_clear(ringbuf *r) {
+  r->u = r->i = r->o = 0;
+}

@@ -21,5 +21,6 @@ size_t ringbuf_get_pending_size(ringbuf *);
 size_t ringbuf_get_next_chunk(ringbuf *, char **data);
 void ringbuf_mark_consumed(ringbuf *, size_t);
 void ringbuf_free(ringbuf*);
+void ringbuf_clear(ringbuf*);
 
 #endif /* _RINGBUF_H_ */
