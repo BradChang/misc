@@ -1,0 +1,16 @@
+pending size 0
+next chunk size 0
+pending size 10
+next chunk size 10
+chunk: abcdefghij
+unconsumed; leaves pending
+pending size 10
+next chunk size 10
+chunk: abcdefghij
+marked 5 bytes consumed
+pending size 5
+next chunk size 5
+chunk: fghij
+marked 5 bytes consumed
+pending size 0
+next chunk size 0
