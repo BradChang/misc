@@ -1,12 +1,13 @@
 #include "ringbuf.h"
 
 ringbuf *ringbuf_new(size_t sz) {
-  ringbuf *r = calloc(1, sizeof(*r) + sz);
+  ringbuf *r = malloc(sizeof(*r) + sz);
   if (r == NULL) {
     fprintf(stderr,"out of memory\n");
     goto done;
   }
 
+  r->u = r->i = r->o = 0;
   r->n = sz;
 
  done:
