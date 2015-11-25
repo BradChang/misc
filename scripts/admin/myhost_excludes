@@ -1,0 +1,13 @@
++ /tmp/
+- /tmp/**
++ /proc/
+- /proc/**
++ /dev/
+- /dev/**
++ /sys/
+- /sys/**
++ /media/
+- /media/**
+- /var/run
+- /var/lock
+- /lib/init/rw

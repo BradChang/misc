@@ -1,0 +1,2 @@
+0 3 * * * /admin/bin/rsync_snapshot.sh 2>&1 | mail -s "Rysnc snapshot report for `date`" admins@email.domain
+#
