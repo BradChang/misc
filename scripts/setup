@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # sets my preferences in some standard init files
 
@@ -55,10 +55,17 @@ map <Bslash> :!echo >/tmp/fifo<CR> :redraw!<CR>
 EOF
 echo $HOME/.vimrc
 
-echo "You may also need to run:"
-echo 'git config --global user.name "Your Name"'
-echo 'git config --global user.email "your@email.address"'
-echo 'git config --global core.editor vim'
+read -N 1 -p "setup git parameters? [yn]: " Y
+echo
+if [ "$Y" = 'y' ]
+then
+ read -ep 'user.name: ' NAME
+ read -ep 'user.email: ' EMAIL
+ `git config --global user.name "$NAME"`
+ `git config --global user.email "$EMAIL"`
+ `git config --global core.editor vim`
+ `git config --global push.default simple`
+fi
 
 # preferred packages (Ubuntu/Mint)
 # gcc-doc
