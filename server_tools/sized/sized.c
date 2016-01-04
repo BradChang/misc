@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 #include "utarray.h"
 #include "utstring.h"
 
@@ -20,7 +21,6 @@
  * sized
  *   a utility to keep a directory under a certain size by deleting old files
  *****************************************************************************/
-const char *modname = "sized";
 #define PERIODIC_SCAN_INTERVAL (10*1000) /* 10 sec, expressed in milliseconds */
 
 /* command line configuration parameters */
@@ -31,8 +31,12 @@ struct {
   int query;
   int dry_run;
   char *sz;
-  int64_t sz_bytes;
+  long sz_bytes;
   char *dir;
+  time_t now;
+  UT_array *files;
+  UT_array *stats;
+  UT_string *s;
 } cf = {
   .sz="90%",
 };
@@ -67,17 +71,15 @@ void usage(char *prog) {
   exit(-1);
 }
 
-int get_files(UT_array *files, UT_array *stats) {
+int get_files() {
   struct dirent *dent;
-  char *name, *path;
+  char *path;
   file_stat_t fsb;
   int rc=-1,i=0;
   DIR *d;
 
-  UT_string *s;
-  utstring_new(s);
-  utarray_clear(files);
-  utarray_clear(stats);
+  utarray_clear(cf.files);
+  utarray_clear(cf.stats);
 
   if ( (d = opendir(cf.dir)) == NULL) {
     syslog(LOG_ERR,"failed to opendir [%s]: %s\n", cf.dir, strerror(errno));
@@ -88,45 +90,41 @@ int get_files(UT_array *files, UT_array *stats) {
     if (dent->d_type != DT_REG) continue;
     if (dent->d_name[0] == '.') continue; /* skip dot files */
     // ok, fully qualify it and push it 
-    utstring_clear(s);
-    utstring_printf(s, "%s/%s", cf.dir, dent->d_name);
-    path = utstring_body(s);
+    utstring_clear(cf.s);
+    utstring_printf(cf.s, "%s/%s", cf.dir, dent->d_name);
+    path = utstring_body(cf.s);
     if (stat(path,&fsb.sb) == -1) {
       syslog(LOG_ERR,"can't stat %s: %s", path, strerror(errno));
       continue;
     }
     fsb.file_idx = i++;
-    utarray_push_back(files, &path);
-    utarray_push_back(stats, &fsb);
+    utarray_push_back(cf.files, &path);
+    utarray_push_back(cf.stats, &fsb);
   }
   rc = 0; // success 
 
  done:
-  utstring_free(s);
   if (d) closedir(d);
   return rc;
 }
 
 int do_attrition(void) {
   int rc = -1, nfiles=0;
-  UT_array *files;
-  UT_array *stats; 
-  utarray_new(files,&ut_str_icd);
-  utarray_new(stats,&stats_icd);
-  if (get_files(files,stats) == -1) goto done;
+  if (get_files() == -1) goto done;
 
   /* tally up their sizes */
-  int64_t total_sz=0;
+  long total_sz=0;
   file_stat_t *fs=NULL;
-  while ( (fs=(file_stat_t*)utarray_next(stats,fs))) total_sz += fs->sb.st_size;
+  while ( (fs=(file_stat_t*)utarray_next(cf.stats,fs))) total_sz += fs->sb.st_size;
   if (total_sz < cf.sz_bytes) { rc = 0; goto done; }
 
   /* we're oversize. sort the files oldest first and delete til under max size*/
-  utarray_sort(stats,attrition_sort);
+  utarray_sort(cf.stats,attrition_sort);
   fs=NULL;
-  while ( (fs=(file_stat_t*)utarray_next(stats,fs))) {
-    char *file = *(char**)utarray_eltptr(files, fs->file_idx);
-    if (cf.verbose) syslog(LOG_INFO,"removing %s (size %ld)", file, (long)fs->sb.st_size);
+  while ( (fs=(file_stat_t*)utarray_next(cf.stats,fs))) {
+    char *file = *(char**)utarray_eltptr(cf.files, fs->file_idx);
+    if (cf.verbose) syslog(LOG_INFO,"removing %s (size %ld, age:%ld)",
+      file, (long)fs->sb.st_size, (long)(cf.now - fs->sb.st_mtime));
     if (cf.dry_run || (unlink(file) == 0)) {
       total_sz -= fs->sb.st_size;
       nfiles++;
@@ -138,8 +136,6 @@ int do_attrition(void) {
 
  done:
   if (cf.verbose) syslog(LOG_INFO,"%d files removed", nfiles);
-  utarray_free(files);
-  utarray_free(stats);
   return rc;
 }
 
@@ -156,16 +152,12 @@ char *hsz(long bytes, char *szb, int szl) {
 
 int do_query(void) {
   int rc = -1;
-  UT_array *files;
-  UT_array *stats; 
-  utarray_new(files,&ut_str_icd);
-  utarray_new(stats,&stats_icd);
-  if (get_files(files,stats) == -1) goto done;
+  if (get_files() == -1) goto done;
 
   /* tally up their sizes */
-  int64_t total_sz=0;
+  long total_sz=0;
   file_stat_t *fs=NULL;
-  while ( (fs=(file_stat_t*)utarray_next(stats,fs))) total_sz += fs->sb.st_size;
+  while ( (fs=(file_stat_t*)utarray_next(cf.stats,fs))) total_sz += fs->sb.st_size;
 
   char tsz[100],csz[100];
   syslog(LOG_INFO,"directory size: %s (limit %s)", hsz(total_sz, tsz, sizeof(tsz)), 
@@ -174,30 +166,28 @@ int do_query(void) {
   rc = 0;
 
  done:
-  utarray_free(files);
-  utarray_free(stats);
   return rc;
 }
 
 /* lookup the size of the filesystem underlying cf.dir and 
  * calculate pct% of that size */
-int64_t get_fs_pct(int pct) {
+long get_fs_pct(int pct) {
   assert(pct > 0 && pct < 100);
   struct statfs fb;
   if (statfs(cf.dir, &fb) == -1) {
     syslog(LOG_ERR,"can't statfs %s: %s", cf.dir, strerror(errno));
     return -1;
   }
-  int64_t fsz = fb.f_bsize * fb.f_blocks; /* filesystem size */
-  int64_t cap = (fsz*pct) * 0.01;
+  long fsz = fb.f_bsize * fb.f_blocks; /* filesystem size */
+  long cap = (fsz*pct) * 0.01;
   return cap;
 }
 
 /* convert something like "20%" or "20m" to bytes.
  * percentage means 'percent of filesystem size' */
-int64_t sztobytes(void) {
-  int64_t n; int l; char unit;
-  if (sscanf(cf.sz,"%lld",&n) != 1) return -1; /* e.g. 20 from "20m" */
+long sztobytes(void) {
+  long n; int l; char unit;
+  if (sscanf(cf.sz,"%ld",&n) != 1) return -1; /* e.g. 20 from "20m" */
   l = strlen(cf.sz); unit = cf.sz[l-1];
   if (unit >= '0' && unit <= '9') return n; /* no unit suffix */
   switch(unit) {
@@ -245,6 +235,10 @@ int clear_file_event(int fd) {
 int main(int argc, char * argv[]) {
   int opt, rc=0, ifd=-1,efd=-1,er,mask,wd;
  
+  utarray_new(cf.files,&ut_str_icd);
+  utarray_new(cf.stats,&stats_icd);
+  utstring_new(cf.s);
+
   while ( (opt = getopt(argc, argv, "v+s:ocdqh")) != -1) {
     switch (opt) {
       case 'v': cf.verbose++; break;
@@ -295,6 +289,7 @@ int main(int argc, char * argv[]) {
       case 0: /* got timeout */; break;
       default: assert(0); break;
     }
+    time(&cf.now);
     do_attrition();
   } while(er != -1);
 
@@ -302,5 +297,8 @@ int main(int argc, char * argv[]) {
  done:
   if (ifd != -1) close(ifd);
   if (efd != -1) close(efd);
+  utarray_free(cf.files);
+  utarray_free(cf.stats);
+  utstring_free(cf.s);
   return rc;
 }

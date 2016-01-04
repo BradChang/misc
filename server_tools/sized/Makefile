@@ -1,6 +1,6 @@
 OBJS=sized
 all: $(OBJS)
-CFLAGS= -g
+CFLAGS= -g -Wall
 LIBS=
 
 sized: sized.c
