@@ -1,0 +1,7 @@
+putting 7 bytes into buffer of sz 11
+put: ok
+consuming 3
+chunk sz 4: sz, defg
+marking clear
+nothing left
+size = 0

@@ -1,0 +1,75 @@
+#!/usr/bin/perl
+
+#Say you have `vim` running in one window, and wish to have `make` kicked off
+#'in a different window' whenever you type backslash in vim. This is the sort of
+#thing you can do with `fifor`.  This utility does "something" every time a fifo
+#becomes readable.  You need to do a one-time setup to create the fifo:
+#
+#  mkfifo /tmp/fifo
+#
+#In the window where you want the "something" to happen, start `fifor` with the
+#command to be run:
+#
+#  fifor make
+#
+#Now it will wait. Anytime a line is written to `/tmp/fifo`, it will execute
+#`make`.  (You can use options to specify a different fifo file. Run `fifor -h`
+#for usage).  Note that if you want a 'sequence' of commands to run when the fifo
+#triggers, separate each command in the sequence with a quoted semicolon:
+#
+#  fifor make \; cp tool /usr/bin
+#
+#Whenever you want the commands to run, write a line (anything) to the fifo.  You
+#could just `echo > /tmp/fifo` to write an empty line to it.  I automate this by
+#mapping it to a keystroke in `vim`, using this line in `~/.vimrc`: 
+#
+#  map <Bslash> :!echo >/tmp/fifo<CR><CR>
+#
+#Now whenever I hit backslash in vim, the make kicks off in the other window.  
+#
+
+use strict;
+use warnings;
+use Getopt::Long;
+Getopt::Long::Configure ("require_order");
+
+sub usage {
+  print STDERR "usage: $0 [-v] [-f <fifo>] <command> [<args>] [ \\; <command> ... ]\n";
+  exit -1;
+}
+
+our $fifo = "/tmp/fifo";
+our $verbose = 0;
+our $help = 0;
+usage unless GetOptions( "verbose+" => \$verbose,
+                         "fifo=s"   => \$fifo,
+                         "help"     => \$help);
+usage if $help;
+usage unless @ARGV;
+
+sub v {
+  return unless $verbose;
+  print for @_;
+}
+
+# split the argument list into one or more sublists split on ;
+my %cmds;
+my $i=0;
+for my $word (@ARGV) {
+  if ($word eq ';') { $i++; } 
+  else { push @{ $cmds{$i} }, $word; }
+}
+
+`mkfifo $fifo` unless -p $fifo;
+die unless -p $fifo;
+
+while (1) {
+  open FIFO, "<$fifo";
+  local $/;
+  v("$fifo: $_") for <FIFO>;
+  for my $i (sort {$a <=> $b} keys %cmds) {
+    v "running ", join(" ", @{ $cmds{$i} }), "\n";
+    system @{ $cmds{$i} };
+  }
+  print "-" x 80, "\n";
+}
