@@ -3,8 +3,8 @@ Notes on using the Lemon parser generator
 Troy D. Hanson <tdh@tkhanson.net>
 v1.0 December 2010
 
-:l: https://github.com/troydhanson/misc/tree/master/text_handling/lemon
-:d: https://github.com/troydhanson/misc/blob/master/text_handling/lemon/lemon.txt
+:l: https://github.com/troydhanson/misc/tree/master/lemon
+:d: https://github.com/troydhanson/misc/blob/master/lemon/lemon.txt
 
 The notes below refer to this {l}[example parser that I built using Lemon].
 

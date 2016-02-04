@@ -22,7 +22,3 @@ TRY IT
 make
 ./readcfg test.txt
 
-MORE INFO
-===============================================================================
-See http://troydhanson.github.io/misc/lemon_notes.html
-
