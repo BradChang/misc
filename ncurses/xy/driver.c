@@ -44,9 +44,12 @@ int setup(unsigned minx, unsigned miny) {
   return rc;
 }
 
+int count=0;
 void draw(unsigned x, unsigned y, char *s) {
   move(y,x);
+  if ((count++ % 2) == 0) attron(A_REVERSE);
   printw(s);
+  attroff(A_REVERSE);
   refresh();
   sleep(1);
 }
