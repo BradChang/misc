@@ -1,18 +1,23 @@
-SRCS=$(wildcard *.c)
-EXES=histogram histo-test histo-test2 slidogram hello 
-CFLAGS=-g
+all: driver gen
+
 LDFLAGS=-lncurses
 
-all: $(EXES)
+driver.o: driver.c
+	$(CC) -c $(CFLAGS) $<
 
-histogram: histogram.o tpl.o
+gen.o: gen.c
+	$(CC) -c $(CFLAGS) $<
 
-histo-test: histo-test.o tpl.o
+tpl.o: tpl.c
+	$(CC) -c $(CFLAGS) $<
 
-histo-test2: histo-test2.o tpl.o
-	$(CC) -o $@ $^ -lpcap
+gen: tpl.o gen.o
+	$(CC) -o $@ $^ 
 
+driver: tpl.o driver.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 .PHONY: clean
+
 clean: 
-	rm -f $(EXES) *.o
+	rm -f driver gen *.o
