@@ -1,0 +1,13 @@
+putting 7 bytes into buffer of sz 11
+put: ok
+consuming 7
+next put of > 4 bytes wraps buffer, writing 5
+put: ok
+chunk sz 4: sz, abcd
+reading 3, of 5 available
+next read is last byte before wrapping
+chunk sz 1: sz, d
+next read starts reading from wrapped part
+chunk sz 1: sz, e
+nothing left
+size = 0

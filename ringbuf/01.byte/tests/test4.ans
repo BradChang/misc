@@ -1,0 +1,10 @@
+putting 7 bytes into buffer of sz 11
+put: ok
+next put of > 4 bytes wraps buffer, writing 6
+put 6: ok
+put fails now, til some bytes consumed
+put 1: failed
+get produces a chunk of 9, of 11 available
+the first contiguous buffer is 9, the next is 11
+chunk sz 9: sz, cdefgabcd
+chunk sz 2: sz, ef

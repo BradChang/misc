@@ -1,0 +1,9 @@
+putting 7 bytes into buffer of sz 11
+put: ok
+consuming 7
+next put of > 4 bytes wraps buffer, writing 5
+put: ok
+get a contiguous chunk of 4, of 5 available
+chunk sz 4: sz, abcd
+get a contiguous chunk of 1, of 1 available
+chunk sz 1: sz, e
