@@ -18,6 +18,24 @@ void ringbuf_free(ringbuf* r) {
   free(r);
 }
 
+/* ringbuf_take: alternative to ringbuf_new; caller 
+ * provides the buffer to use as the ringbuf.
+ * buffer should be aligned e.g. from malloc/mmap.
+ * note: do not ringbuf_free afterward. 
+ */
+#define MIN_RINGBUF (sizeof(ringbuf) + 1)
+ringbuf *ringbuf_take(void *buf, size_t sz) {
+  if (sz < MIN_RINGBUF) return NULL;
+  ringbuf *r = (ringbuf*)buf;
+
+  r->u = r->i = r->o = 0;
+  r->n = sz - sizeof(*r); // alignment should be ok
+  assert(r->n > 0);
+
+  return r;
+}
+
+
 /* copy data in. fails if ringbuf has insuff space. */
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 int ringbuf_put(ringbuf *r, const void *_data, size_t len) {

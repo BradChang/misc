@@ -1,0 +1,13 @@
+gave buffer (ringbuf_take) expecting 11 free bytes
+buffer has 11 free bytes
+putting 7 bytes into buffer of sz 11
+put: ok
+buffer has 4 free bytes
+consuming 3
+buffer has 7 free bytes
+chunk sz 4: sz, defg
+marking clear
+buffer has 11 free bytes
+nothing left
+pending size = 0
+buffer has 11 free bytes
