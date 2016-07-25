@@ -7,44 +7,43 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <dirent.h>
+#include <string.h>
 #include <errno.h>
 #include <stdio.h>
 #include <libgen.h>
-#include "shared_ring.h"
+#include "shr_ring.h"
 
-/* preamble region of ring file is the control block.  fixed length so we can
- * easily know where the data region starts even if we version the structure
- * that sits at offset 0. note the min size is a bit arbitrary; it has to be
- * at least a byte bigger than the control block. might as well be n pages.
- */
-#define CONTROL_BLOCK_SZ 4096
-#define MIN_RING_SZ (2*CONTROL_BLOCK_SZ)
 #define CREAT_MODE 0644
+#define MIN_RING_SZ (sizeof(shr_ctrl) + 1)
 
-static char ring_magic[] = "aredringsh";
+/* shr_ctrl->flags */
+#define SR_WAITER (1 << 0)
+
+static char magic[] = "aredringsh";
 
 /* this struct is mapped to the beginning of the mmap'd file. 
- * the control block is a fixed length block and this is the
- * structure we put inside it. this is shared state among the
- * processes using the ring. it is only to be used under lock.
  */
-#define SR_WAITER (1 << 0)
 typedef struct {
-  char magic[sizeof(ring_magic)];
+  char magic[sizeof(magic)];
   int version;
   int flags;
+  char bell[256]; /* fifo path */
+  size_t n; /* allocd size */
+  size_t u; /* used space */
+  size_t i; /* input pos */
+  size_t o; /* output pos */
+  char d[]; /* C99 flexible array member */
 } shr_ctrl;
 
-/* this handle is given to each shr_open caller */
+/* the handle is given to each shr_open caller */
 struct shr {
-  char *name;    /* file name */
-  struct stat s; /* file stat */
-  int fd;        /* descriptor */
+  char *name;    /* ring file */
+  struct stat s;
+  int fd;
   union {
     char *buf;   /* mmap'd area */
-    shr_ctrl *ctrl;
+    shr_ctrl *r;
   };
-  ringbuf *ring;
 };
 
 static void oom_exit(void) {
@@ -121,13 +120,35 @@ static int dirbasename(char *file, char *out, size_t outlen, int dir) {
  * to wake up a blocked reader (or writer) when blocking is in effect. the
  * bell is a byte transmitted through a fifo; the data itself is in the ring.
  *
- * the name of the bell is stored in the in the control area in the ring. 
- * it is setup in this function which occurs in the initialization phase.
- * we keep the name there so other ring-using processes can open it easily. 
- *
  */
-int make_bell(char *file, shr_ctrl *ctrl) {
+int make_bell(char *file, shr_ctrl *r) {
   int rc = -1;
+  char dir[PATH_MAX], base[PATH_MAX], bell[PATH_MAX];
+  size_t l;
+
+  if (dirbasename(file, dir,  sizeof(dir),  1) < 0) goto done;
+  if (dirbasename(file, base, sizeof(base), 0) < 0) goto done;
+  snprintf(bell, sizeof(bell), "%s/.%s.fifo", dir, base);
+  l = strlen(bell) + 1;
+
+  if (l > sizeof(r->bell)) {
+    fprintf(stderr, "file name too long: %s\n", bell);
+    goto done;
+  }
+
+  memcpy(r->bell, bell, l);
+
+  if (unlink(r->bell) < 0) {
+    if (errno != ENOENT) {
+      fprintf(stderr, "unlink %s: %s\n", r->bell, strerror(errno));
+      goto done;
+    }
+  }
+
+  if (mkfifo(r->bell, CREAT_MODE) < 0) {
+    fprintf(stderr, "mkfifo: %s\n", bell);
+    goto done;
+  }
 
   rc = 0;
 
@@ -143,7 +164,7 @@ int make_bell(char *file, shr_ctrl *ctrl) {
  * of the same size, fail.
  *
  */
-int shr_init(const char *file, size_t file_sz, int flags, ...) {
+int shr_init(char *file, size_t file_sz, int flags, ...) {
   char *buf = NULL;
   int rc = -1;
 
@@ -152,7 +173,7 @@ int shr_init(const char *file, size_t file_sz, int flags, ...) {
     goto done;
   }
 
-  size_t ring_sz = file_sz - CONTROL_BLOCK_SZ;
+  if (flags == 0) flags++; // FIXME placation 
 
   int fd = open(file, O_RDWR|O_CREAT|O_EXCL, CREAT_MODE);
   if (fd == -1) {
@@ -173,19 +194,13 @@ int shr_init(const char *file, size_t file_sz, int flags, ...) {
     goto done;
   }
 
-  char *ring = buf + CONTROL_BLOCK_SZ;
-  if (ringbuf_take(ring, ring_sz) == NULL) {
-    fprintf(stderr, "ringbuf_take: error\n");
-    goto done;
-  }
+  shr_ctrl *r = (shr_ctrl *)buf; 
+  memcpy(r->magic, magic, sizeof(magic));
+  r->version = 1;
+  r->u = r->i = r->o = 0;
+  r->n = file_sz - sizeof(*r);
 
-  /* init control block */
-  shr_ctrl *ctrl = (shr_ctrl *)buf; 
-  memcpy(ctrl->magic, magic, sizeof(magic));
-  ctrl->version = 1;
-
-  /* the 'bell' notifies blocked waiters */
-  if (make_bell(file, ctrl->pname) < 0) goto done;
+  if (make_bell(file, r) < 0) goto done;
 
   rc = 0;
 
@@ -197,33 +212,37 @@ int shr_init(const char *file, size_t file_sz, int flags, ...) {
 }
 
 
-static int validate_ring(struct shr *r) {
+static int validate_ring(struct shr *s) {
   int rc = -1;
 
-  if (r->s.st_size < MIN_RING_SZ) goto done;
-  if (memcmp(r->ctrl->magic,magic,sizeof(magic))) goto done;
+  if (s->s.st_size < (off_t)MIN_RING_SZ) goto done;
+  if (memcmp(s->r->magic,magic,sizeof(magic))) goto done;
 
-  /* check evident ring size vs internally stored size, and validate offsets */
-  size_t ring_sz = r->s.st_size - (CONTROL_BLOCK_SZ + sizeof(ringbuf));
-  if (ring_sz       != r->ring->n) goto done; /* sz != file_sz - overhead */
-  if (r->ring->u >  r->ring->n) goto done; /* used > size */
-  if (r->ring->i >= r->ring->n) goto done; /* input position >= size */
-  if (r->ring->o >= r->ring->n) goto done; /* output position >= size */
+  shr_ctrl *r = s->r;
+  size_t sz = s->s.st_size - sizeof(shr_ctrl);
 
-  /* TODO verify existince of fifo, sanity check control block, etc. */
+  if (sz != r->n) goto done;   /* file_sz - overhead != data size */
+  if (r->u >  r->n) goto done; /* used > size */
+  if (r->i >= r->n) goto done; /* input position >= size */
+  if (r->o >= r->n) goto done; /* output position >= size */
+
+  /* check bell exists and is fifo */
+  struct stat f;
+  if (stat(r->bell, &f) < 0) goto done;
+  if (S_ISFIFO(f.st_mode) == 0) goto done;
 
   rc = 0;
 
  done:
-  if (rc < 0) fprintf(stderr,"invalid ring: %s\n", r->name);
+  if (rc < 0) fprintf(stderr,"invalid ring: %s\n", s->name);
   return rc;
 }
 
-struct shr *shr_open(const char *file) {
+struct shr *shr_open(char *file) {
   int rc = -1;
 
   struct shr *r = malloc( sizeof(struct shr) );
-  if (shr == NULL) oom_exit();
+  if (r == NULL) oom_exit();
   memset(r, 0, sizeof(*r));
 
   r->name = strdup(file);
@@ -244,7 +263,6 @@ struct shr *shr_open(const char *file) {
     goto done;
   }
 
-  r->ring = (ringbuf*)(r->buf + CONTROL_BLOCK_SZ);
   if (validate_ring(r) < 0) goto done;
 
   rc = 0;
@@ -266,6 +284,8 @@ ssize_t shr_write(struct shr *r, char *buf, size_t len) {
   if (lock(r->fd) < 0) goto done;
   
   /* TODO */
+  if (buf) len = 0; /* suppress warning */
+  if (len) buf=NULL; /* suppress warning */
 
   if (unlock(r->fd) < 0) goto done;
 
@@ -287,7 +307,11 @@ ssize_t shr_read(struct shr *r, char *buf, size_t len) {
   int rc = -1;
 
   if (lock(r->fd) < 0) goto done;
+
   /* TODO read */
+  if (buf) len = 0; /* suppress warning */
+  if (len) buf=NULL; /* suppress warning */
+
   if (unlock(r->fd) < 0) goto done;
 
   rc = 0;
