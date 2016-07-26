@@ -16,8 +16,8 @@
 #define CREAT_MODE 0644
 #define MIN_RING_SZ (sizeof(shr_ctrl) + 1)
 
-/* shr_ctrl->flags */
-#define SR_WAITER (1 << 0)
+/* flags */
+#define SHR_HAS_WAITER (1 << 0)
 
 static char magic[] = "aredringsh";
 
@@ -159,14 +159,16 @@ int make_bell(char *file, shr_ctrl *r) {
 /*
  * shr_init creates a ring file
  *
- * The current implementation succeeds only if the file is created new.
- * Attempts to resize an existing file or init an existing file, even 
- * of the same size, fail.
+ * succeeds only if the file is created new.  Attempts to resize an existing
+ * file or init an existing file, even of the same size, fail.
+ * TODO flags for resize, ok-if-exists, ..
  *
  */
-int shr_init(char *file, size_t file_sz, int flags, ...) {
+int shr_init(char *file, size_t sz, int flags, ...) {
   char *buf = NULL;
   int rc = -1;
+
+  size_t file_sz = sizeof(shr_ctrl) + sz;
 
   if (file_sz < MIN_RING_SZ) {
     fprintf(stderr,"shr_init: too small; min size: %ld\n", (long)MIN_RING_SZ);
@@ -278,20 +280,39 @@ struct shr *shr_open(char *file) {
   return r;
 }
 
-ssize_t shr_write(struct shr *r, char *buf, size_t len) {
+/* copy data in. fails if ringbuf has insuff space. */
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
+ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   int rc = -1;
+  shr_ctrl *r = s->r;
 
-  if (lock(r->fd) < 0) goto done;
+  if (lock(s->fd) < 0) goto done;
   
-  /* TODO */
-  if (buf) len = 0; /* suppress warning */
-  if (len) buf=NULL; /* suppress warning */
-
-  if (unlock(r->fd) < 0) goto done;
+  size_t a,b,c;
+  if (r->i < r->o) {  // available space is a contiguous buffer
+    a = r->o - r->i; 
+    assert(a == r->n - r->u);
+    if (len > a) goto done;
+    memcpy(&r->d[r->i], buf, len);
+  } else {            // available space wraps; it's two buffers
+    b = r->n - r->i;  // in-head to eob (receives leading input)
+    c = r->o;         // out-head to in-head (receives trailing input)
+    a = b + c;        // available space
+    // the only ambiguous case is i==o, that's why u is needed
+    if (r->i == r->o) a = r->n - r->u; 
+    assert(a == r->n - r->u);
+    if (len > a) goto done;
+    memcpy(&r->d[r->i], buf, MIN(b, len));
+    if (len > b) memcpy(r->d, &buf[b], len-b);
+  }
+  r->i = (r->i + len) % r->n;
+  r->u += len;
 
   rc = 0;
 
  done:
+
+  if (unlock(s->fd) < 0) goto done;
   return rc;
 }
 
@@ -303,16 +324,17 @@ ssize_t shr_write(struct shr *r, char *buf, size_t len) {
  * On error, return -1.
  * On signal, return -2.
  */
-ssize_t shr_read(struct shr *r, char *buf, size_t len) {
+ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   int rc = -1;
+  shr_ctrl *r = s->r;
 
-  if (lock(r->fd) < 0) goto done;
+  if (lock(s->fd) < 0) goto done;
 
   /* TODO read */
   if (buf) len = 0; /* suppress warning */
   if (len) buf=NULL; /* suppress warning */
 
-  if (unlock(r->fd) < 0) goto done;
+  if (unlock(s->fd) < 0) goto done;
 
   rc = 0;
 
