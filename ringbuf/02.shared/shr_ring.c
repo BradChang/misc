@@ -175,7 +175,7 @@ int shr_init(char *file, size_t sz, int flags, ...) {
     goto done;
   }
 
-  if (flags == 0) flags++; // FIXME placation 
+  assert(flags == 0);
 
   int fd = open(file, O_RDWR|O_CREAT|O_EXCL, CREAT_MODE);
   if (fd == -1) {
