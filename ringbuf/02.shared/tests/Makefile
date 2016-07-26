@@ -1,4 +1,4 @@
-PROGS=test1 test2 test3
+PROGS=test1 test2 test3 test4
 OBJS=$(patsubst %,%.o,$(PROGS))
 
 CFLAGS = -I..

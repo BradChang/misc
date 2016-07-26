@@ -280,7 +280,17 @@ struct shr *shr_open(char *file) {
   return r;
 }
 
+static int ring_bell(shr_ctrl *r) {
+  int rc = -1;
+
+  rc = 0;
+
+ done:
+  return rc;
+}
+
 /* copy data in. fails if ringbuf has insuff space. */
+/* TODO should output parameter be nr (then cap len like _read does) */
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   int rc = -1;
@@ -308,11 +318,12 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   r->i = (r->i + len) % r->n;
   r->u += len;
 
+  ring_bell(r);
   rc = 0;
 
  done:
 
-  if (unlock(s->fd) < 0) goto done;
+  unlock(s->fd);
   return rc;
 }
 
@@ -323,23 +334,55 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
  * If non-blocking, if data available, handle as above, else return 1.
  * On error, return -1.
  * On signal, return -2.
+ * TODO implement non block
+ * TODO implications for bell; multi reads reqd? (fill caller buf from both chunks; req caller to recall if buf filled)
  */
 ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   int rc = -1;
   shr_ctrl *r = s->r;
+  size_t nr;
+  char *from;
+
+  // since this function returns signed, cap outbuf len 
+  if (len > SSIZE_MAX) len = SSIZE_MAX;
 
   if (lock(s->fd) < 0) goto done;
 
-  /* TODO read */
-  if (buf) len = 0; /* suppress warning */
-  if (len) buf=NULL; /* suppress warning */
-
-  if (unlock(s->fd) < 0) goto done;
+  if (r->o < r->i) { // next chunk is the whole pending buffer
+    assert(r->u == r->i - r->o);
+    from = &r->d[r->o];
+    nr = r->u;
+    if (len < nr) nr = len;
+    memcpy(buf, from, nr);
+    /* mark consumed */
+    r->o = (r->o + nr ) % r->n;
+    r->u -= nr;
+  } else if ((r->o == r->i) && (r->u == 0)) {
+    nr = 0;
+  } else {
+    // if we're here, that means r->o > r->i. the pending
+    // output is wrapped around the buffer. this function 
+    // returns the chunk prior to eob. caller's has to call
+    // again to get the next chunk wrapped around the buffer.
+    size_t b,c;
+    b = r->n - r->o; // length of the part we're returning
+    c = r->i;        // wrapped part length- a sanity check
+    assert(r->u == b + c);
+    from = &r->d[r->o];
+    nr = b;
+    if (len < nr) nr = len;
+    memcpy(buf, from, nr);
+    /* mark consumed */
+    r->o = (r->o + nr ) % r->n;
+    r->u -= nr;
+  }
 
   rc = 0;
 
  done:
-  return rc;
+
+  unlock(s->fd);
+  return (rc == 0) ? (ssize_t)nr : -1;
 }
 
 void shr_close(struct shr *r) {
