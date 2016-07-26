@@ -26,4 +26,4 @@ run_tests: $(PROGS)
 .PHONY: clean
 
 clean:	
-	rm -f $(PROGS) $(OBJS) *.o test*.out 
+	rm -f $(PROGS) $(OBJS) *.o test*.out *.ring

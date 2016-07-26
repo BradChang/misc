@@ -12,13 +12,13 @@ file resides in a tmpfs then it is RAM resident without disk backing. To open
 the same ring buffer, two processes need only know its pathname.
 
 This implementation uses POSIX file locking as a global lock on the shared ring
-buffer. This prevents concurrent access of any kind. 
+buffer. This prevents concurrent access. The locking is advisory.
 
-Notification of readability is designed for select/poll/epoll compatibility.
-This implementation creates a named pipe whose name is stored inside the
-control area of the ring buffer.  When a process puts data into the ring buffer
-it sends a byte to the named pipe listed there, if there is a blocked consumer
-waiting for it.  This is compatible with clients based on select, poll or epoll.
+Notification of readability is designed for compatibility with select or poll.
+This implementation creates a named pipe whose name is based on the ring file
+name.  When a process puts data into the ring buffer it sends a byte to the
+named pipe listed there, if there is a blocked consumer waiting for it.  This
+is compatible with clients based on select, poll or epoll.
 
 Because this byte ring buffer is a file, it has filesystem persistence. Thus it
 remains until deleted, or in the case of a tmpfs RAM filesystem, until the
