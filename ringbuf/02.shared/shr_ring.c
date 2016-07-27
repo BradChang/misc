@@ -38,6 +38,7 @@ struct shr {
   char name[SHR_PATH_MAX]; /* ring file */
   struct stat s;
   int fd;
+  int fifo_fd;
   int flags;
   union {
     char *buf;   /* mmap'd area */
@@ -243,6 +244,7 @@ static int validate_ring(struct shr *s) {
 }
 
 struct shr *shr_open(char *file, int flags) {
+  struct shr *s = NULL;
   int rc = -1;
 
   if ((flags & (SHR_RDONLY | SHR_WRONLY)) == 0) {
@@ -250,9 +252,11 @@ struct shr *shr_open(char *file, int flags) {
     goto done;
   }
 
-  struct shr *s = malloc( sizeof(struct shr) );
+  s = malloc( sizeof(struct shr) );
   if (s == NULL) oom_exit();
   memset(s, 0, sizeof(*s));
+  s->fd = -1;
+  s->fifo_fd = -1;
 
   size_t l = strlen(file) + 1;
   if (l > sizeof(s->name)) {
@@ -279,13 +283,22 @@ struct shr *shr_open(char *file, int flags) {
   }
 
   if (validate_ring(s) < 0) goto done;
-  /* TODO open fifo */
 
+  int mode = 0;
+  mode |= (flags & SHR_RDONLY) ? O_RDONLY : 0;
+  mode |= (flags & SHR_WRONLY) ? O_WRONLY : 0;
+  s->fifo_fd = open(s->r->bell, mode);
+  if (s->fifo_fd < 0) {
+    fprintf(stderr, "open %s: %s\n", s->r->bell, strerror(errno));
+    goto done;
+  }
+  
   rc = 0;
 
  done:
-  if (rc < 0) {
+  if ((rc < 0) && s) {
     if (s->fd != -1) close(s->fd);
+    if (s->fifo_fd != -1) close(s->fifo_fd);
     if (s->buf && (s->buf != MAP_FAILED)) munmap(s->buf, s->s.st_size);
     free(s);
     s = NULL;
@@ -406,9 +419,10 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   return (rc == 0) ? (ssize_t)nr : -1;
 }
 
-void shr_close(struct shr *r) {
-  if (r->fd != -1) close(r->fd);
-  if (r->buf && (r->buf != MAP_FAILED)) munmap(r->buf, r->s.st_size);
-  free(r);
+void shr_close(struct shr *s) {
+  if (s->fd != -1) close(s->fd);
+  if (s->fifo_fd != -1) close(s->fifo_fd);
+  if (s->buf && (s->buf != MAP_FAILED)) munmap(s->buf, s->s.st_size);
+  free(s);
 }
 
