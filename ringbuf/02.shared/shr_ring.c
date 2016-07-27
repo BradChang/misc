@@ -24,7 +24,7 @@ static char magic[] = "aredringsh";
 typedef struct {
   char magic[sizeof(magic)];
   int version;
-  int flags;
+  int gflags;
   char bell[SHR_PATH_MAX]; /* fifo path */
   size_t n; /* allocd size */
   size_t u; /* used space */
@@ -38,11 +38,14 @@ struct shr {
   char name[SHR_PATH_MAX]; /* ring file */
   struct stat s;
   int fd;
+  int flags;
   union {
     char *buf;   /* mmap'd area */
     shr_ctrl *r;
   };
 };
+
+#define BLOCKING(m) (((m) & SHR_NONBLOCK) == 0)
 
 static void oom_exit(void) {
   fprintf(stderr, "out of memory\n");
@@ -75,6 +78,7 @@ static int lock(int fd) {
   return rc;
 }
 
+/* TODO confirm behavior on releasing lock multiply and obtaining multiply */
 static int unlock(int fd) {
   int rc = -1;
   const struct flock f = { .l_type = F_UNLCK, .l_whence = SEEK_SET, };
@@ -238,49 +242,55 @@ static int validate_ring(struct shr *s) {
   return rc;
 }
 
-struct shr *shr_open(char *file) {
+struct shr *shr_open(char *file, int flags) {
   int rc = -1;
 
-  struct shr *r = malloc( sizeof(struct shr) );
-  if (r == NULL) oom_exit();
-  memset(r, 0, sizeof(*r));
-
-  size_t l = strlen(file) + 1;
-  if (l > sizeof(r->name)) {
-    fprintf(stderr,"path too long: %s\n", file);
+  if ((flags & (SHR_RDONLY | SHR_WRONLY)) == 0) {
+    fprintf(stderr,"shr_open: invalid mode\n");
     goto done;
   }
-  memcpy(r->name, strdup(file), l);
 
-  r->fd = open(file, O_RDWR);
-  if (r->fd == -1) {
+  struct shr *s = malloc( sizeof(struct shr) );
+  if (s == NULL) oom_exit();
+  memset(s, 0, sizeof(*s));
+
+  size_t l = strlen(file) + 1;
+  if (l > sizeof(s->name)) {
+    fprintf(stderr,"shr_open: path too long: %s\n", file);
+    goto done;
+  }
+  memcpy(s->name, strdup(file), l);
+
+  s->fd = open(file, O_RDWR);
+  if (s->fd == -1) {
     fprintf(stderr,"open %s: %s\n", file, strerror(errno));
     goto done;
   }
 
-  if (fstat(r->fd, &r->s) == -1) {
+  if (fstat(s->fd, &s->s) == -1) {
     fprintf(stderr,"stat %s: %s\n", file, strerror(errno));
     goto done;
   }
 
-  r->buf = mmap(0, r->s.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, r->fd, 0);
-  if (r->buf == MAP_FAILED) {
+  s->buf = mmap(0, s->s.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, s->fd, 0);
+  if (s->buf == MAP_FAILED) {
     fprintf(stderr, "mmap %s: %s\n", file, strerror(errno));
     goto done;
   }
 
-  if (validate_ring(r) < 0) goto done;
+  if (validate_ring(s) < 0) goto done;
+  /* TODO open fifo */
 
   rc = 0;
 
  done:
   if (rc < 0) {
-    if (r->fd != -1) close(r->fd);
-    if (r->buf && (r->buf != MAP_FAILED)) munmap(r->buf, r->s.st_size);
-    free(r);
-    r = NULL;
+    if (s->fd != -1) close(s->fd);
+    if (s->buf && (s->buf != MAP_FAILED)) munmap(s->buf, s->s.st_size);
+    free(s);
+    s = NULL;
   }
-  return r;
+  return s;
 }
 
 static int ring_bell(shr_ctrl *r) {
@@ -339,7 +349,6 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
  * If non-blocking, if data available, handle as above, else return 1.
  * On error, return -1.
  * On signal, return -2.
- * TODO implement non block
  * TODO implications for bell; multi reads reqd? (fill caller buf from both chunks; req caller to recall if buf filled)
  */
 ssize_t shr_read(struct shr *s, char *buf, size_t len) {
@@ -350,6 +359,7 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
 
   /* since this function returns signed, cap len */
   if (len > SSIZE_MAX) len = SSIZE_MAX;
+  if (len == 0) goto done;
 
   if (lock(s->fd) < 0) goto done;
 
@@ -380,6 +390,12 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
     /* mark consumed */
     r->o = (r->o + nr ) % r->n;
     r->u -= nr;
+  }
+
+  if ((nr == 0) && BLOCKING(s->flags)) {
+    /* TODO block */
+    unlock(s->fd);
+    /* TODO read bell */
   }
 
   rc = 0;
