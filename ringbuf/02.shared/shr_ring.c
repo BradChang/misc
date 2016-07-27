@@ -15,9 +15,7 @@
 
 #define CREAT_MODE 0644
 #define MIN_RING_SZ (sizeof(shr_ctrl) + 1)
-
-/* flags */
-#define SHR_HAS_WAITER (1 << 0)
+#define SHR_PATH_MAX 128
 
 static char magic[] = "aredringsh";
 
@@ -27,7 +25,7 @@ typedef struct {
   char magic[sizeof(magic)];
   int version;
   int flags;
-  char bell[256]; /* fifo path */
+  char bell[SHR_PATH_MAX]; /* fifo path */
   size_t n; /* allocd size */
   size_t u; /* used space */
   size_t i; /* input pos */
@@ -37,7 +35,7 @@ typedef struct {
 
 /* the handle is given to each shr_open caller */
 struct shr {
-  char *name;    /* ring file */
+  char name[SHR_PATH_MAX]; /* ring file */
   struct stat s;
   int fd;
   union {
@@ -247,7 +245,13 @@ struct shr *shr_open(char *file) {
   if (r == NULL) oom_exit();
   memset(r, 0, sizeof(*r));
 
-  r->name = strdup(file);
+  size_t l = strlen(file) + 1;
+  if (l > sizeof(r->name)) {
+    fprintf(stderr,"path too long: %s\n", file);
+    goto done;
+  }
+  memcpy(r->name, strdup(file), l);
+
   r->fd = open(file, O_RDWR);
   if (r->fd == -1) {
     fprintf(stderr,"open %s: %s\n", file, strerror(errno));
@@ -271,7 +275,6 @@ struct shr *shr_open(char *file) {
 
  done:
   if (rc < 0) {
-    if (r->name) free(r->name);
     if (r->fd != -1) close(r->fd);
     if (r->buf && (r->buf != MAP_FAILED)) munmap(r->buf, r->s.st_size);
     free(r);
@@ -386,7 +389,6 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
 }
 
 void shr_close(struct shr *r) {
-  if (r->name) free(r->name);
   if (r->fd != -1) close(r->fd);
   if (r->buf && (r->buf != MAP_FAILED)) munmap(r->buf, r->s.st_size);
   free(r);
