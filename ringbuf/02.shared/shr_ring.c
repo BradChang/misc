@@ -37,7 +37,8 @@ typedef struct {
 struct shr {
   char name[SHR_PATH_MAX]; /* ring file */
   struct stat s;
-  int fd;
+  int ring_fd;
+  int fifo_fd;
   union {
     char *buf;   /* mmap'd area */
     shr_ctrl *r;
@@ -241,50 +242,73 @@ static int validate_ring(struct shr *s) {
 struct shr *shr_open(char *file) {
   int rc = -1;
 
-  struct shr *r = malloc( sizeof(struct shr) );
-  if (r == NULL) oom_exit();
-  memset(r, 0, sizeof(*r));
+  struct shr *s = malloc( sizeof(struct shr) );
+  if (s == NULL) oom_exit();
+  memset(s, 0, sizeof(*s));
+  s->ring_fd = -1;
+  s->fifo_fd = -1;
 
   size_t l = strlen(file) + 1;
-  if (l > sizeof(r->name)) {
+  if (l > sizeof(s->name)) {
     fprintf(stderr,"path too long: %s\n", file);
     goto done;
   }
-  memcpy(r->name, strdup(file), l);
+  memcpy(s->name, file, l);
 
-  r->fd = open(file, O_RDWR);
-  if (r->fd == -1) {
+  s->ring_fd = open(file, O_RDWR);
+  if (s->ring_fd == -1) {
     fprintf(stderr,"open %s: %s\n", file, strerror(errno));
     goto done;
   }
 
-  if (fstat(r->fd, &r->s) == -1) {
+  if (fstat(s->ring_fd, &s->s) == -1) {
     fprintf(stderr,"stat %s: %s\n", file, strerror(errno));
     goto done;
   }
 
-  r->buf = mmap(0, r->s.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, r->fd, 0);
-  if (r->buf == MAP_FAILED) {
+  s->buf = mmap(0, s->s.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, s->ring_fd, 0);
+  if (s->buf == MAP_FAILED) {
     fprintf(stderr, "mmap %s: %s\n", file, strerror(errno));
     goto done;
   }
 
-  if (validate_ring(r) < 0) goto done;
+  if (validate_ring(s) < 0) goto done;
+
+  s->fifo_fd = open(s->r->bell, O_RDWR|O_NONBLOCK); /* ok on Linux, see fifo(7) */
+  if (s->fifo_fd < 0) {
+    fprintf(stderr, "open %s: %s\n", s->r->bell, strerror(errno));
+    goto done;
+  }
 
   rc = 0;
 
  done:
   if (rc < 0) {
-    if (r->fd != -1) close(r->fd);
-    if (r->buf && (r->buf != MAP_FAILED)) munmap(r->buf, r->s.st_size);
-    free(r);
-    r = NULL;
+    if (s->ring_fd != -1) close(s->ring_fd);
+    if (s->fifo_fd != -1) close(s->fifo_fd);
+    if (s->buf && (s->buf != MAP_FAILED)) munmap(s->buf, s->s.st_size);
+    free(s);
+    s = NULL;
   }
-  return r;
+  return s;
 }
 
-static int ring_bell(shr_ctrl *r) {
+/* this is how we wake up a process blocked on ring data availability. 
+ * TODO find all failure modes of write. we may not care if the fifo 
+ * fills up, because the fifo only needs one byte in it to wake up a
+ * blocked reader. so filling it implies the reader is not around
+ * TODO reader when it does read the fifo should drain it.
+*/
+static int ring_bell(struct shr *s) {
   int rc = -1;
+  ssize_t nr;
+  char b = 0;
+
+  nr = write(s->fifo_fd, &b, sizeof(b));
+  if (nr < 0) {
+    fprintf(stderr, "write: %s\n", strerror(errno));
+    goto done;
+  }
 
   rc = 0;
 
@@ -301,7 +325,7 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   /* since this function returns signed, cap len */
   if (len > SSIZE_MAX) goto done;
 
-  if (lock(s->fd) < 0) goto done;
+  if (lock(s->ring_fd) < 0) goto done;
   
   size_t a,b,c;
   if (r->i < r->o) {  // available space is a contiguous buffer
@@ -323,12 +347,12 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   r->i = (r->i + len) % r->n;
   r->u += len;
 
-  ring_bell(r);
+  ring_bell(s);
   rc = 0;
 
  done:
 
-  unlock(s->fd);
+  unlock(s->ring_fd);
   return (rc == 0) ? (ssize_t)len : -1;
 }
 
@@ -350,8 +374,9 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
 
   /* since this function returns signed, cap len */
   if (len > SSIZE_MAX) len = SSIZE_MAX;
+  if (len == 0) goto done;
 
-  if (lock(s->fd) < 0) goto done;
+  if (lock(s->ring_fd) < 0) goto done;
 
   if (r->o < r->i) { // next chunk is the whole pending buffer
     assert(r->u == r->i - r->o);
@@ -386,12 +411,13 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
 
  done:
 
-  unlock(s->fd);
+  unlock(s->ring_fd);
   return (rc == 0) ? (ssize_t)nr : -1;
 }
 
 void shr_close(struct shr *r) {
-  if (r->fd != -1) close(r->fd);
+  if (r->ring_fd != -1) close(r->ring_fd);
+  if (r->fifo_fd != -1) close(r->fifo_fd);
   if (r->buf && (r->buf != MAP_FAILED)) munmap(r->buf, r->s.st_size);
   free(r);
 }
