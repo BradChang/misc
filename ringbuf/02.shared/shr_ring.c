@@ -293,11 +293,13 @@ static int ring_bell(shr_ctrl *r) {
 }
 
 /* copy data in. fails if ringbuf has insuff space. */
-/* TODO should output parameter be nr (then cap len like _read does) */
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   int rc = -1;
   shr_ctrl *r = s->r;
+
+  /* since this function returns signed, cap len */
+  if (len > SSIZE_MAX) goto done;
 
   if (lock(s->fd) < 0) goto done;
   
@@ -327,7 +329,7 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
  done:
 
   unlock(s->fd);
-  return rc;
+  return (rc == 0) ? (ssize_t)len : -1;
 }
 
 /*
@@ -346,7 +348,7 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   size_t nr;
   char *from;
 
-  // since this function returns signed, cap outbuf len 
+  /* since this function returns signed, cap len */
   if (len > SSIZE_MAX) len = SSIZE_MAX;
 
   if (lock(s->fd) < 0) goto done;
