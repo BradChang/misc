@@ -274,7 +274,7 @@ struct shr *shr_open(char *file) {
 
   if (validate_ring(s) < 0) goto done;
 
-  s->fifo_fd = open(s->r->bell, O_RDWR|O_NONBLOCK); /* ok on Linux, see fifo(7) */
+  s->fifo_fd = open(s->r->bell, O_RDWR); /* ok on Linux, see fifo(7) */
   if (s->fifo_fd < 0) {
     fprintf(stderr, "open %s: %s\n", s->r->bell, strerror(errno));
     goto done;
@@ -294,9 +294,10 @@ struct shr *shr_open(char *file) {
 }
 
 /* this is how we wake up a process blocked on ring data availability. 
- * TODO find all failure modes of write. we may not care if the fifo 
- * fills up, because the fifo only needs one byte in it to wake up a
- * blocked reader. so filling it implies the reader is not around
+ * if it would block, the fifo is full thus the reader (when it gets
+ * around to it) can already tell there is data in the ring. so, it is
+ * fine to silently proceed if the fifo would block.
+ *
  * TODO reader when it does read the fifo should drain it.
 */
 static int ring_bell(struct shr *s) {
@@ -304,20 +305,32 @@ static int ring_bell(struct shr *s) {
   ssize_t nr;
   char b = 0;
 
+  int fl = -1, unused = 0;
+  fl = fcntl(s->fifo_fd, F_GETFD, unused);
+  if (fl < 0) {
+    fprintf(stderr, "fcntl: %s\n", strerror(errno));
+    goto done;
+  }
+
   nr = write(s->fifo_fd, &b, sizeof(b));
   if (nr < 0) {
-    fprintf(stderr, "write: %s\n", strerror(errno));
-    goto done;
+    if (!((errno == EWOULDBLOCK) || (errno == EAGAIN))) {
+      fprintf(stderr, "write: %s\n", strerror(errno));
+      goto done;
+    }
   }
 
   rc = 0;
 
  done:
+  if (fl != -1) { /* reinstate blocking */
+  }
   return rc;
 }
 
 /* copy data in. fails if ringbuf has insuff space. */
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
+// TODO if write exceeds free space, block on fifo
 ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   int rc = -1;
   shr_ctrl *r = s->r;
