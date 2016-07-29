@@ -24,7 +24,7 @@ static char magic[] = "aredringsh";
 typedef struct {
   char magic[sizeof(magic)];
   int version;
-  int flags;
+  int gflags;
   char bell[SHR_PATH_MAX]; /* fifo path */
   size_t n; /* allocd size */
   size_t u; /* used space */
@@ -44,6 +44,8 @@ struct shr {
     shr_ctrl *r;
   };
 };
+
+#define BLOCKING(m) (((m) & SHR_NONBLOCK) == 0)
 
 static void oom_exit(void) {
   fprintf(stderr, "out of memory\n");
@@ -76,6 +78,7 @@ static int lock(int fd) {
   return rc;
 }
 
+/* TODO confirm behavior on releasing lock multiply and obtaining multiply */
 static int unlock(int fd) {
   int rc = -1;
   const struct flock f = { .l_type = F_UNLCK, .l_whence = SEEK_SET, };
@@ -239,22 +242,29 @@ static int validate_ring(struct shr *s) {
   return rc;
 }
 
-struct shr *shr_open(char *file) {
+struct shr *shr_open(char *file, int flags) {
+  struct shr *s = NULL;
   int rc = -1;
 
-  struct shr *s = malloc( sizeof(struct shr) );
+  if ((flags & (SHR_RDONLY | SHR_WRONLY)) == 0) {
+    fprintf(stderr,"shr_open: invalid mode\n");
+    goto done;
+  }
+
+  s = malloc( sizeof(struct shr) );
   if (s == NULL) oom_exit();
   memset(s, 0, sizeof(*s));
+  s->fd = -1;
   s->ring_fd = -1;
   s->fifo_fd = -1;
 
   size_t l = strlen(file) + 1;
   if (l > sizeof(s->name)) {
-    fprintf(stderr,"path too long: %s\n", file);
+    fprintf(stderr,"shr_open: path too long: %s\n", file);
     goto done;
   }
-  memcpy(s->name, file, l);
 
+  memcpy(s->name, file, l);
   s->ring_fd = open(file, O_RDWR);
   if (s->ring_fd == -1) {
     fprintf(stderr,"open %s: %s\n", file, strerror(errno));
@@ -280,10 +290,19 @@ struct shr *shr_open(char *file) {
     goto done;
   }
 
+  int mode = 0;
+  mode |= (flags & SHR_RDONLY) ? O_RDONLY : 0;
+  mode |= (flags & SHR_WRONLY) ? O_WRONLY : 0;
+  s->fifo_fd = open(s->r->bell, mode);
+  if (s->fifo_fd < 0) {
+    fprintf(stderr, "open %s: %s\n", s->r->bell, strerror(errno));
+    goto done;
+  }
+  
   rc = 0;
 
  done:
-  if (rc < 0) {
+  if ((rc < 0) && s) {
     if (s->ring_fd != -1) close(s->ring_fd);
     if (s->fifo_fd != -1) close(s->fifo_fd);
     if (s->buf && (s->buf != MAP_FAILED)) munmap(s->buf, s->s.st_size);
@@ -376,7 +395,6 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
  * If non-blocking, if data available, handle as above, else return 1.
  * On error, return -1.
  * On signal, return -2.
- * TODO implement non block
  * TODO implications for bell; multi reads reqd? (fill caller buf from both chunks; req caller to recall if buf filled)
  */
 ssize_t shr_read(struct shr *s, char *buf, size_t len) {
@@ -420,6 +438,12 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
     r->u -= nr;
   }
 
+  if ((nr == 0) && BLOCKING(s->flags)) {
+    /* TODO block */
+    unlock(s->fd);
+    /* TODO read bell */
+  }
+
   rc = 0;
 
  done:
@@ -428,10 +452,9 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   return (rc == 0) ? (ssize_t)nr : -1;
 }
 
-void shr_close(struct shr *r) {
-  if (r->ring_fd != -1) close(r->ring_fd);
-  if (r->fifo_fd != -1) close(r->fifo_fd);
-  if (r->buf && (r->buf != MAP_FAILED)) munmap(r->buf, r->s.st_size);
-  free(r);
+void shr_close(struct shr *s) {
+  if (s->ring_fd != -1) close(s->ring_fd);
+  if (s->fifo_fd != -1) close(s->fifo_fd);
+  if (s->buf && (s->buf != MAP_FAILED)) munmap(s->buf, s->s.st_size);
+  free(s);
 }
-
