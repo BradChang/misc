@@ -39,6 +39,7 @@ struct shr {
   struct stat s;
   int ring_fd;
   int fifo_fd;
+  int flags;
   union {
     char *buf;   /* mmap'd area */
     shr_ctrl *r;
@@ -254,7 +255,6 @@ struct shr *shr_open(char *file, int flags) {
   s = malloc( sizeof(struct shr) );
   if (s == NULL) oom_exit();
   memset(s, 0, sizeof(*s));
-  s->fd = -1;
   s->ring_fd = -1;
   s->fifo_fd = -1;
 
@@ -440,8 +440,6 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
 
   if ((nr == 0) && BLOCKING(s->flags)) {
     /* TODO block */
-    unlock(s->fd);
-    /* TODO read bell */
   }
 
   rc = 0;
