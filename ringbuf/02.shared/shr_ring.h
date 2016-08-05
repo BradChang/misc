@@ -11,9 +11,9 @@ typedef struct shr shr;
 
 int shr_init(char *file, size_t sz, int flags, ...);
 shr *shr_open(char *file, int flags);
-ssize_t shr_read(shr *r, char *buf, size_t len);
-ssize_t shr_write(shr *r, char *buf, size_t len);
-void shr_close(shr *r);
+ssize_t shr_read(shr *s, char *buf, size_t len);
+ssize_t shr_write(shr *s, char *buf, size_t len);
+void shr_close(shr *s);
 
 /* shr_open flags */
 #define SHR_RDONLY   (1U << 0)
