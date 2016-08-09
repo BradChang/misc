@@ -46,6 +46,7 @@ int main() {
  rc = 0;
 
 done:
+ unlink(ring);
  printf("end\n");
  if (s) shr_close(s);
  if (t) shr_close(t);

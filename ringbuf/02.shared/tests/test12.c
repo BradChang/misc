@@ -8,12 +8,14 @@
 
 char *ring = __FILE__ ".ring";
 
-#define do_open 'o'
+#define do_open  'o'
 #define do_close 'c'
+#define do_write 'w'
+#define do_read  'r'
 
 void r(int fd) {
   shr *s = NULL;
-  char op;
+  char op, buf[10];
   int rc;
 
   printf("r: ready\n");
@@ -35,6 +37,11 @@ void r(int fd) {
         if (s == NULL) goto done;
         printf("r: open\n");
         break;
+      case do_read:
+        printf("r: read\n");
+        rc = shr_read(s, buf, sizeof(buf));
+        if (rc > 0) printf("r: [%.*s]\n", rc, buf);
+        break;
       case do_close:
         assert(s);
         shr_close(s);
@@ -51,7 +58,7 @@ void r(int fd) {
 
 void w(int fd) {
   shr *s = NULL;
-  char op;
+  char op, msg[] = "squirrel";
   int rc;
 
   printf("w: ready\n");
@@ -72,6 +79,11 @@ void w(int fd) {
         s = shr_open(ring, SHR_WRONLY);
         if (s == NULL) goto done;
         printf("w: open\n");
+        break;
+      case do_write:
+        printf("w: write\n");
+        rc = shr_write(s, msg, sizeof(msg));
+        if (rc != sizeof(msg)) printf("w: rc %d\n", rc);
         break;
       case do_close:
         assert(s);
@@ -143,6 +155,9 @@ int main() {
 
   issue(R, do_open);
   issue(W, do_open);
+
+  issue(W, do_write);
+  issue(R, do_read);
 
   issue(W, do_close);
   issue(R, do_close);
