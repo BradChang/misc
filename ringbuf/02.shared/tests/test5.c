@@ -14,7 +14,7 @@ int main() {
  unlink(ring);
  if (shr_init(ring, 6, 0) < 0) goto done;
 
- s = shr_open(ring, SHR_RDONLY);
+ s = shr_open(ring, SHR_RDONLY|SHR_NONBLOCK);
  if (s == NULL) goto done;
 
  t = shr_open(ring, SHR_WRONLY);

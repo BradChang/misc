@@ -2,6 +2,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/file.h>
+#include <sys/epoll.h>
 #include <unistd.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -17,6 +18,10 @@
 #define MIN_RING_SZ (sizeof(shr_ctrl) + 1)
 #define SHR_PATH_MAX 128
 
+/* gflags */
+#define W_WANT_SPACE (1U << 0)
+#define R_WANT_DATA  (1U << 1)
+
 static char magic[] = "aredringsh";
 
 /* this struct is mapped to the beginning of the mmap'd file. 
@@ -24,8 +29,9 @@ static char magic[] = "aredringsh";
 typedef struct {
   char magic[sizeof(magic)];
   int version;
-  int gflags;
-  char bell[SHR_PATH_MAX]; /* fifo path */
+  unsigned gflags;
+  char w2r[SHR_PATH_MAX]; /* w->r fifo */
+  char r2w[SHR_PATH_MAX]; /* r->w fifo */
   size_t n; /* allocd size */
   size_t u; /* used space */
   size_t i; /* input pos */
@@ -38,15 +44,16 @@ struct shr {
   char name[SHR_PATH_MAX]; /* ring file */
   struct stat s;
   int ring_fd;
-  int fifo_fd;
-  int flags;
+  int r2w;
+  int w2r;
+  int epoll_fd;
+  unsigned flags;
+  struct epoll_event ev;
   union {
     char *buf;   /* mmap'd area */
     shr_ctrl *r;
   };
 };
-
-#define BLOCKING(m) (((m) & SHR_NONBLOCK) == 0)
 
 static void oom_exit(void) {
   fprintf(stderr, "out of memory\n");
@@ -126,30 +133,45 @@ static int dirbasename(char *file, char *out, size_t outlen, int dir) {
  */
 int make_bell(char *file, shr_ctrl *r) {
   int rc = -1;
-  char dir[PATH_MAX], base[PATH_MAX], bell[PATH_MAX];
+  char dir[PATH_MAX], base[PATH_MAX], w2r[PATH_MAX], r2w[PATH_MAX];
   size_t l;
 
   if (dirbasename(file, dir,  sizeof(dir),  1) < 0) goto done;
   if (dirbasename(file, base, sizeof(base), 0) < 0) goto done;
-  snprintf(bell, sizeof(bell), "%s/.%s.fifo", dir, base);
-  l = strlen(bell) + 1;
+  snprintf(w2r, sizeof(w2r), "%s/.%s.w2r", dir, base);
+  snprintf(r2w, sizeof(r2w), "%s/.%s.r2w", dir, base);
+  l = strlen(w2r) + 1;
+  assert(strlen(w2r) == strlen(r2w));
 
-  if (l > sizeof(r->bell)) {
-    fprintf(stderr, "file name too long: %s\n", bell);
+  if (l > sizeof(r->w2r)) {
+    fprintf(stderr, "file name too long: %s\n", w2r);
     goto done;
   }
 
-  memcpy(r->bell, bell, l);
+  memcpy(r->w2r, w2r, l);
+  memcpy(r->r2w, r2w, l);
 
-  if (unlink(r->bell) < 0) {
+  if (unlink(r->w2r) < 0) {
     if (errno != ENOENT) {
-      fprintf(stderr, "unlink %s: %s\n", r->bell, strerror(errno));
+      fprintf(stderr, "unlink %s: %s\n", r->w2r, strerror(errno));
       goto done;
     }
   }
 
-  if (mkfifo(r->bell, CREAT_MODE) < 0) {
-    fprintf(stderr, "mkfifo: %s\n", bell);
+  if (unlink(r->r2w) < 0) {
+    if (errno != ENOENT) {
+      fprintf(stderr, "unlink %s: %s\n", r->r2w, strerror(errno));
+      goto done;
+    }
+  }
+
+  if (mkfifo(r->w2r, CREAT_MODE) < 0) {
+    fprintf(stderr, "mkfifo: %s\n", w2r);
+    goto done;
+  }
+
+  if (mkfifo(r->r2w, CREAT_MODE) < 0) {
+    fprintf(stderr, "mkfifo: %s\n", r2w);
     goto done;
   }
 
@@ -233,13 +255,52 @@ static int validate_ring(struct shr *s) {
 
   /* check bell exists and is fifo */
   struct stat f;
-  if (stat(r->bell, &f) < 0) goto done;
+  if (stat(r->w2r, &f) < 0) goto done;
+  if (S_ISFIFO(f.st_mode) == 0) goto done;
+  if (stat(r->r2w, &f) < 0) goto done;
   if (S_ISFIFO(f.st_mode) == 0) goto done;
 
   rc = 0;
 
  done:
   if (rc < 0) fprintf(stderr,"invalid ring: %s\n", s->name);
+  return rc;
+}
+
+static int make_waitable(struct shr *s, int fd) {
+	int rc = -1;
+
+	s->ev.events = EPOLLIN;
+	s->ev.data.fd = fd;
+
+	if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &s->ev) < 0) {
+		fprintf(stderr, "epoll_ctl: %s\n", strerror(errno));
+		goto done;
+	}
+
+  rc = 0;
+
+ done:
+  return rc;
+}
+
+static int make_nonblock(int fd) {
+	int fl, unused = 0, rc = -1;
+
+	fl = fcntl(fd, F_GETFL, unused);
+	if (fl < 0) {
+		fprintf(stderr, "fcntl: %s\n", strerror(errno));
+		goto done;
+	}
+
+	if (fcntl(fd, F_SETFL, fl | O_NONBLOCK) < 0) {
+		fprintf(stderr, "fcntl: %s\n", strerror(errno));
+		goto done;
+	}
+
+  rc = 0;
+
+ done:
   return rc;
 }
 
@@ -256,7 +317,10 @@ struct shr *shr_open(char *file, int flags) {
   if (s == NULL) oom_exit();
   memset(s, 0, sizeof(*s));
   s->ring_fd = -1;
-  s->fifo_fd = -1;
+  s->w2r = -1;
+  s->r2w = -1;
+  s->epoll_fd = -1;
+  s->flags = flags;
 
   size_t l = strlen(file) + 1;
   if (l > sizeof(s->name)) {
@@ -284,27 +348,54 @@ struct shr *shr_open(char *file, int flags) {
 
   if (validate_ring(s) < 0) goto done;
 
-  s->fifo_fd = open(s->r->bell, O_RDWR); /* ok on Linux, see fifo(7) */
-  if (s->fifo_fd < 0) {
-    fprintf(stderr, "open %s: %s\n", s->r->bell, strerror(errno));
+  /* this epoll object is used when blocking waiting for data or space */
+  s->epoll_fd = epoll_create(1); 
+  if (s->epoll_fd == -1) {
+    fprintf(stderr,"epoll_create: %s\n", strerror(errno));
     goto done;
   }
 
-  int mode = 0;
-  mode |= (flags & SHR_RDONLY) ? O_RDONLY : 0;
-  mode |= (flags & SHR_WRONLY) ? O_WRONLY : 0;
-  s->fifo_fd = open(s->r->bell, mode);
-  if (s->fifo_fd < 0) {
-    fprintf(stderr, "open %s: %s\n", s->r->bell, strerror(errno));
+  /* the bell is a pair of fifo's. open them in O_RDWR. this is ok on Linux,
+   * see fifo(7). we use O_RDWR because the peer (reader, or writer) may not
+   * exist at the same time as us. the bell notifies the peer if it exists,
+   * and is a no-op if the peer is absent.  
+   */
+  s->w2r = open(s->r->w2r, O_RDWR); 
+  if (s->w2r < 0) {
+    fprintf(stderr, "open %s: %s\n", s->r->w2r, strerror(errno));
     goto done;
   }
-  
+
+  s->r2w = open(s->r->r2w, O_RDWR);
+  if (s->r2w < 0) {
+    fprintf(stderr, "open %s: %s\n", s->r->r2w, strerror(errno));
+    goto done;
+  }
+
+  /*
+   *           NB ------r2w-----> B
+   *   reader                         writer
+   *            B <-----w2r------ NB
+   *
+   */
+  if (flags & SHR_RDONLY) {  /* this process is a reader */
+     if (make_nonblock(s->r2w) < 0) goto done;  /* w may be absent, nonblock */
+     if (make_waitable(s,s->w2r) < 0) goto done;  /* can wait on notify from w */
+  }
+
+  if (flags & SHR_WRONLY) {  /* this process is a writer */
+     if (make_nonblock(s->w2r) < 0) goto done;  /* r may be absent, nonblock */
+     if (make_waitable(s,s->r2w) < 0) goto done;  /* can wait on notify from r */
+  }
+
   rc = 0;
 
  done:
   if ((rc < 0) && s) {
     if (s->ring_fd != -1) close(s->ring_fd);
-    if (s->fifo_fd != -1) close(s->fifo_fd);
+    if (s->w2r != -1) close(s->w2r);
+    if (s->r2w != -1) close(s->r2w);
+    if (s->epoll_fd != -1) close(s->epoll_fd);
     if (s->buf && (s->buf != MAP_FAILED)) munmap(s->buf, s->s.st_size);
     free(s);
     s = NULL;
@@ -317,23 +408,19 @@ struct shr *shr_open(char *file, int flags) {
  * around to it) can already tell there is data in the ring. so, it is
  * fine to silently proceed if the fifo would block.
  *
- * TODO reader when it does read the fifo should drain it.
 */
 static int ring_bell(struct shr *s) {
   int rc = -1;
   ssize_t nr;
   char b = 0;
 
-  int fl = -1, unused = 0;
-  fl = fcntl(s->fifo_fd, F_GETFD, unused);
-  if (fl < 0) {
-    fprintf(stderr, "fcntl: %s\n", strerror(errno));
-    goto done;
-  }
+  int fd = -1;
+  if ((s->flags & SHR_WRONLY) && (s->r->gflags & R_WANT_DATA))  fd = s->w2r;
+  if ((s->flags & SHR_RDONLY) && (s->r->gflags & W_WANT_SPACE)) fd = s->r2w;
 
-  nr = write(s->fifo_fd, &b, sizeof(b));
-  if (nr < 0) {
-    if (!((errno == EWOULDBLOCK) || (errno == EAGAIN))) {
+	if (fd != -1) {
+    nr = write(fd, &b, sizeof(b));
+    if ((nr < 0) && !((errno == EWOULDBLOCK) || (errno == EAGAIN))) {
       fprintf(stderr, "write: %s\n", strerror(errno));
       goto done;
     }
@@ -342,8 +429,6 @@ static int ring_bell(struct shr *s) {
   rc = 0;
 
  done:
-  if (fl != -1) { /* reinstate blocking */
-  }
   return rc;
 }
 
@@ -388,14 +473,61 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   return (rc == 0) ? (ssize_t)len : -1;
 }
 
+/* TODO get selectable fd for multi-fd library users.
+ * note that the behavior must allow for a non-readable fd 
+ * even when data is available, because we may have drained the fifo
+ * without consuming the ring entirely. so,
+ *
+ * the behavior of the reader must be 
+ *  check the ring
+ *  block for data if none
+ */
+
+/* read the fifo, causing us to block, then draining it (usually) in a single read.
+ * it is only used as a means of blocking. the content and even the count
+ * of bytes is discarded, because the writer puts a byte in whenever we're
+ * blocked and it writes data. we wake up (unblock), then the caller (e.g.
+ * if its the reader) consumes as much it wants. this is all written so that
+ * its ok to unblock when there is no data, or for the reader to be called
+ * multiple times to absorb the pending data. any time the reader wants data
+ * it first looks in the ring, then blocks. if there is no data it blocks again.
+ * this allows the sync from the writer to avoid close coupling entanglements.
+ * 
+ * returns 0 on normal wakeup, 
+ *        -1 on error, 
+ *        -2 on signal while blocked
+ */
+static int block(struct shr *s, int condition) {
+  int rc = -1, fd;
+  ssize_t nr;
+  char b[4096]; /* any big buffer to reduce reads */
+
+  if      (condition == R_WANT_DATA)  fd = s->w2r;
+  else if (condition == W_WANT_SPACE) fd = s->r2w;
+  else assert(0);
+
+  nr = read(fd, &b, sizeof(b));
+  if (nr < 0) {
+    if (errno == EINTR) rc = -2;
+    else fprintf(stderr, "read: %s\n", strerror(errno));
+    goto done;
+  }
+
+  assert(nr > 0);
+
+  rc = 0;
+
+ done:
+  return rc;
+}
+
 /*
  * shr_read
  *
- * If blocking, wait until data is available, read it, return 0.
- * If non-blocking, if data available, handle as above, else return 1.
+ * If blocking, wait until data is available, return num bytes read.
+ * If non-blocking, handle as above if data available, else return 0.
  * On error, return -1.
- * On signal, return -2.
- * TODO implications for bell; multi reads reqd? (fill caller buf from both chunks; req caller to recall if buf filled)
+ * On signal while blocked, return -2.
  */
 ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   int rc = -1;
@@ -407,6 +539,8 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   if (len > SSIZE_MAX) len = SSIZE_MAX;
   if (len == 0) goto done;
 
+ again:
+  rc = -1;
   if (lock(s->ring_fd) < 0) goto done;
 
   if (r->o < r->i) { // next chunk is the whole pending buffer
@@ -438,8 +572,20 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
     r->u -= nr;
   }
 
-  if ((nr == 0) && BLOCKING(s->flags)) {
-    /* TODO block */
+  /* data consumed from the ring. clear any data-wanted notification request
+   * in gflags. ring bell to notify writer if awaiting free space.  */
+  if (nr > 0) {
+    s->r->gflags &= ~(R_WANT_DATA);
+    ring_bell(s);
+  }
+
+  /* no data? block if in blocking mode */
+  if ((nr == 0) && ((s->flags & SHR_NONBLOCK) == 0)) {
+    s->r->gflags |= R_WANT_DATA;
+    unlock(s->ring_fd);
+    rc = block(s, R_WANT_DATA);
+    if (rc < 0) goto done;
+    goto again;
   }
 
   rc = 0;
@@ -447,12 +593,14 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
  done:
 
   unlock(s->ring_fd);
-  return (rc == 0) ? (ssize_t)nr : -1;
+  return (rc == 0) ? (ssize_t)nr : rc;
 }
 
 void shr_close(struct shr *s) {
   if (s->ring_fd != -1) close(s->ring_fd);
-  if (s->fifo_fd != -1) close(s->fifo_fd);
+  if (s->w2r != -1) close(s->w2r);
+  if (s->r2w != -1) close(s->r2w);
+  if (s->epoll_fd != -1) close(s->epoll_fd);
   if (s->buf && (s->buf != MAP_FAILED)) munmap(s->buf, s->s.st_size);
   free(s);
 }

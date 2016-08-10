@@ -20,7 +20,7 @@ int main() {
  s = shr_open(ring, SHR_RDONLY);
  if (s == NULL) goto done;
 
- t = shr_open(ring, SHR_WRONLY);
+ t = shr_open(ring, SHR_WRONLY|SHR_NONBLOCK);
  if (t == NULL) goto done;
 
  printf("writing ...");

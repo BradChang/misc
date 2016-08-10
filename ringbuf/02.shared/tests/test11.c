@@ -31,7 +31,7 @@ void r(int fd) {
     assert(rc == sizeof(op));
     switch(op) {
       case do_open:
-        s = shr_open(ring, SHR_RDONLY);
+        s = shr_open(ring, SHR_RDONLY|SHR_NONBLOCK);
         if (s == NULL) goto done;
         printf("r: open\n");
         break;
@@ -69,7 +69,7 @@ void w(int fd) {
     assert(rc == sizeof(op));
     switch(op) {
       case do_open:
-        s = shr_open(ring, SHR_WRONLY);
+        s = shr_open(ring, SHR_WRONLY|SHR_NONBLOCK);
         if (s == NULL) goto done;
         printf("w: open\n");
         break;
@@ -103,6 +103,7 @@ int main() {
   pid_t pid;
 
   setbuf(stdout,NULL);
+  unlink(ring);
 
   int pipe_to_r[2];
   int pipe_to_w[2];
@@ -153,7 +154,7 @@ int main() {
  rc = 0;
 
 done:
- unlink(ring);
- printf("end\n");
- return rc;
+  unlink(ring);
+  printf("end\n");
+  return rc;
 }

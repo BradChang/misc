@@ -11,6 +11,7 @@ for (glob "test*[0-9]") {
 my $num_failed=0;
 
 for my $test (@tests) {
+    print "$test\n";
     `./$test > $test.out`;
     `diff $test.out $test.ans`;
     print "$test failed\n" if $?;

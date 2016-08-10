@@ -12,7 +12,7 @@ int main() {
  unlink(ring);
  if (shr_init(ring, 6, 0) < 0) goto done;
 
- s = shr_open(ring, SHR_WRONLY);
+ s = shr_open(ring, SHR_WRONLY|SHR_NONBLOCK);
  if (s == NULL) goto done;
 
  printf("writing ...");
