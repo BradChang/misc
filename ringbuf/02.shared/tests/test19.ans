@@ -1,0 +1,20 @@
+r: ready
+w: ready
+r: open
+w: open
+w: write
+w: rc 9
+w: write
+r: read
+r: [squirrel]
+w: rc 9
+r: read
+r: [s]
+r: read
+r: [quirrel]
+w: unlink
+w: close
+r: close
+w: eof
+r: eof
+end
