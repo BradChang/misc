@@ -550,24 +550,15 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   goto again;
 }
 
-/* TODO get selectable fd for multi-fd library users.
- * note that the behavior must allow for a non-readable fd 
- * even when data is available, because we may have drained the fifo
- * without consuming the ring entirely. so,
- *
- * the behavior of the reader must be 
- *  check the ring
- *  block for data if none
- */
-
 /*
  * shr_read
  *
  * Read from the ring. Block if there is no data in the ring, or return
- * immediately in non-blocking mode. As with a regular unix read the 
- * amount of data read may be less than the buffer size, and may be less
- * than the total data available in the ring (because, at the point the ring
- * wraps around, read returns the pending data in two successive reads). 
+ * immediately in non-blocking mode. As with traditional unix read(2)- multiple
+ * shr_reads may be required to consume the data available in the ring, because
+ * the provided buffer may be too small to absorb it all at once, and because,
+ * at the point the ring wraps around, shr_read returns the pending data in two
+ * successive reads.
  *
  * returns:
  *   > 0 (number of bytes read from the ring)
@@ -619,7 +610,7 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
     r->u -= nr;
   }
 
-  /* data consumed from the ring. clear any data-wanted notification request
+  /* data consumed from the ring. clear any notification request
    * in gflags. ring bell to notify writer if awaiting free space.  */
   if (nr > 0) {
     s->r->gflags &= ~(R_WANT_DATA);
