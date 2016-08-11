@@ -59,15 +59,28 @@ static void oom_exit(void) {
 }
 
 /* get the lock on the ring file. we use a file lock for any read or write, 
- * because even the reader adjusts the position in the ring buffer. note,
- * we use a blocking wait (F_SETLKW) for the lock. this should be obtainable
- * quickly because a locked reader should read and release in bounded time.
+ * since even the reader adjusts the position offsets in the ring buffer. note,
+ * we use a blocking wait (F_SETLKW) for the lock. this should be obtainable in
+ * quasi bounded time because a peer (reader or writer using this same library)
+ * should also only lock/manipulate/release in rapid succession.
+ *
  * if a signal comes in while we await the lock, fcntl can return EINTR. since
  * we are a library, we do not alter the application's signal handling.
  * rather, we propagate the condition up to the application to deal with. 
  *
  * also note, since this is a POSIX file lock, anything that closes the 
  * descriptor (such as killing the application holding the lock) releases it.
+ *
+ * fcntl based locks can be multiply acquired (without reference counting),
+ * meaning it is a no-op to relock an already locked file. it is also ok
+ * to unlock an already-unlocked file. See Kerrisk, TLPI p1128 "It is not an
+ * error to unlock a region on which we don't currently hold a lock". This 
+ * simplifies this library because we can unlock without keeping the status
+ * of the previous lock (in other words, a failed lock can goto an unlock/return
+ * clause and that's ok).
+ *
+ * lastly, on Linux you can see the active locks in /proc/locks
+ *
  */
 static int lock(int fd) {
   int rc = -1;
@@ -84,7 +97,6 @@ static int lock(int fd) {
   return rc;
 }
 
-/* TODO confirm behavior on releasing lock multiply and obtaining multiply */
 static int unlock(int fd) {
   int rc = -1;
   const struct flock f = { .l_type = F_UNLCK, .l_whence = SEEK_SET, };
@@ -184,7 +196,10 @@ int make_bell(char *file, shr_ctrl *r) {
  *
  * succeeds only if the file is created new.  Attempts to resize an existing
  * file or init an existing file, even of the same size, fail.
- * TODO flags for resize, ok-if-exists, ..
+ *
+ * flags:
+ *    SHR_INIT_OVERWRITE - permits ring to exist already, overwrites it
+ *    SHR_INIT_KEEPEXIST - permits ring to exist already, leaves size/content
  *
  */
 int shr_init(char *file, size_t sz, int flags, ...) {
@@ -198,7 +213,22 @@ int shr_init(char *file, size_t sz, int flags, ...) {
     goto done;
   }
 
-  assert(flags == 0);
+  /* if ring exists already, flags determine behavior */
+  struct stat st;
+  if (stat(file, &st) == 0) { /* exists */
+    if (flags & SHR_INIT_OVERWRITE) {
+      if (unlink(file) < 0) {
+        fprintf(stderr, "unlink %s: %s\n", file, strerror(errno));
+        goto done;
+      }
+    } else if (flags & SHR_INIT_KEEPEXIST) {
+      rc = 0;
+      goto done;
+    } else {
+      fprintf(stderr,"shr_init: %s already exists\n", file);
+      goto done;
+    }
+  }
 
   int fd = open(file, O_RDWR|O_CREAT|O_EXCL, CREAT_MODE);
   if (fd == -1) {
