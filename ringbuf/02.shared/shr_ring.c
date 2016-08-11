@@ -17,6 +17,7 @@
 #define CREAT_MODE 0644
 #define MIN_RING_SZ (sizeof(shr_ctrl) + 1)
 #define SHR_PATH_MAX 128
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
 /* gflags */
 #define W_WANT_SPACE (1U << 0)
@@ -60,13 +61,13 @@ static void oom_exit(void) {
   abort();
 }
 
-/* get the lock on the ring file. we use one lock for any read or write, 
+/* get the lock on the ring file. we use a file lock for any read or write, 
  * because even the reader adjusts the position in the ring buffer. note,
  * we use a blocking wait (F_SETLKW) for the lock. this should be obtainable
- * quickly because a locked reader should read and release. however, if a
- * signal comes in while we await the lock, fcntl can return EINTR. since we
- * are a library, we do not alter the application's signal handling behavior.
- * rather, we propagate the "error" up to the application to deal with. 
+ * quickly because a locked reader should read and release in bounded time.
+ * if a signal comes in while we await the lock, fcntl can return EINTR. since
+ * we are a library, we do not alter the application's signal handling.
+ * rather, we propagate the condition up to the application to deal with. 
  *
  * also note, since this is a POSIX file lock, anything that closes the 
  * descriptor (such as killing the application holding the lock) releases it.
@@ -348,17 +349,17 @@ struct shr *shr_open(char *file, int flags) {
 
   if (validate_ring(s) < 0) goto done;
 
-  /* this epoll object is used when blocking waiting for data or space */
+  /* this epoll object is used when blocking for data or space */
   s->epoll_fd = epoll_create(1); 
   if (s->epoll_fd == -1) {
     fprintf(stderr,"epoll_create: %s\n", strerror(errno));
     goto done;
   }
 
-  /* the bell is a pair of fifo's. open them in O_RDWR. this is ok on Linux,
-   * see fifo(7). we use O_RDWR because the peer (reader, or writer) may not
-   * exist at the same time as us. the bell notifies the peer if it exists,
-   * and is a no-op if the peer is absent.  
+  /* the bell is a pair of fifo's. open'd in O_RDWR. this is ok on Linux,
+   * see fifo(7). we use O_RDWR because the peer (reader, or writer) may or 
+   * may not exist at the same time as us. the bell notifies the peer if it
+   * exists, and is a no-op if the peer is absent.  
    */
   s->w2r = open(s->r->w2r, O_RDWR); 
   if (s->w2r < 0) {
@@ -403,11 +404,14 @@ struct shr *shr_open(char *file, int flags) {
   return s;
 }
 
-/* this is how we wake up a process blocked on ring data availability. 
- * if it would block, the fifo is full thus the reader (when it gets
- * around to it) can already tell there is data in the ring. so, it is
- * fine to silently proceed if the fifo would block.
+/* 
+ * to ring the bell we write a byte (non-blocking) to a fifo. this notifies
+ * the peer if it exists, and is harmless otherwise. also if the fifo is full
+ * we consider this to have succeeded, because the point of the fifo is to be
+ * readable when data is available; and a full fifo already satisfies that need.
  *
+ * we only ring the bell when the peer R_WANTS_DATA or W_WANTS_SPACE. though,
+ * it is harmless to ring it superfluously, as the peer reblocks as needed.
 */
 static int ring_bell(struct shr *s) {
   int rc = -1;
@@ -418,12 +422,15 @@ static int ring_bell(struct shr *s) {
   if ((s->flags & SHR_WRONLY) && (s->r->gflags & R_WANT_DATA))  fd = s->w2r;
   if ((s->flags & SHR_RDONLY) && (s->r->gflags & W_WANT_SPACE)) fd = s->r2w;
 
-	if (fd != -1) {
-    nr = write(fd, &b, sizeof(b));
-    if ((nr < 0) && !((errno == EWOULDBLOCK) || (errno == EAGAIN))) {
-      fprintf(stderr, "write: %s\n", strerror(errno));
-      goto done;
-    }
+	if (fd == -1) { /* no peer awaits bell right now */
+    rc = 0;
+    goto done;
+	}
+
+  nr = write(fd, &b, sizeof(b));
+  if ((nr < 0) && !((errno == EWOULDBLOCK) || (errno == EAGAIN))) {
+    fprintf(stderr, "write: %s\n", strerror(errno));
+    goto done;
   }
 
   rc = 0;
@@ -432,9 +439,23 @@ static int ring_bell(struct shr *s) {
   return rc;
 }
 
-/* copy data in. fails if ringbuf has insuff space. */
-#define MIN(a,b) (((a) < (b)) ? (a) : (b))
 // TODO if write exceeds free space, block on fifo
+// TODO clear the gflags after
+
+/* 
+ * write data into ring
+ *
+ * if there is sufficient space in the ring - copy the whole buffer in.
+ * if there is insufficient free space in the ring- wait for space, or
+ * return 0 immediately in non-blocking mode.
+ *
+ * returns:
+ *   > 0 (number of bytes copied into ring, always the full buffer)
+ *   0   (insufficient space in ring, in non-blocking mode)
+ *  -1   (error, such as the buffer exceeds the total ring capacity)
+ *  -2   (signal arrived while blocked waiting for ring)
+ *
+ */
 ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   int rc = -1;
   shr_ctrl *r = s->r;
@@ -442,6 +463,8 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   /* since this function returns signed, cap len */
   if (len > SSIZE_MAX) goto done;
 
+ again:
+  rc = -1;
   if (lock(s->ring_fd) < 0) goto done;
   
   size_t a,b,c;
@@ -483,16 +506,12 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
  *  block for data if none
  */
 
-/* read the fifo, causing us to block, then draining it (usually) in a single read.
- * it is only used as a means of blocking. the content and even the count
- * of bytes is discarded, because the writer puts a byte in whenever we're
- * blocked and it writes data. we wake up (unblock), then the caller (e.g.
- * if its the reader) consumes as much it wants. this is all written so that
- * its ok to unblock when there is no data, or for the reader to be called
- * multiple times to absorb the pending data. any time the reader wants data
- * it first looks in the ring, then blocks. if there is no data it blocks again.
- * this allows the sync from the writer to avoid close coupling entanglements.
- * 
+/* read the fifo, causing us to block, awaiting notification from the peer.
+ * for a reader process, the notification (fifo readability) means that we
+ * should check the ring for new data. for a writer process, the notification
+ * means that space has become available in the ring. both of these only
+ * occur if we have told the peer to notify us by setting s->r->gflags
+ *
  * returns 0 on normal wakeup, 
  *        -1 on error, 
  *        -2 on signal while blocked
