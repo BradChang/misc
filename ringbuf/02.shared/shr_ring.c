@@ -2,7 +2,6 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/file.h>
-#include <sys/epoll.h>
 #include <unistd.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -47,9 +46,7 @@ struct shr {
   int ring_fd;
   int r2w;
   int w2r;
-  int epoll_fd;
   unsigned flags;
-  struct epoll_event ev;
   union {
     char *buf;   /* mmap'd area */
     shr_ctrl *r;
@@ -275,23 +272,6 @@ static int validate_ring(struct shr *s) {
   return rc;
 }
 
-static int make_waitable(struct shr *s, int fd) {
-	int rc = -1;
-
-	s->ev.events = EPOLLIN;
-	s->ev.data.fd = fd;
-
-	if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &s->ev) < 0) {
-		fprintf(stderr, "epoll_ctl: %s\n", strerror(errno));
-		goto done;
-	}
-
-  rc = 0;
-
- done:
-  return rc;
-}
-
 static int make_nonblock(int fd) {
 	int fl, unused = 0, rc = -1;
 
@@ -327,7 +307,6 @@ struct shr *shr_open(char *file, int flags) {
   s->ring_fd = -1;
   s->w2r = -1;
   s->r2w = -1;
-  s->epoll_fd = -1;
   s->flags = flags;
 
   size_t l = strlen(file) + 1;
@@ -356,13 +335,6 @@ struct shr *shr_open(char *file, int flags) {
 
   if (validate_ring(s) < 0) goto done;
 
-  /* this epoll object is used when blocking for data or space */
-  s->epoll_fd = epoll_create(1); 
-  if (s->epoll_fd == -1) {
-    fprintf(stderr,"epoll_create: %s\n", strerror(errno));
-    goto done;
-  }
-
   /* the bell is a pair of fifo's. open'd in O_RDWR. this is ok on Linux,
    * see fifo(7). we use O_RDWR because the peer (reader, or writer) may or 
    * may not exist at the same time as us. the bell notifies the peer if it
@@ -388,12 +360,12 @@ struct shr *shr_open(char *file, int flags) {
    */
   if (flags & SHR_RDONLY) {  /* this process is a reader */
      if (make_nonblock(s->r2w) < 0) goto done;  /* w may be absent, nonblock */
-     if (make_waitable(s,s->w2r) < 0) goto done;  /* can wait on notify from w */
+     /* s->w2r is blocking */
   }
 
   if (flags & SHR_WRONLY) {  /* this process is a writer */
      if (make_nonblock(s->w2r) < 0) goto done;  /* r may be absent, nonblock */
-     if (make_waitable(s,s->r2w) < 0) goto done;  /* can wait on notify from r */
+     /* s->r2w is blocking */
   }
 
   rc = 0;
@@ -403,7 +375,6 @@ struct shr *shr_open(char *file, int flags) {
     if (s->ring_fd != -1) close(s->ring_fd);
     if (s->w2r != -1) close(s->w2r);
     if (s->r2w != -1) close(s->r2w);
-    if (s->epoll_fd != -1) close(s->epoll_fd);
     if (s->buf && (s->buf != MAP_FAILED)) munmap(s->buf, s->s.st_size);
     free(s);
     s = NULL;
@@ -626,7 +597,6 @@ void shr_close(struct shr *s) {
   if (s->ring_fd != -1) close(s->ring_fd);
   if (s->w2r != -1) close(s->w2r);
   if (s->r2w != -1) close(s->r2w);
-  if (s->epoll_fd != -1) close(s->epoll_fd);
   if (s->buf && (s->buf != MAP_FAILED)) munmap(s->buf, s->s.st_size);
   free(s);
 }
