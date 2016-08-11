@@ -501,6 +501,8 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
 
   /* since this function returns signed, cap len */
   if (len > SSIZE_MAX) goto done;
+  /* does the buffer exceed total ring capacity */
+  if (len > s->r->n) goto done;
 
  again:
   rc = -1;

@@ -3,7 +3,7 @@ w: ready
 r: open
 w: open
 w: write
-w: rc 0
+w: rc -1
 r: read
 r: read
 w: close
