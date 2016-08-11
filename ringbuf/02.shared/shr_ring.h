@@ -14,6 +14,7 @@ shr *shr_open(char *file, int flags);
 ssize_t shr_read(shr *s, char *buf, size_t len);
 ssize_t shr_write(shr *s, char *buf, size_t len);
 void shr_close(shr *s);
+int shr_unlink(shr *s);
 
 /* shr_open flags */
 #define SHR_RDONLY   (1U << 0)

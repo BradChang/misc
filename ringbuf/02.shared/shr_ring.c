@@ -239,6 +239,13 @@ int shr_init(char *file, size_t sz, int flags, ...) {
   return rc;
 }
 
+/* this can be used as a precursor to shr_close to delete the ring and fifos */
+int shr_unlink(struct shr *s) {
+  unlink(s->name);
+  unlink(s->r->w2r);
+  unlink(s->r->r2w);
+  return 0;
+}
 
 static int validate_ring(struct shr *s) {
   int rc = -1;
