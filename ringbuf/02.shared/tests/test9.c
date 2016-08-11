@@ -25,19 +25,19 @@ int main() {
 
  printf("writing ...");
  nr = shr_write(t, &data[0], 3);    /* write 3 ok */
- printf("%s\n", (nr < 0) ? "fail" : "ok");
+ printf("%s\n", (nr < 0) ? "fail" : ((nr == 0) ? "would block" : "ok"));
 
  printf("writing ...");
  nr = shr_write(t, &data[3], 3); /* fails- can't write 3 more */
- printf("%s\n", (nr < 0) ? "fail" : "ok");
+ printf("%s\n", (nr < 0) ? "fail" : ((nr == 0) ? "would block" : "ok"));
 
  printf("writing ...");
  nr = shr_write(t, &data[3], 2); /* fails- can't write 2 more */
- printf("%s\n", (nr < 0) ? "fail" : "ok");
+ printf("%s\n", (nr < 0) ? "fail" : ((nr == 0) ? "would block" : "ok"));
 
  printf("writing ...");
  nr = shr_write(t, &data[3], 1); /* ok - can write 1 more */
- printf("%s\n", (nr < 0) ? "fail" : "ok");
+ printf("%s\n", (nr < 0) ? "fail" : ((nr == 0) ? "would block" : "ok"));
 
  printf("reading ...");
  nr = shr_read(s, out, sizeof(out));

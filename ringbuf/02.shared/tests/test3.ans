@@ -1,3 +1,4 @@
 writing ...ok
 writing ...ok
-writing ...end
+writing ...non-blocking shr_write: would block
+end

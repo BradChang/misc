@@ -25,8 +25,10 @@ int main() {
 
  /* this should fail */
  printf("writing ...");
- if (shr_write(s, &data[6], 1) < 0) goto done;
- printf("ok\n");
+ int nr = shr_write(s, &data[6], 1);
+ if (nr < 0) goto done;
+ if (nr == 0) printf("non-blocking shr_write: would block\n");
+ else printf("ok\n");
 
  rc = 0;
 

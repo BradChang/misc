@@ -417,73 +417,6 @@ static int ring_bell(struct shr *s) {
   return rc;
 }
 
-// TODO if write exceeds free space, block on fifo
-// TODO clear the gflags after
-
-/* 
- * write data into ring
- *
- * if there is sufficient space in the ring - copy the whole buffer in.
- * if there is insufficient free space in the ring- wait for space, or
- * return 0 immediately in non-blocking mode.
- *
- * returns:
- *   > 0 (number of bytes copied into ring, always the full buffer)
- *   0   (insufficient space in ring, in non-blocking mode)
- *  -1   (error, such as the buffer exceeds the total ring capacity)
- *  -2   (signal arrived while blocked waiting for ring)
- *
- */
-ssize_t shr_write(struct shr *s, char *buf, size_t len) {
-  int rc = -1;
-  shr_ctrl *r = s->r;
-
-  /* since this function returns signed, cap len */
-  if (len > SSIZE_MAX) goto done;
-
- again:
-  rc = -1;
-  if (lock(s->ring_fd) < 0) goto done;
-  
-  size_t a,b,c;
-  if (r->i < r->o) {  // available space is a contiguous buffer
-    a = r->o - r->i; 
-    assert(a == r->n - r->u);
-    if (len > a) goto done;
-    memcpy(&r->d[r->i], buf, len);
-  } else {            // available space wraps; it's two buffers
-    b = r->n - r->i;  // in-head to eob (receives leading input)
-    c = r->o;         // out-head to in-head (receives trailing input)
-    a = b + c;        // available space
-    // the only ambiguous case is i==o, that's why u is needed
-    if (r->i == r->o) a = r->n - r->u; 
-    assert(a == r->n - r->u);
-    if (len > a) goto done;
-    memcpy(&r->d[r->i], buf, MIN(b, len));
-    if (len > b) memcpy(r->d, &buf[b], len-b);
-  }
-  r->i = (r->i + len) % r->n;
-  r->u += len;
-
-  ring_bell(s);
-  rc = 0;
-
- done:
-
-  unlock(s->ring_fd);
-  return (rc == 0) ? (ssize_t)len : -1;
-}
-
-/* TODO get selectable fd for multi-fd library users.
- * note that the behavior must allow for a non-readable fd 
- * even when data is available, because we may have drained the fifo
- * without consuming the ring entirely. so,
- *
- * the behavior of the reader must be 
- *  check the ring
- *  block for data if none
- */
-
 /* read the fifo, causing us to block, awaiting notification from the peer.
  * for a reader process, the notification (fifo readability) means that we
  * should check the ring for new data. for a writer process, the notification
@@ -517,6 +450,83 @@ static int block(struct shr *s, int condition) {
  done:
   return rc;
 }
+
+/* 
+ * write data into ring
+ *
+ * if there is sufficient space in the ring - copy the whole buffer in.
+ * if there is insufficient free space in the ring- wait for space, or
+ * return 0 immediately in non-blocking mode. only writes all or nothing.
+ *
+ * returns:
+ *   > 0 (number of bytes copied into ring, always the full buffer)
+ *   0   (insufficient space in ring, in non-blocking mode)
+ *  -1   (error, such as the buffer exceeds the total ring capacity)
+ *  -2   (signal arrived while blocked waiting for ring)
+ *
+ */
+ssize_t shr_write(struct shr *s, char *buf, size_t len) {
+  int rc = -1;
+  shr_ctrl *r = s->r;
+
+  /* since this function returns signed, cap len */
+  if (len > SSIZE_MAX) goto done;
+
+ again:
+  rc = -1;
+  if (lock(s->ring_fd) < 0) goto done;
+  
+  size_t a,b,c;
+  if (r->i < r->o) {  // available space is a contiguous buffer
+    a = r->o - r->i; 
+    assert(a == r->n - r->u);
+    if (len > a) { /* insufficient space in ring to write len bytes */
+      if (s->flags & SHR_NONBLOCK) { rc = 0; len = 0; goto done; }
+      goto block;
+    }
+    memcpy(&r->d[r->i], buf, len);
+  } else {            // available space wraps; it's two buffers
+    b = r->n - r->i;  // in-head to eob (receives leading input)
+    c = r->o;         // out-head to in-head (receives trailing input)
+    a = b + c;        // available space
+    // the only ambiguous case is i==o, that's why u is needed
+    if (r->i == r->o) a = r->n - r->u; 
+    assert(a == r->n - r->u);
+    if (len > a) { /* insufficient space in ring to write len bytes */
+      if (s->flags & SHR_NONBLOCK) { rc = 0; len = 0; goto done; }
+      goto block;
+    }
+    memcpy(&r->d[r->i], buf, MIN(b, len));
+    if (len > b) memcpy(r->d, &buf[b], len-b);
+  }
+  r->i = (r->i + len) % r->n;
+  r->u += len;
+  s->r->gflags &= ~(W_WANT_SPACE);
+
+  ring_bell(s);
+  rc = 0;
+
+ done:
+
+  unlock(s->ring_fd);
+  return (rc == 0) ? (ssize_t)len : -1;
+
+ block:
+  s->r->gflags |= W_WANT_SPACE;
+  unlock(s->ring_fd);
+  block(s,W_WANT_SPACE);
+  goto again;
+}
+
+/* TODO get selectable fd for multi-fd library users.
+ * note that the behavior must allow for a non-readable fd 
+ * even when data is available, because we may have drained the fifo
+ * without consuming the ring entirely. so,
+ *
+ * the behavior of the reader must be 
+ *  check the ring
+ *  block for data if none
+ */
 
 /*
  * shr_read

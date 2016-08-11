@@ -1,6 +1,6 @@
 writing ...ok
-writing ...fail
-writing ...fail
+writing ...would block
+writing ...would block
 writing ...ok
 reading ...read 4 bytes
 abcd
