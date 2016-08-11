@@ -563,10 +563,18 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
 /*
  * shr_read
  *
- * If blocking, wait until data is available, return num bytes read.
- * If non-blocking, handle as above if data available, else return 0.
- * On error, return -1.
- * On signal while blocked, return -2.
+ * Read from the ring. Block if there is no data in the ring, or return
+ * immediately in non-blocking mode. As with a regular unix read the 
+ * amount of data read may be less than the buffer size, and may be less
+ * than the total data available in the ring (because, at the point the ring
+ * wraps around, read returns the pending data in two successive reads). 
+ *
+ * returns:
+ *   > 0 (number of bytes read from the ring)
+ *   0   (ring empty, in non-blocking mode)
+ *  -1   (error)
+ *  -2   (signal arrived while blocked waiting for ring)
+ *   
  */
 ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   int rc = -1;
