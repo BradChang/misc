@@ -49,7 +49,7 @@ struct shr {
   unsigned flags;
   union {
     char *buf;   /* mmap'd area */
-    shr_ctrl *r;
+    shr_ctrl * volatile r;
   };
 };
 
@@ -303,23 +303,91 @@ static int validate_ring(struct shr *s) {
 }
 
 static int make_nonblock(int fd) {
-	int fl, unused = 0, rc = -1;
+  int fl, unused = 0, rc = -1;
 
-	fl = fcntl(fd, F_GETFL, unused);
-	if (fl < 0) {
-		fprintf(stderr, "fcntl: %s\n", strerror(errno));
-		goto done;
-	}
+  fl = fcntl(fd, F_GETFL, unused);
+  if (fl < 0) {
+    fprintf(stderr, "fcntl: %s\n", strerror(errno));
+    goto done;
+  }
 
-	if (fcntl(fd, F_SETFL, fl | O_NONBLOCK) < 0) {
-		fprintf(stderr, "fcntl: %s\n", strerror(errno));
-		goto done;
-	}
+  if (fcntl(fd, F_SETFL, fl | O_NONBLOCK) < 0) {
+    fprintf(stderr, "fcntl: %s\n", strerror(errno));
+    goto done;
+  }
 
   rc = 0;
 
  done:
   return rc;
+}
+
+static int setup_selectable_r(shr *s) {
+  int rc = -1, fl, unused = 0;
+  char b = 0;
+
+  assert(s->flags & SHR_RDONLY);
+  assert(s->flags & SHR_NONBLOCK);
+  assert(s->flags & SHR_SELECTFD);
+
+  /* leave the want flag on permanently */
+  s->r->gflags |= R_WANT_DATA;
+
+  /* if ring is empty we are done */
+  if (s->r->u == 0) {
+    rc = 0;
+    goto done;
+  }
+
+  /* set initial readability since prior data in ring */
+  fl = fcntl(s->w2r, F_GETFL, unused);
+  if (fl < 0) {
+    fprintf(stderr, "fcntl: %s\n", strerror(errno));
+    goto done;
+  }
+
+  if (fcntl(s->w2r, F_SETFL, fl | O_NONBLOCK) < 0) {
+    fprintf(stderr, "fcntl: %s\n", strerror(errno));
+    goto done;
+  }
+
+  if (write(s->w2r, &b, sizeof(b)) < 0) {
+    if ((errno != EWOULDBLOCK) && (errno != EAGAIN)) {
+      fprintf(stderr, "write: %s\n", strerror(errno));
+      goto done;
+    }
+  }
+
+  if (fcntl(s->w2r, F_SETFL, fl) < 0) {
+    fprintf(stderr, "fcntl: %s\n", strerror(errno));
+    goto done;
+  }
+
+  rc = 0;
+
+ done:
+  return rc;
+}
+
+/*
+ * shr_get_selectable_fd
+ *
+ * this call succeeds only if the ring was opened with SHR_RDONLY|SHR_SELECTFD.
+ * it returns a file descriptor that can be used with select/poll/epoll to tell
+ * when there is data to read. (at which point the application should shr_read).
+ *
+ */
+/* TODO decide whether a w version of this is needed */
+int shr_get_selectable_fd(shr *s) {
+  int rc = -1;
+
+  if ((s->flags & SHR_SELECTFD) == 0) goto done;
+  if ((s->flags & SHR_RDONLY) == 0) goto done;
+
+  rc = 0;
+
+ done:
+  return (rc == 0) ? s->w2r : -1;
 }
 
 struct shr *shr_open(char *file, int flags) {
@@ -391,9 +459,13 @@ struct shr *shr_open(char *file, int flags) {
   if (flags & SHR_RDONLY) {  /* this process is a reader */
      if (make_nonblock(s->r2w) < 0) goto done;  /* w may be absent, nonblock */
      /* s->w2r is blocking */
+     if (flags & SHR_SELECTFD) {
+       if (setup_selectable_r(s) < 0) goto done;
+     }
   }
 
   if (flags & SHR_WRONLY) {  /* this process is a writer */
+     if (flags & SHR_SELECTFD) goto done;       /* select fd mode for r only */
      if (make_nonblock(s->w2r) < 0) goto done;  /* r may be absent, nonblock */
      /* s->r2w is blocking */
   }
@@ -430,10 +502,10 @@ static int ring_bell(struct shr *s) {
   if ((s->flags & SHR_WRONLY) && (s->r->gflags & R_WANT_DATA))  fd = s->w2r;
   if ((s->flags & SHR_RDONLY) && (s->r->gflags & W_WANT_SPACE)) fd = s->r2w;
 
-	if (fd == -1) { /* no peer awaits bell right now */
+  if (fd == -1) { /* no peer awaits bell right now */
     rc = 0;
     goto done;
-	}
+  }
 
   nr = write(fd, &b, sizeof(b));
   if ((nr < 0) && !((errno == EWOULDBLOCK) || (errno == EAGAIN))) {
@@ -610,10 +682,13 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
     r->u -= nr;
   }
 
-  /* data consumed from the ring. clear any notification request
-   * in gflags. ring bell to notify writer if awaiting free space.  */
+  /* data was consumed from the ring. clear WANT_DATA in gflags. (unless we are
+   * in selectfd mode, in which case, leave WANT_DATA on, so that the writer
+   * process rings the bell even when we're in caller code outside of this
+   * library. since, blocking is done externally in caller code in that case).
+   * also, since data has been consumed, ring bell if writer awaiting space.  */
   if (nr > 0) {
-    s->r->gflags &= ~(R_WANT_DATA);
+    if ((s->r->gflags & SHR_SELECTFD) == 0) s->r->gflags &= ~(R_WANT_DATA);
     ring_bell(s);
   }
 
