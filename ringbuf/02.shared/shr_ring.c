@@ -25,17 +25,23 @@
 static char magic[] = "aredringsh";
 
 /* this struct is mapped to the beginning of the mmap'd file. 
+ * the beginning fields are created at the time of shr_init
+ * (in other words, before the lifecycle of shr_open/rw/close).
+ * so those fields are fixed for the life of the ring. the flags
+ * and internal offsets constantly change, under posix file lock,
+ * as data enters or is copied from, the ring. they are volatile
+ * because another process updates them in shared memory. 
  */
 typedef struct {
   char magic[sizeof(magic)];
   int version;
-  unsigned gflags;
   char w2r[SHR_PATH_MAX]; /* w->r fifo */
   char r2w[SHR_PATH_MAX]; /* r->w fifo */
-  size_t n; /* allocd size */
-  size_t u; /* used space */
-  size_t i; /* input pos */
-  size_t o; /* output pos */
+  unsigned volatile gflags;
+  size_t volatile n; /* allocd size */
+  size_t volatile u; /* used space */
+  size_t volatile i; /* input pos */
+  size_t volatile o; /* output pos */
   char d[]; /* C99 flexible array member */
 } shr_ctrl;
 
@@ -49,7 +55,7 @@ struct shr {
   unsigned flags;
   union {
     char *buf;   /* mmap'd area */
-    shr_ctrl * volatile r;
+    shr_ctrl * r;
   };
 };
 
