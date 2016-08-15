@@ -3,13 +3,21 @@ w: ready
 r: open
 w: open
 w: write
-w: rc 9
+r: read
+r: [sq]
+r: read
+r: [ui]
+r: read
+r: [rr]
+r: read
+r: [el]
+r: read
+r: []
 w: write
 r: read
-r: [squirrel]
-w: rc 9
+r: [sq]
 r: read
-r: [squirrel]
+r: [ui]
 w: unlink
 w: close
 r: close

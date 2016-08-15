@@ -164,13 +164,11 @@ int main() {
 
   issue(W, do_write); /* ok - writes 9 bytes */
   issue(W, do_write); /* blocks - only 1 free byte in ring */
-  issue(R, do_read);  /* consumes 9 bytes; unblocks w; w writes 9 more bytes */
-  issue(R, do_read);  /* read s (buffer wraps) */
-  issue(R, do_read);  /* read quirrel */
+  issue(R, do_read);  /* consumes squirrel; unblocks w; w writes squirrel again*/
+  issue(R, do_read);  /* read second squirrel */
 
   issue(R, do_read);  /* blocks */
-  issue(W, do_write); /* writes 9 bytes; unblocks r; r reads 2 bytes (buffer wrap) */
-  issue(R, do_read);  /* no need to block; reads 7 bytes uirrel\0 */
+  issue(W, do_write); /* writes; unblocks r; r reads third squirrel */
 
   issue(W, do_unlink);
   issue(W, do_close);

@@ -7,9 +7,7 @@ r: read
 r: [squirrel]
 r: read
 w: write
-r: [s]
-r: read
-r: [quirrel]
+r: [squirrel]
 w: unlink
 w: close
 r: close

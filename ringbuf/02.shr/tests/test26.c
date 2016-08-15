@@ -16,7 +16,7 @@ char *ring = __FILE__ ".ring";
 
 void r(int fd) {
   shr *s = NULL;
-  char op, buf[10];
+  char op, buf[2];
   int rc;
 
   printf("r: ready\n");
@@ -162,11 +162,15 @@ int main() {
   issue(R, do_open);
   issue(W, do_open);
 
-  issue(W, do_write);
-  issue(R, do_read); /* no need to block */
-
-  issue(R, do_read); /* blocks */
-  issue(W, do_write);/* read unblocks, reads squirrel */
+  issue(W, do_write);/* u = 1 */
+  issue(R, do_read); /* read sq */
+  issue(R, do_read); /* read   ui */
+  issue(R, do_read); /* read     rr */
+  issue(R, do_read); /* read       el */
+  issue(R, do_read); /* read         \0 */
+  issue(W, do_write); /* s <eob> <wrap> quirrel */
+  issue(R, do_read); /* read           s <wrap> q */
+  issue(R, do_read); /* read                     ui */
 
   issue(W, do_unlink);
   issue(W, do_close);

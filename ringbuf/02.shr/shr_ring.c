@@ -646,7 +646,7 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
 ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   int rc = -1;
   shr_ctrl *r = s->r;
-  size_t nr;
+  size_t nr, wr;
   char *from;
 
   /* since this function returns signed, cap len */
@@ -670,17 +670,21 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
     nr = 0;
   } else {
     // if we're here, that means r->o > r->i. the pending
-    // output is wrapped around the buffer. this function 
-    // returns the chunk prior to eob. caller's has to call
-    // again to get the next chunk wrapped around the buffer.
+    // output is wrapped around the buffer. 
     size_t b,c;
-    b = r->n - r->o; // length of the part we're returning
-    c = r->i;        // wrapped part length- a sanity check
+    b = r->n - r->o; // length of the part before eob
+    c = r->i;        // length of the part after wrap
     assert(r->u == b + c);
     from = &r->d[r->o];
     nr = b;
     if (len < nr) nr = len;
     memcpy(buf, from, nr);
+    /* copy part after wrap */
+    wr = MIN(len-nr, c);
+    if (wr > 0) {
+      memcpy(buf+nr, r->d, wr);
+      nr += wr;
+    }
     /* mark consumed */
     r->o = (r->o + nr ) % r->n;
     r->u -= nr;
