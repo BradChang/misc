@@ -634,9 +634,7 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
  * Read from the ring. Block if there is no data in the ring, or return
  * immediately in non-blocking mode. As with traditional unix read(2)- multiple
  * shr_reads may be required to consume the data available in the ring, because
- * the provided buffer may be too small to absorb it all at once, and because,
- * at the point the ring wraps around, shr_read returns the pending data in two
- * successive reads.
+ * the provided buffer may be too small to absorb it all at once.
  *
  * returns:
  *   > 0 (number of bytes read from the ring)
