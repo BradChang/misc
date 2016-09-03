@@ -8,15 +8,12 @@
 
 char *ring = __FILE__ ".ring";
 
-#define do_open   'o'
-#define do_close  'c'
-#define do_write  'w'
-#define do_read   'r'
-#define do_unlink 'u'
+#define do_open 'o'
+#define do_close 'c'
 
 void r(int fd) {
   shr *s = NULL;
-  char op, buf[10];
+  char op;
   int rc;
 
   printf("r: ready\n");
@@ -34,14 +31,9 @@ void r(int fd) {
     assert(rc == sizeof(op));
     switch(op) {
       case do_open:
-        s = shr_open(ring, SHR_RDONLY);
+        s = shr_open(ring, SHR_RDONLY|SHR_NONBLOCK);
         if (s == NULL) goto done;
         printf("r: open\n");
-        break;
-      case do_read:
-        printf("r: read\n");
-        rc = shr_read(s, buf, sizeof(buf));
-        if (rc > 0) printf("r: [%.*s]\n", rc, buf);
         break;
       case do_close:
         assert(s);
@@ -59,7 +51,7 @@ void r(int fd) {
 
 void w(int fd) {
   shr *s = NULL;
-  char op, msg[] = "squirrel";
+  char op;
   int rc;
 
   printf("w: ready\n");
@@ -77,18 +69,9 @@ void w(int fd) {
     assert(rc == sizeof(op));
     switch(op) {
       case do_open:
-        s = shr_open(ring, SHR_WRONLY);
+        s = shr_open(ring, SHR_WRONLY|SHR_NONBLOCK);
         if (s == NULL) goto done;
         printf("w: open\n");
-        break;
-      case do_write:
-        printf("w: write\n");
-        rc = shr_write(s, msg, sizeof(msg));
-        if (rc != sizeof(msg)) printf("w: rc %d\n", rc);
-        break;
-      case do_unlink:
-        printf("w: unlink\n");
-        shr_unlink(s);
         break;
       case do_close:
         assert(s);
@@ -162,12 +145,6 @@ int main() {
   issue(R, do_open);
   issue(W, do_open);
 
-  issue(W, do_write); /* ok - writes 9 bytes */
-  issue(W, do_write); /* blocks - only 1 free byte in ring */
-  issue(R, do_read);  /* consumes 9 bytes; unblocks w; w writes 9 more bytes */
-  issue(R, do_read);  /* read squirrel */
-
-  issue(W, do_unlink);
   issue(W, do_close);
   issue(R, do_close);
 
@@ -177,7 +154,7 @@ int main() {
  rc = 0;
 
 done:
- unlink(ring);
- printf("end\n");
- return rc;
+  unlink(ring);
+  printf("end\n");
+  return rc;
 }

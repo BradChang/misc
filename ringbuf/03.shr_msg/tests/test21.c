@@ -16,7 +16,7 @@ char *ring = __FILE__ ".ring";
 
 void r(int fd) {
   shr *s = NULL;
-  char op, buf[10];
+  char op, c;
   int rc;
 
   printf("r: ready\n");
@@ -40,8 +40,8 @@ void r(int fd) {
         break;
       case do_read:
         printf("r: read\n");
-        rc = shr_read(s, buf, sizeof(buf));
-        if (rc > 0) printf("r: [%.*s]\n", rc, buf);
+        rc = shr_read(s, &c, sizeof(c)); // byte read
+        if (rc > 0) printf("r: [%c]\n", c);
         break;
       case do_close:
         assert(s);
@@ -84,7 +84,7 @@ void w(int fd) {
       case do_write:
         printf("w: write\n");
         rc = shr_write(s, msg, sizeof(msg));
-        if (rc != sizeof(msg)) printf("w: rc %d\n", rc);
+        /* if (rc != sizeof(msg)) */ printf("w: rc %d\n", rc);
         break;
       case do_unlink:
         printf("w: unlink\n");
@@ -162,10 +162,31 @@ int main() {
   issue(R, do_open);
   issue(W, do_open);
 
+  /* this test shows that a blocked writer, waiting for space in the ring,
+   * reblocks repeatedly if fewer bytes are liberated in the ring than it 
+   * requires, until enough have been released that a full write can occur */
+
   issue(W, do_write); /* ok - writes 9 bytes */
   issue(W, do_write); /* blocks - only 1 free byte in ring */
-  issue(R, do_read);  /* consumes 9 bytes; unblocks w; w writes 9 more bytes */
-  issue(R, do_read);  /* read squirrel */
+  issue(R, do_read);  /* consumes s; unblocks w; w lacks space; w reblocks */
+  issue(R, do_read);  /* consumes q; unblocks w; w lacks space; w reblocks */
+  issue(R, do_read);  /* consumes u; unblocks w; w lacks space; w reblocks */
+  issue(R, do_read);  /* consumes i; unblocks w; w lacks space; w reblocks */
+  issue(R, do_read);  /* consumes r; unblocks w; w lacks space; w reblocks */
+  issue(R, do_read);  /* consumes r; unblocks w; w lacks space; w reblocks */
+  issue(R, do_read);  /* consumes e; unblocks w; w lacks space; w reblocks */
+  issue(R, do_read);  /* consumes l; unblocks w; w sees 9 bytes free; writes */
+
+  issue(R, do_read);  /* consumes \0 */
+  issue(R, do_read);  /* consumes s (buffer wraps) */
+  issue(R, do_read);  /* consumes q */
+  issue(R, do_read);  /* consumes u */
+  issue(R, do_read);  /* consumes i */
+  issue(R, do_read);  /* consumes r */
+  issue(R, do_read);  /* consumes r */
+  issue(R, do_read);  /* consumes e */
+  issue(R, do_read);  /* consumes l */
+  issue(R, do_read);  /* consumes \0 */
 
   issue(W, do_unlink);
   issue(W, do_close);

@@ -8,11 +8,10 @@
 
 char *ring = __FILE__ ".ring";
 
-#define do_open   'o'
-#define do_close  'c'
-#define do_write  'w'
-#define do_read   'r'
-#define do_unlink 'u'
+#define do_open  'o'
+#define do_close 'c'
+#define do_write 'w'
+#define do_read  'r'
 
 void r(int fd) {
   shr *s = NULL;
@@ -34,7 +33,7 @@ void r(int fd) {
     assert(rc == sizeof(op));
     switch(op) {
       case do_open:
-        s = shr_open(ring, SHR_RDONLY);
+        s = shr_open(ring, SHR_RDONLY|SHR_NONBLOCK);
         if (s == NULL) goto done;
         printf("r: open\n");
         break;
@@ -77,7 +76,7 @@ void w(int fd) {
     assert(rc == sizeof(op));
     switch(op) {
       case do_open:
-        s = shr_open(ring, SHR_WRONLY);
+        s = shr_open(ring, SHR_WRONLY|SHR_NONBLOCK);
         if (s == NULL) goto done;
         printf("w: open\n");
         break;
@@ -85,10 +84,6 @@ void w(int fd) {
         printf("w: write\n");
         rc = shr_write(s, msg, sizeof(msg));
         if (rc != sizeof(msg)) printf("w: rc %d\n", rc);
-        break;
-      case do_unlink:
-        printf("w: unlink\n");
-        shr_unlink(s);
         break;
       case do_close:
         assert(s);
@@ -162,12 +157,9 @@ int main() {
   issue(R, do_open);
   issue(W, do_open);
 
-  issue(W, do_write); /* ok - writes 9 bytes */
-  issue(W, do_write); /* blocks - only 1 free byte in ring */
-  issue(R, do_read);  /* consumes 9 bytes; unblocks w; w writes 9 more bytes */
-  issue(R, do_read);  /* read squirrel */
+  issue(W, do_write);
+  issue(R, do_read);
 
-  issue(W, do_unlink);
   issue(W, do_close);
   issue(R, do_close);
 

@@ -1,16 +1,12 @@
 r: ready
 w: ready
-r: open
 w: open
+r: open
 w: write
-w: write
+r: undersized read
+r: -3
 r: read
-r: [squirrel]
-r: read
-r: [squirrel]
-r: read
-w: write
-r: [squirrel]
+r: 361
 w: unlink
 w: close
 r: close

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <sys/wait.h>
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
@@ -13,11 +14,13 @@ char *ring = __FILE__ ".ring";
 #define do_write  'w'
 #define do_read   'r'
 #define do_unlink 'u'
+#define do_select 's'
+#define do_get_fd 'g'
 
 void r(int fd) {
   shr *s = NULL;
-  char op, buf[10];
-  int rc;
+  char op, c;
+  int rc, selectable_fd=-1;
 
   printf("r: ready\n");
 
@@ -34,14 +37,34 @@ void r(int fd) {
     assert(rc == sizeof(op));
     switch(op) {
       case do_open:
-        s = shr_open(ring, SHR_RDONLY);
+        s = shr_open(ring, SHR_RDONLY|SHR_NONBLOCK|SHR_SELECTFD);
         if (s == NULL) goto done;
         printf("r: open\n");
         break;
+      case do_get_fd:
+        printf("r: get selectable fd\n");
+        selectable_fd = shr_get_selectable_fd(s);
+        if (selectable_fd < 0) goto done;
+        break;
+      case do_select:
+        printf("r: select\n");
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(selectable_fd, &fds);
+        struct timeval tv = {.tv_sec = 1, .tv_usec =0};
+        rc = select(selectable_fd+1, &fds, NULL, NULL, &tv);
+        if (rc < 0) printf("r: select %s\n", strerror(errno));
+        else if (rc == 0) printf("r: timeout\n");
+        else if (rc == 1) printf("r: ready\n");
+        else assert(0);
+        break;
       case do_read:
-        printf("r: read\n");
-        rc = shr_read(s, buf, sizeof(buf));
-        if (rc > 0) printf("r: [%.*s]\n", rc, buf);
+        do {
+          printf("r: read\n");
+          rc = shr_read(s, &c, sizeof(c)); // byte read
+          if (rc > 0) printf("r: [%c]\n", c);
+          if (rc == 0) printf("r: wouldblock\n");
+        } while (rc > 0);
         break;
       case do_close:
         assert(s);
@@ -84,7 +107,7 @@ void w(int fd) {
       case do_write:
         printf("w: write\n");
         rc = shr_write(s, msg, sizeof(msg));
-        if (rc != sizeof(msg)) printf("w: rc %d\n", rc);
+        /* if (rc != sizeof(msg)) printf("w: rc %d\n", rc); */
         break;
       case do_unlink:
         printf("w: unlink\n");
@@ -117,7 +140,7 @@ void delay() { usleep(50000); }
 
 int main() {
   int rc = 0;
-  pid_t pid;
+  pid_t rpid,wpid;
 
   setbuf(stdout,NULL);
   unlink(ring);
@@ -129,9 +152,9 @@ int main() {
 
   if (pipe(pipe_to_r) < 0) goto done;
 
-  pid = fork();
-  if (pid < 0) goto done;
-  if (pid == 0) { /* child */
+  rpid = fork();
+  if (rpid < 0) goto done;
+  if (rpid == 0) { /* child */
     close(pipe_to_r[1]);
     r(pipe_to_r[0]);
     assert(0); /* not reached */
@@ -143,9 +166,9 @@ int main() {
   delay();
 
   if (pipe(pipe_to_w) < 0) goto done;
-  pid = fork();
-  if (pid < 0) goto done;
-  if (pid == 0) { /* child */
+  wpid = fork();
+  if (wpid < 0) goto done;
+  if (wpid == 0) { /* child */
     close(pipe_to_r[1]);
     close(pipe_to_w[1]);
     w(pipe_to_w[0]);
@@ -159,20 +182,26 @@ int main() {
 
   delay();
 
-  issue(R, do_open);
-  issue(W, do_open);
+  /* reader block in select before writer opens the ring */
 
-  issue(W, do_write); /* ok - writes 9 bytes */
-  issue(W, do_write); /* blocks - only 1 free byte in ring */
-  issue(R, do_read);  /* consumes 9 bytes; unblocks w; w writes 9 more bytes */
-  issue(R, do_read);  /* read squirrel */
+  issue(R, do_open);
+  issue(R, do_get_fd);
+  issue(R, do_select);
+
+  issue(W, do_open);
+  issue(W, do_write);  /* wakes up select */
+
+  issue(R, do_read);   /* read til wouldblock */
+  issue(R, do_close);
 
   issue(W, do_unlink);
   issue(W, do_close);
-  issue(R, do_close);
 
   close(W); delay();
   close(R); delay();
+
+  waitpid(rpid,NULL,0);
+  waitpid(wpid,NULL,0);
 
  rc = 0;
 

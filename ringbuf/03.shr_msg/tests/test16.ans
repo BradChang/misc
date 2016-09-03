@@ -2,12 +2,6 @@ r: ready
 w: ready
 r: open
 w: open
-w: write
-w: write
-r: read
-r: [squirrel]
-r: read
-r: [squirrel]
 r: read
 w: write
 r: [squirrel]
@@ -16,4 +10,5 @@ w: close
 r: close
 w: eof
 r: eof
+already unlinked
 end

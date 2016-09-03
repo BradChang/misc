@@ -3,15 +3,10 @@ w: ready
 r: open
 w: open
 w: write
-w: write
 r: read
-r: [squirrel]
+r: [squir]
 r: read
-r: [squirrel]
-r: read
-w: write
-r: [squirrel]
-w: unlink
+r: [rel]
 w: close
 r: close
 w: eof
