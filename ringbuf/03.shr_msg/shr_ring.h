@@ -21,6 +21,7 @@ int shr_unlink(shr *s);
 #define SHR_INIT_OVERWRITE (1U << 0)
 #define SHR_INIT_KEEPEXIST (1U << 1)
 #define SHR_INIT_MESSAGES  (1U << 2)
+#define SHR_INIT_LRU_STOMP (1U << 3)
 
 /* shr_open flags */
 #define SHR_RDONLY   (1U << 0)

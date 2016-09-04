@@ -118,6 +118,34 @@ static int unlock(int fd) {
   return rc;
 }
 
+static void hexdump(char *buf, size_t len) {
+  size_t i,n=0;
+  char c;
+  while(n < len) {
+    for(i=0; i < 16; i++) {
+      c = (n+i < len) ? buf[n+i] : 0;
+      if (n+i < len) fprintf(stderr,"%.2x ", c);
+      else fprintf(stderr, "   ");
+    }
+    for(i=0; i < 16; i++) {
+      c = (n+i < len) ? buf[n+i] : ' ';
+      if (c < 0x20 || c > 0x7e) c = '.';
+      fprintf(stderr,"%c",c);
+    }
+    fprintf(stderr,"\n");
+    n += 16;
+  }
+}
+
+__attribute__ ((__unused__)) static void debug_ring(struct shr *s) {
+  fprintf(stderr,"ring size %ld\n", s->r->n);
+  fprintf(stderr,"ring used %ld\n", s->r->u);
+  fprintf(stderr,"ring rpos %ld\n", s->r->o);
+  fprintf(stderr,"ring wpos %ld\n", s->r->i);
+  hexdump(s->r->d, s->r->n);
+  fprintf(stderr,"\n");
+}
+
 /* dirname and basename are destructive and return volatile memory. wrap them up
  */
 static int dirbasename(char *file, char *out, size_t outlen, int dir) {
@@ -262,7 +290,8 @@ int shr_init(char *file, size_t sz, int flags, ...) {
   r->n = file_sz - sizeof(*r);
 
   r->gflags = 0;
-  if (flags & SHR_INIT_MESSAGES) r->gflags |= SHR_INIT_MESSAGES;
+  if (flags & SHR_INIT_MESSAGES)  r->gflags |= SHR_INIT_MESSAGES;
+  if (flags & SHR_INIT_LRU_STOMP) r->gflags |= SHR_INIT_LRU_STOMP;
 
   if (make_bell(file, r) < 0) goto done;
 
@@ -562,7 +591,45 @@ static int block(struct shr *s, int condition) {
   return rc;
 }
 
+/* helper function; given ring offset o (pointing to a message length prefix)
+ * read it, taking into account the possibility that the prefix wraps around */
+static size_t get_msg_len(struct shr *s, size_t o) {
+  size_t msg_len, hdr = sizeof(size_t);
+  assert(o < s->r->n);
+  assert(s->r->u >= hdr);
+  size_t b = s->r->n - o; /* bytes at o til wrap */
+  memcpy(&msg_len, &s->r->d[o], MIN(b, hdr));
+  if (b < hdr) memcpy( ((char*)&msg_len) + b, s->r->d, hdr-b);
+  return msg_len;
+}
+
 /* 
+ * this function is called under lock to forcibly reclaim space from the ring,
+ * (SHR_INIT_LRU_STOMP mode). The oldest portion of ring data is sacrificed.
+ *
+ */
+static void reclaim(struct shr *s, size_t delta) {
+  size_t o, reclaimed=0, msg_len;
+  fprintf(stderr,"reclaim\n");
+
+  /* if this is a ring of messages, preserve boundaries. 
+   * move the read position to the next message >= delta
+   */
+  if (s->r->gflags & SHR_INIT_MESSAGES) {
+    for(o = s->r->o; reclaimed < delta; reclaimed += msg_len) {
+      msg_len = get_msg_len(s,o) + sizeof(size_t);
+      o = (o + msg_len ) % s->r->n;
+    }
+    fprintf(stderr,"delta %ld bumped to %ld\n", delta, reclaimed);
+    delta = reclaimed;
+  }
+
+  s->r->o = (s->r->o + delta) % s->r->n;
+  s->r->u -= delta;
+  /* TODO note losing */
+}
+
+/*
  * write data into ring
  *
  * if there is sufficient space in the ring - copy the whole buffer in.
@@ -596,6 +663,7 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
     a = r->o - r->i; 
     assert(a == r->n - r->u);
     if (len + hdr > a) { /* insufficient space in ring to write len bytes */
+      if (s->r->gflags & SHR_INIT_LRU_STOMP) { reclaim(s, len+hdr - a); goto again; }
       if (s->flags & SHR_NONBLOCK) { rc = 0; len = 0; goto done; }
       goto block;
     }
@@ -613,6 +681,7 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
     assert(a == r->n - r->u);
     if (len + hdr > a) { /* insufficient space in ring to write len bytes */
       if (s->flags & SHR_NONBLOCK) { rc = 0; len = 0; goto done; }
+      if (s->r->gflags & SHR_INIT_LRU_STOMP) { reclaim(s, len+hdr - a); goto again; }
       goto block;
     }
     if (hdr) {
@@ -640,6 +709,7 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
 
  done:
 
+  //debug_ring(s);
   unlock(s->ring_fd);
   return (rc == 0) ? (ssize_t)len : -1;
 
@@ -681,6 +751,7 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
  again:
   rc = -1;
   if (lock(s->ring_fd) < 0) goto done;
+  //debug_ring(s);
 
   if (r->o < r->i) { // next chunk is the whole pending buffer
     assert(r->u == r->i - r->o);
@@ -721,6 +792,7 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
       if (len < msg_len) { rc = -3; goto done; }
       r->o = (r->o + hdr) % r->n;
       r->u -= hdr;
+      from = &r->d[r->o];
 
       nr = MIN(b, msg_len);
       memcpy(buf, from, nr);
