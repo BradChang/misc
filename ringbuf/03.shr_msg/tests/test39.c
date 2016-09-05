@@ -78,7 +78,7 @@ void r(int fd) {
     assert(rc == sizeof(op));
     switch(op) {
       case do_open:
-        s = shr_open(ring, SHR_RDONLY);
+        s = shr_open(ring, SHR_RDONLY|SHR_NONBLOCK);
         if (s == NULL) goto done;
         printf("r: open\n");
         break;
@@ -250,14 +250,15 @@ int main() {
                       /* 0123456789012345678901234567890 */ // indexes
                       /* _______________________________ */ // contents _ unused
   issue(W, do_write); /* MSG_SIZEabcdef0________________ */
+                      /* ^                               */
   issue(W, do_write); /* MSG_SIZEabcdef0MSG_SIZEabcdef0_ */
+                      /* ^                               */
+  issue(W, do_write); /* SG_SIZEabcdef0_MSG_SIZEabcdef0M */ // stomp oldest msg
+                      /*                ^                */
 
-  issue(R, do_read);  /* ^       abcdef0                 */
-                      /* _______________MSG_SIZEabcdef0_ */
-  issue(W, do_write); /* SG_SIZEabcdef0_MSG_SIZEabcdef0M */
-  
-  issue(R, do_read);  /*                ^       abcdef0  */
-  issue(R, do_read);  /*        abcdef0                ^ */
+  issue(R, do_read);  /*                        abcdef0^ */
+  issue(R, do_read);  /*        abcdef0 .                */
+  issue(R, do_read);  /* wouldblock                      */
 
   issue(W, do_close); delay();
   issue(R, do_close); delay();

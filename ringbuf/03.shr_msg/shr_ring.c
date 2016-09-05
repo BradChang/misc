@@ -122,6 +122,7 @@ static void hexdump(char *buf, size_t len) {
   size_t i,n=0;
   char c;
   while(n < len) {
+    fprintf(stderr,"%08x ", (int)n);
     for(i=0; i < 16; i++) {
       c = (n+i < len) ? buf[n+i] : 0;
       if (n+i < len) fprintf(stderr,"%.2x ", c);
@@ -610,23 +611,21 @@ static size_t get_msg_len(struct shr *s, size_t o) {
  */
 static void reclaim(struct shr *s, size_t delta) {
   size_t o, reclaimed=0, msg_len;
-  fprintf(stderr,"reclaim\n");
 
   /* if this is a ring of messages, preserve boundaries. 
-   * move the read position to the next message >= delta
+   * move the read position to the nearest message starting at or after delta
    */
   if (s->r->gflags & SHR_INIT_MESSAGES) {
     for(o = s->r->o; reclaimed < delta; reclaimed += msg_len) {
       msg_len = get_msg_len(s,o) + sizeof(size_t);
       o = (o + msg_len ) % s->r->n;
     }
-    fprintf(stderr,"delta %ld bumped to %ld\n", delta, reclaimed);
     delta = reclaimed;
   }
 
   s->r->o = (s->r->o + delta) % s->r->n;
   s->r->u -= delta;
-  /* TODO note losing */
+  s->r->gflags |= SHR_LOSING;
 }
 
 /*
@@ -753,7 +752,7 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   if (lock(s->ring_fd) < 0) goto done;
   //debug_ring(s);
 
-  if (r->o < r->i) { // next chunk is the whole pending buffer
+  if (r->o < r->i) { // readable extent is contiguous 
     assert(r->u == r->i - r->o);
     from = &r->d[r->o];
     nr = r->u;
@@ -775,50 +774,44 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   } else if ((r->o == r->i) && (r->u == 0)) {
     nr = 0;
   } else {
-    // if we're here, that means r->o > r->i. the pending
-    // output is wrapped around the buffer. 
+    // the readable extent wraps around the buffer. 
     size_t b,c;
     b = r->n - r->o; // length of the part before eob
     c = r->i;        // length of the part after wrap
     assert(r->u == b + c);
     from = &r->d[r->o];
     nr = r->u;
+
+    /* start by reading the message length word, if in message mode. 
+     * the message length header is a size_t prepended to the message. 
+     * in message mode hdr == sizeof(size_t) but in byte mode hdr == 0. */
     if (hdr) {
       assert(nr >= hdr);
-      char *to = (char*)&msg_len;
-      memcpy(to, from, MIN(b, hdr));
-      if (b < hdr) memcpy( to + b, r->d, hdr-b);
+      char *to = (char*)&msg_len;    // cast so char so we can do wrap math
+      memcpy(to, from, MIN(b, hdr)); // copy initial bytes of message length
+      if (b < hdr) memcpy( to + b, r->d, hdr-b);  // copy remaining bytes
       assert(nr >= hdr + msg_len);
-      if (len < msg_len) { rc = -3; goto done; }
-      r->o = (r->o + hdr) % r->n;
+      if (len < msg_len) { rc = -3; goto done; } // caller buffer insufficient
+      r->o = (r->o + hdr) % r->n;    // advance read position past length word
       r->u -= hdr;
-      from = &r->d[r->o];
-
+      b = r->n - r->o;               // may have wrapped so update r-to-wrap 
       nr = MIN(b, msg_len);
-      memcpy(buf, from, nr);
-
-      if (msg_len > nr) {
-        wr = msg_len - nr;
-        assert(c >= wr);
-        memcpy(buf+nr, r->d, wr);
-      }
-
-      r->o = (r->o + msg_len ) % r->n;
+      from = &r->d[r->o];
+      memcpy(buf, from, nr);         // copy initial bytes of message itself
+      if (b < msg_len) memcpy(buf+b, r->d, msg_len-b); // copy wrapped part
+      r->o = (r->o + msg_len ) % r->n; // advance read position past message
       r->u -= msg_len;
       nr = msg_len;
-
     } else {
-      nr = b;
-      if (len < nr) nr = len;
+      nr = b;                        // in byte mode, copy as much as caller
+      if (len < nr) nr = len;        // provided space for
       memcpy(buf, from, nr);
-      /* copy part after wrap */
-      wr = MIN(len-nr, c);
+      wr = MIN(len-nr, c);           // copy part after wrap 
       if (wr > 0) {
         memcpy(buf+nr, r->d, wr);
         nr += wr;
       }
-      /* mark consumed */
-      r->o = (r->o + nr ) % r->n;
+      r->o = (r->o + nr ) % r->n;    // advance read position past consumed
       r->u -= nr;
     }
   }
