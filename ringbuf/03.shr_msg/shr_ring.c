@@ -23,7 +23,6 @@
 #define R_WANT_DATA  (1U << 1)
 
 static char magic[] = "msgring";
-
 /* this struct is mapped to the beginning of the mmap'd file. 
  * the beginning fields are created at the time of shr_init
  * (in other words, before the lifecycle of shr_open/rw/close).
@@ -38,10 +37,12 @@ typedef struct {
   char w2r[SHR_PATH_MAX]; /* w->r fifo */
   char r2w[SHR_PATH_MAX]; /* r->w fifo */
   unsigned volatile gflags;
+  struct shr_stat stat; /* i/o stats */
   size_t volatile n; /* allocd size */
   size_t volatile u; /* used space */
   size_t volatile i; /* input pos (next write starts here) */
   size_t volatile o; /* output pos (next read starts here) */
+  size_t volatile m; /* message count (SHR_INIT_MESSAGES mode) */
   char d[]; /* C99 flexible array member */
 } shr_ctrl;
 
@@ -58,6 +59,7 @@ struct shr {
     shr_ctrl * r;
   };
 };
+
 
 static void oom_exit(void) {
   fprintf(stderr, "out of memory\n");
@@ -287,7 +289,10 @@ int shr_init(char *file, size_t sz, int flags, ...) {
   shr_ctrl *r = (shr_ctrl *)buf; 
   memcpy(r->magic, magic, sizeof(magic));
   r->version = 1;
-  r->u = r->i = r->o = 0;
+  r->u = 0;
+  r->i = 0;
+  r->o = 0;
+  r->m = 0;
   r->n = file_sz - sizeof(*r);
 
   r->gflags = 0;
@@ -311,6 +316,39 @@ int shr_unlink(struct shr *s) {
   unlink(s->r->w2r);
   unlink(s->r->r2w);
   return 0;
+}
+
+
+/* 
+ * shr_stat
+ *
+ * retrieve statistics about the ring. if reset is non-NULL, the 
+ * struct timeval it points to is written into the internal stats
+ * structure as the start time of the new stats period, and the 
+ * counters are reset as a side effect
+ *
+ * returns 0 on success (and fills in *stat), -1 on failure
+ *
+ */
+int shr_stat(shr *s, struct shr_stat *stat, struct timeval *reset) {
+  int rc = -1;
+
+  if (lock(s->ring_fd) < 0) goto done;
+  *stat = s->r->stat; /* struct copy */
+  stat->bn = s->r->n;
+  stat->bu = s->r->u;
+  stat->mu = s->r->m;
+
+  if (reset) {
+    memset(&s->r->stat, 0, sizeof(s->r->stat));
+    s->r->stat.start = *reset; /* struct copy */
+  }
+
+  rc = 0;
+
+ done:
+  unlock(s->ring_fd);
+  return rc;
 }
 
 static int validate_ring(struct shr *s) {
@@ -608,24 +646,25 @@ static size_t get_msg_len(struct shr *s, size_t o) {
  * this function is called under lock to forcibly reclaim space from the ring,
  * (SHR_INIT_LRU_STOMP mode). The oldest portion of ring data is sacrificed.
  *
+ * if this is a ring of messages (SHR_INIT_MESSSAGES), preserve boundaries by 
+ * moving the read position to the nearest message at or after delta bytes.
  */
 static void reclaim(struct shr *s, size_t delta) {
   size_t o, reclaimed=0, msg_len;
 
-  /* if this is a ring of messages, preserve boundaries. 
-   * move the read position to the nearest message starting at or after delta
-   */
   if (s->r->gflags & SHR_INIT_MESSAGES) {
     for(o = s->r->o; reclaimed < delta; reclaimed += msg_len) {
       msg_len = get_msg_len(s,o) + sizeof(size_t);
       o = (o + msg_len ) % s->r->n;
+      s->r->stat.md++; /* msg drops */
+      s->r->m--;       /* msgs in ring */
     }
     delta = reclaimed;
   }
 
   s->r->o = (s->r->o + delta) % s->r->n;
   s->r->u -= delta;
-  s->r->gflags |= SHR_LOSING;
+  s->r->stat.bd += delta; /* bytes dropped */
 }
 
 /*
@@ -651,6 +690,8 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   if (len > SSIZE_MAX) goto done;
   /* does the buffer exceed total ring capacity */
   if (len + hdr > s->r->n) goto done;
+  /* zero length writes/messages are an error */
+  if (len == 0) goto done;
 
  again:
   rc = -1;
@@ -709,6 +750,9 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
  done:
 
   //debug_ring(s);
+  s->r->stat.bw += (rc == 0) ? (len + hdr) : 0;
+  s->r->stat.mw += ((rc == 0) && hdr) ? 1 : 0;
+  s->r->m += ((rc == 0) && hdr) ? 1 : 0;
   unlock(s->ring_fd);
   return (rc == 0) ? (ssize_t)len : -1;
 
@@ -772,7 +816,7 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
       r->u -= nr;
     }
   } else if ((r->o == r->i) && (r->u == 0)) {
-    nr = 0;
+    nr = 0; /* nothing to read */
   } else {
     // the readable extent wraps around the buffer. 
     size_t b,c;
@@ -839,6 +883,11 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
 
  done:
 
+  if ((nr > 0) && (rc == 0)) {
+    s->r->stat.br += (nr + hdr);
+    s->r->stat.mr += (hdr ? 1 : 0);
+    s->r->m -= (hdr ? 1 : 0);
+  }
   unlock(s->ring_fd);
   return (rc == 0) ? (ssize_t)nr : rc;
 }
