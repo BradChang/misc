@@ -38,8 +38,8 @@ and two million reads and writes per second seemed typical.
 
 ### Create 
 
-Create a ring of a given size. The usable space is slightly less because the
-bookkeeping resides in the file too.
+Create a ring of a given size. The file is created a tiny bit larger for the
+bookkeeping to reside in the file.
 
     int shr_init(char *file, size_t sz, int flags, ...);
 
