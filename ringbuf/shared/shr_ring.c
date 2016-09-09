@@ -238,12 +238,23 @@ int make_bell(char *file, shr_ctrl *r) {
  *    SHR_INIT_OVERWRITE - permits ring to exist already, overwrites it
  *    SHR_INIT_KEEPEXIST - permits ring to exist already, leaves size/content
  *
+ * returns 0 on success
+ *        -1 on error
+ *        -2 on already-exists error (keepexist/overwrite not requested)
+ * 
+ *
+ *
  */
 int shr_init(char *file, size_t sz, int flags, ...) {
   char *buf = NULL;
   int rc = -1;
 
   size_t file_sz = sizeof(shr_ctrl) + sz;
+
+  if ((flags & SHR_INIT_OVERWRITE) && (flags & SHR_INIT_KEEPEXIST)) {
+    fprintf(stderr,"shr_init: incompatible flags\n");
+    goto done;
+  }
 
   if (file_sz < MIN_RING_SZ) {
     fprintf(stderr,"shr_init: too small; min size: %ld\n", (long)MIN_RING_SZ);
@@ -263,6 +274,7 @@ int shr_init(char *file, size_t sz, int flags, ...) {
       goto done;
     } else {
       fprintf(stderr,"shr_init: %s already exists\n", file);
+      rc = -2;
       goto done;
     }
   }
@@ -304,7 +316,7 @@ int shr_init(char *file, size_t sz, int flags, ...) {
   rc = 0;
 
  done:
-  if ((rc < 0) && (fd != -1)) unlink(file);
+  if ((rc == -1) && (fd != -1)) unlink(file);
   if (fd != -1) close(fd);
   if (buf && (buf != MAP_FAILED)) munmap(buf, file_sz);
   return rc;
