@@ -28,7 +28,7 @@ int nmsg = 1000000;
 
 char *ring = __FILE__ ".ring";
 
-void delay() { usleep(50000); }
+void delay() { usleep(500000); }
 
 #define do_open   'o'
 #define do_close  'c'

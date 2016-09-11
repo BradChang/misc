@@ -14,10 +14,10 @@ int main() {
  if (shr_init(ring, 1024, 0) < 0) goto done;
 
  printf("re-init, overwrite\n");
- if (shr_init(ring, 1024, SHR_INIT_OVERWRITE) < 0) goto done;
+ if (shr_init(ring, 1024, SHR_OVERWRITE) < 0) goto done;
 
  printf("re-init, keep existing\n");
- if (shr_init(ring, 1024, SHR_INIT_KEEPEXIST) < 0) goto done;
+ if (shr_init(ring, 1024, SHR_KEEPEXIST) < 0) goto done;
 
  printf("ok\n");
 

@@ -40,16 +40,16 @@ int shr_unlink(shr *s);
 int shr_stat(shr *s, struct shr_stat *stat, struct timeval *reset);
 
 /* shr_init flags - global to the ring */
-#define SHR_INIT_OVERWRITE (1U << 0)
-#define SHR_INIT_KEEPEXIST (1U << 1)
-#define SHR_INIT_MESSAGES  (1U << 2)
-#define SHR_INIT_LRU_STOMP (1U << 3)
+#define SHR_OVERWRITE (1U << 0)
+#define SHR_KEEPEXIST (1U << 1)
+#define SHR_MESSAGES  (1U << 2)
+#define SHR_LRU_STOMP (1U << 3)
 
 /* shr_open flags */
-#define SHR_RDONLY   (1U << 0)
-#define SHR_WRONLY   (1U << 1)
-#define SHR_NONBLOCK (1U << 2)
-#define SHR_SELECTFD (1U << 3)
+#define SHR_RDONLY   (1U << 4)
+#define SHR_WRONLY   (1U << 5)
+#define SHR_NONBLOCK (1U << 6)
+#define SHR_SELECTFD (1U << 7)
 
 #if defined __cplusplus
 }

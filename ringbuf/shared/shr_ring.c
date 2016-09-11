@@ -42,7 +42,7 @@ typedef struct {
   size_t volatile u; /* used space */
   size_t volatile i; /* input pos (next write starts here) */
   size_t volatile o; /* output pos (next read starts here) */
-  size_t volatile m; /* message count (SHR_INIT_MESSAGES mode) */
+  size_t volatile m; /* message count (SHR_MESSAGES mode) */
   char d[]; /* C99 flexible array member */
 } shr_ctrl;
 
@@ -235,8 +235,8 @@ int make_bell(char *file, shr_ctrl *r) {
  * file or init an existing file, even of the same size, fail.
  *
  * flags:
- *    SHR_INIT_OVERWRITE - permits ring to exist already, overwrites it
- *    SHR_INIT_KEEPEXIST - permits ring to exist already, leaves size/content
+ *    SHR_OVERWRITE - permits ring to exist already, overwrites it
+ *    SHR_KEEPEXIST - permits ring to exist already, leaves size/content
  *
  * returns 0 on success
  *        -1 on error
@@ -251,7 +251,7 @@ int shr_init(char *file, size_t sz, int flags, ...) {
 
   size_t file_sz = sizeof(shr_ctrl) + sz;
 
-  if ((flags & SHR_INIT_OVERWRITE) && (flags & SHR_INIT_KEEPEXIST)) {
+  if ((flags & SHR_OVERWRITE) && (flags & SHR_KEEPEXIST)) {
     fprintf(stderr,"shr_init: incompatible flags\n");
     goto done;
   }
@@ -264,12 +264,12 @@ int shr_init(char *file, size_t sz, int flags, ...) {
   /* if ring exists already, flags determine behavior */
   struct stat st;
   if (stat(file, &st) == 0) { /* exists */
-    if (flags & SHR_INIT_OVERWRITE) {
+    if (flags & SHR_OVERWRITE) {
       if (unlink(file) < 0) {
         fprintf(stderr, "unlink %s: %s\n", file, strerror(errno));
         goto done;
       }
-    } else if (flags & SHR_INIT_KEEPEXIST) {
+    } else if (flags & SHR_KEEPEXIST) {
       rc = 0;
       goto done;
     } else {
@@ -308,8 +308,8 @@ int shr_init(char *file, size_t sz, int flags, ...) {
   r->n = file_sz - sizeof(*r);
 
   r->gflags = 0;
-  if (flags & SHR_INIT_MESSAGES)  r->gflags |= SHR_INIT_MESSAGES;
-  if (flags & SHR_INIT_LRU_STOMP) r->gflags |= SHR_INIT_LRU_STOMP;
+  if (flags & SHR_MESSAGES)  r->gflags |= SHR_MESSAGES;
+  if (flags & SHR_LRU_STOMP) r->gflags |= SHR_LRU_STOMP;
 
   if (make_bell(file, r) < 0) goto done;
 
@@ -656,15 +656,15 @@ static size_t get_msg_len(struct shr *s, size_t o) {
 
 /* 
  * this function is called under lock to forcibly reclaim space from the ring,
- * (SHR_INIT_LRU_STOMP mode). The oldest portion of ring data is sacrificed.
+ * (SHR_LRU_STOMP mode). The oldest portion of ring data is sacrificed.
  *
- * if this is a ring of messages (SHR_INIT_MESSSAGES), preserve boundaries by 
+ * if this is a ring of messages (SHR_MESSAGES), preserve boundaries by 
  * moving the read position to the nearest message at or after delta bytes.
  */
 static void reclaim(struct shr *s, size_t delta) {
   size_t o, reclaimed=0, msg_len;
 
-  if (s->r->gflags & SHR_INIT_MESSAGES) {
+  if (s->r->gflags & SHR_MESSAGES) {
     for(o = s->r->o; reclaimed < delta; reclaimed += msg_len) {
       msg_len = get_msg_len(s,o) + sizeof(size_t);
       o = (o + msg_len ) % s->r->n;
@@ -696,7 +696,7 @@ static void reclaim(struct shr *s, size_t delta) {
 ssize_t shr_write(struct shr *s, char *buf, size_t len) {
   int rc = -1;
   shr_ctrl *r = s->r;
-  size_t hdr = (s->r->gflags & SHR_INIT_MESSAGES) ? sizeof(len) : 0;
+  size_t hdr = (s->r->gflags & SHR_MESSAGES) ? sizeof(len) : 0;
 
   /* since this function returns signed, cap len */
   if (len > SSIZE_MAX) goto done;
@@ -715,7 +715,7 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
     a = r->o - r->i; 
     assert(a == r->n - r->u);
     if (len + hdr > a) { /* insufficient space in ring to write len bytes */
-      if (s->r->gflags & SHR_INIT_LRU_STOMP) { reclaim(s, len+hdr - a); goto again; }
+      if (s->r->gflags & SHR_LRU_STOMP) { reclaim(s, len+hdr - a); goto again; }
       if (s->flags & SHR_NONBLOCK) { rc = 0; len = 0; goto done; }
       goto block;
     }
@@ -733,7 +733,7 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
     assert(a == r->n - r->u);
     if (len + hdr > a) { /* insufficient space in ring to write len bytes */
       if (s->flags & SHR_NONBLOCK) { rc = 0; len = 0; goto done; }
-      if (s->r->gflags & SHR_INIT_LRU_STOMP) { reclaim(s, len+hdr - a); goto again; }
+      if (s->r->gflags & SHR_LRU_STOMP) { reclaim(s, len+hdr - a); goto again; }
       goto block;
     }
     if (hdr) {
@@ -788,7 +788,7 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
  *   0   (ring empty, in non-blocking mode)
  *  -1   (error)
  *  -2   (signal arrived while blocked waiting for ring)
- *  -3   (buffer can't hold message; SHR_INIT_MESSAGE mode)
+ *  -3   (buffer can't hold message; SHR_MESSAGE mode)
  *   
  */
 ssize_t shr_read(struct shr *s, char *buf, size_t len) {
@@ -796,7 +796,7 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   shr_ctrl *r = s->r;
   size_t nr, wr;
   char *from;
-  size_t hdr = (s->r->gflags & SHR_INIT_MESSAGES) ? sizeof(len) : 0;
+  size_t hdr = (s->r->gflags & SHR_MESSAGES) ? sizeof(len) : 0;
   size_t msg_len;
 
   /* since this function returns signed, cap len */
