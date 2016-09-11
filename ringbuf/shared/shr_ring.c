@@ -246,8 +246,8 @@ int make_bell(char *file, shr_ctrl *r) {
  *
  */
 int shr_init(char *file, size_t sz, int flags, ...) {
+  int rc = -1, fd = -1;
   char *buf = NULL;
-  int rc = -1;
 
   size_t file_sz = sizeof(shr_ctrl) + sz;
 
@@ -279,7 +279,7 @@ int shr_init(char *file, size_t sz, int flags, ...) {
     }
   }
 
-  int fd = open(file, O_RDWR|O_CREAT|O_EXCL, CREAT_MODE);
+  fd = open(file, O_RDWR|O_CREAT|O_EXCL, CREAT_MODE);
   if (fd == -1) {
     fprintf(stderr,"open %s: %s\n", file, strerror(errno));
     goto done;

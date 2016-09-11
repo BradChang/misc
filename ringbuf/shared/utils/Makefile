@@ -9,10 +9,10 @@ LDFLAGS = -L.. -lshr_ring
 $(OBJS): %.o: %.c
 	$(CC) -c $(CFLAGS) $< 
 
-$(PROGS): %: %.o ../shr_ring.a
+$(PROGS): %: %.o ../libshr_ring.a
 	$(CC) -o $@ $(CFLAGS) $< $(LDFLAGS)
 
-../shr_ring.a:
+../libshr_ring.a:
 	@echo "please run make from parent directory"
 	@/bin/false
 
