@@ -7,6 +7,14 @@
 #include <fcntl.h>
 #include "shr_ring.h"
 
+/* TODO
+ *
+ * unlink mode
+ *
+ *
+ *
+ */
+
 struct {
   char *prog;
   int verbose;
