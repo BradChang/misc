@@ -67,10 +67,10 @@ int main(int argc, char *argv[]) {
          c = optarg;
          while((*c) != '\0') {
            switch (*c) {
-             case 'o': CF.flags |= SHR_INIT_OVERWRITE; break;
-             case 'k': CF.flags |= SHR_INIT_KEEPEXIST; break;
-             case 'm': CF.flags |= SHR_INIT_MESSAGES; break;
-             case 'l': CF.flags |= SHR_INIT_LRU_STOMP; break;
+             case 'o': CF.flags |= SHR_OVERWRITE; break;
+             case 'k': CF.flags |= SHR_KEEPEXIST; break;
+             case 'm': CF.flags |= SHR_MESSAGES; break;
+             case 'l': CF.flags |= SHR_LRU_STOMP; break;
              default: usage(); break;
            }
            c++;
