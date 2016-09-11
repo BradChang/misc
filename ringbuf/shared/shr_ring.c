@@ -13,6 +13,13 @@
 #include <libgen.h>
 #include "shr_ring.h"
 
+/* TODO
+ *
+ * prefault/mlockall
+ *
+ *
+ */
+
 #define CREAT_MODE 0644
 #define MIN_RING_SZ (sizeof(shr_ctrl) + 1)
 #define SHR_PATH_MAX 128
