@@ -16,6 +16,7 @@
 /* TODO
  *
  * prefault/mlockall
+ * assert gflags and open flags unmixed in open/init
  *
  *
  */
@@ -554,16 +555,15 @@ struct shr *shr_open(char *file, int flags) {
    */
   if (flags & SHR_RDONLY) {  /* this process is a reader */
      if (make_nonblock(s->r2w) < 0) goto done;  /* w may be absent, nonblock */
-     /* s->w2r is blocking */
      if (flags & SHR_SELECTFD) {
        if (setup_selectable_r(s) < 0) goto done;
+       if (make_nonblock(s->w2r) < 0) goto done;  /* w2r used to epoll */
      }
   }
 
   if (flags & SHR_WRONLY) {  /* this process is a writer */
      if (flags & SHR_SELECTFD) goto done;       /* select fd mode for r only */
      if (make_nonblock(s->w2r) < 0) goto done;  /* r may be absent, nonblock */
-     /* s->r2w is blocking */
   }
 
   rc = 0;
@@ -787,8 +787,8 @@ ssize_t shr_write(struct shr *s, char *buf, size_t len) {
  *
  * Read from the ring. Block if there is no data in the ring, or return
  * immediately in non-blocking mode. As with traditional unix read(2)- multiple
- * shr_reads may be required to consume the data available in the ring, because
- * the provided buffer may be too small to absorb it all at once.
+ * shr_reads may be required to consume the data available in the ring. 
+ * In SHR_MESSAGES mode, each read returns exactly one message.
  *
  * returns:
  *   > 0 (number of bytes read from the ring)
@@ -802,7 +802,7 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   int rc = -1;
   shr_ctrl *r = s->r;
   size_t nr, wr;
-  char *from;
+  char *from, b;
   size_t hdr = (s->r->gflags & SHR_MESSAGES) ? sizeof(len) : 0;
   size_t msg_len;
 
@@ -879,15 +879,40 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
     }
   }
 
-  /* data was consumed from the ring. clear WANT_DATA in gflags. (unless we are
-   * in selectfd mode, in which case, leave WANT_DATA on, so that the writer
-   * process rings the bell even when we're in caller code outside of this
-   * library. since, blocking is done externally in caller code in that case).
-   * also, since data has been consumed, ring bell if writer awaiting space.  */
-  if (nr > 0) {
-    if ((s->r->gflags & SHR_SELECTFD) == 0) s->r->gflags &= ~(R_WANT_DATA);
-    ring_bell(s);
+  /*
+   * (A) in SELECTFD mode, the w2r fifo has needs to be drained otherwise
+   * the caller level-triggered epoll would forever remain readable. the w2r
+   * fifo is non-blocking (to us, the reader) in this mode so drain is easy.
+   * actually we don't need to drain it, its enough to drain a byte and let
+   * the caller epoll retrigger this. the idea is to avoid any expectation
+   * that the bytes in the fifo equate to one readable event in the ring.
+   * as said in other places that is not possible because of factors such
+   * as LRU_STOMP mode which discard ring content even though their fifo
+   * notifications may still be there; and fifo reaching its capacity 
+   * (which is fine, because its only purpose is to be readable when ring
+   * data is availble). so this library is designed so there is no expectation
+   * that fifo reads and ring data have a tight correspondence. it is only
+   * important that the fifo is readable when there is data, and that the
+   * caller drain the ring by calling shr_read in a loop til it returns 0
+   * when even a single byte is in the fifo.
+   *
+   * (B) clear WANT_DATA in gflags, meaning, the writer need not notify us
+   * of writes (normally this is only set when a reader is about to enter the
+   * blocked state). in SELECTFD mode however we leave the WANT_DATA flag on
+   * permanently, since caller uses its own epoll instead of our block.
+   *
+   * (C) ring the bell, if there's a writer awaiting space;
+   *
+   */
+  if (s->flags & SHR_SELECTFD) {
+    if (read(s->w2r, &b, sizeof(b)) < 0) {
+      if ((errno != EWOULDBLOCK) && (errno != EAGAIN)) goto done;
+    }
+  } else if (nr > 0) {
+    s->r->gflags &= ~(R_WANT_DATA);
   }
+
+  if (nr > 0) ring_bell(s);
 
   /* no data? block if in blocking mode */
   if ((nr == 0) && ((s->flags & SHR_NONBLOCK) == 0)) {
