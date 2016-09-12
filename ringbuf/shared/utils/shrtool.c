@@ -9,9 +9,11 @@
 
 /* TODO
  *
- * unlink mode
- *
- *
+ * rewind mode
+ * from-file mode
+ * watch-dir mode
+ * to-files mode
+ * ncurses mode
  *
  */
 
@@ -19,7 +21,7 @@ struct {
   char *prog;
   int verbose;
   char *ring;
-  enum {mode_status, mode_create} mode;
+  enum {mode_status, mode_create, mode_unlink} mode;
   struct shr *shr;
   size_t size;
   int flags;
@@ -31,6 +33,7 @@ void usage() {
   fprintf(stderr,"options:\n"
                  "         -c [-f <mode>] [-s <size>]      (create ring)\n"
                  "         -q                              (status ring) [default]\n"
+                 "         -u                              (unlink ring)\n"
                  "\n"
                  "  <size> is allowed to have k/m/g/t suffix\n"
                  "  <mode> is a legal combination of okml\n"
@@ -42,22 +45,19 @@ void usage() {
   exit(-1);
 }
 
-int status_ring() {
-  int rc=-1;
-  return rc;
-}
-
 int main(int argc, char *argv[]) {
   int opt, rc=-1, sc;
   CF.prog = argv[0];
   char unit, *c;
+  struct shr_stat stat;
 
-  while ( (opt = getopt(argc,argv,"vhcs:qf:")) > 0) {
+  while ( (opt = getopt(argc,argv,"vhcs:qf:u")) > 0) {
     switch(opt) {
       case 'v': CF.verbose++; break;
       case 'h': default: usage(); break;
       case 'c': CF.mode=mode_create; break;
       case 'q': CF.mode=mode_status; break;
+      case 'u': CF.mode=mode_unlink; break;
       case 's':  /* ring size */
          sc = sscanf(optarg, "%ld%c", &CF.size, &unit);
          if (sc == 0) usage();
@@ -99,7 +99,19 @@ int main(int argc, char *argv[]) {
 
     case mode_status:
       if (CF.size || CF.flags) usage();
-      /* TODO something */
+      CF.shr = shr_open(CF.ring, SHR_RDONLY);
+      if (CF.shr == NULL) goto done;
+      rc = shr_stat(CF.shr, &stat, NULL);
+      if (rc < 0) goto done;
+      printf("w: bw %ld, br %ld, mw %ld, mr %ld, md %ld, bd %ld, bn %ld, bu %ld mu %ld\n",
+         stat.bw, stat.br, stat.mw, stat.mr, stat.md, stat.bd, stat.bn, stat.bu, stat.mu);
+      break;
+
+    case mode_unlink:
+      if (CF.size || CF.flags) usage();
+      CF.shr = shr_open(CF.ring, SHR_RDONLY);
+      if (CF.shr == NULL) goto done;
+      rc = shr_unlink(CF.shr);
       if (rc < 0) goto done;
       break;
 
