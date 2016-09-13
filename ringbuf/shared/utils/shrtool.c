@@ -1,4 +1,5 @@
 #include <string.h>
+#include <time.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -21,7 +22,7 @@ struct {
   char *prog;
   int verbose;
   char *ring;
-  enum {mode_status, mode_create, mode_unlink} mode;
+  enum {mode_status, mode_create, mode_unlink, mode_write, mode_read} mode;
   struct shr *shr;
   size_t size;
   int flags;
@@ -34,6 +35,8 @@ void usage() {
                  "         -c [-f <mode>] [-s <size>]      (create ring)\n"
                  "         -q                              (status ring) [default]\n"
                  "         -u                              (unlink ring)\n"
+                 "         -w -s <count>                   (do <count> writes @ 1/sec)\n"
+                 "         -r                              (read ring)\n"
                  "\n"
                  "  <size> is allowed to have k/m/g/t suffix\n"
                  "  <mode> is a legal combination of okml\n"
@@ -48,16 +51,19 @@ void usage() {
 int main(int argc, char *argv[]) {
   int opt, rc=-1, sc;
   CF.prog = argv[0];
-  char unit, *c;
+  char unit, *c, buf[100];
   struct shr_stat stat;
+  ssize_t nr;
 
-  while ( (opt = getopt(argc,argv,"vhcs:qf:u")) > 0) {
+  while ( (opt = getopt(argc,argv,"vhcs:qf:uwr")) > 0) {
     switch(opt) {
       case 'v': CF.verbose++; break;
       case 'h': default: usage(); break;
       case 'c': CF.mode=mode_create; break;
       case 'q': CF.mode=mode_status; break;
       case 'u': CF.mode=mode_unlink; break;
+      case 'w': CF.mode=mode_write; break;
+      case 'r': CF.mode=mode_read; break;
       case 's':  /* ring size */
          sc = sscanf(optarg, "%ld%c", &CF.size, &unit);
          if (sc == 0) usage();
@@ -105,6 +111,32 @@ int main(int argc, char *argv[]) {
       if (rc < 0) goto done;
       printf("w: bw %ld, br %ld, mw %ld, mr %ld, md %ld, bd %ld, bn %ld, bu %ld mu %ld\n",
          stat.bw, stat.br, stat.mw, stat.mr, stat.md, stat.bd, stat.bn, stat.bu, stat.mu);
+      break;
+
+    case mode_read:
+      CF.shr = shr_open(CF.ring, SHR_RDONLY);
+      if (CF.shr == NULL) goto done;
+      while(1) {
+        nr = shr_read(CF.shr, buf, sizeof(buf));
+        if (nr < 0) {
+          fprintf(stderr, "shr_read error: %ld\n", nr);
+          goto done;
+        }
+        printf("%ld bytes: [%.*s]\n", nr, (int)nr, buf);
+      }
+      break;
+
+    case mode_write:
+      CF.shr = shr_open(CF.ring, SHR_WRONLY);
+      if (CF.shr == NULL) goto done;
+      while (CF.size--) {
+        time_t now = time(NULL);
+        char *tstr = asctime(localtime(&now));
+        nr = strlen(tstr);
+        if ((nr > 0) && (tstr[nr-1] == '\n')) tstr[nr-1] = '\0';
+        if (shr_write(CF.shr, tstr, strlen(tstr)) < 0) goto done;
+        sleep(1);
+      }
       break;
 
     case mode_unlink:
