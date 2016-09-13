@@ -15,6 +15,8 @@
  * watch-dir mode
  * to-files mode
  * ncurses mode
+ * tee mode
+ * concentrate mode
  *
  */
 
@@ -129,6 +131,7 @@ int main(int argc, char *argv[]) {
     case mode_write:
       CF.shr = shr_open(CF.ring, SHR_WRONLY);
       if (CF.shr == NULL) goto done;
+      if (CF.size == 0) CF.size++;
       while (CF.size--) {
         time_t now = time(NULL);
         char *tstr = asctime(localtime(&now));
