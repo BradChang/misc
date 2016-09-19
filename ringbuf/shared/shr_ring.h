@@ -2,6 +2,7 @@
 #define _SHARED_RING_H_
 
 #include <sys/time.h> /* struct timeval (for stats) */
+#include <sys/uio.h>  /* struct iovec (for readv/writev) */
 
 #if defined __cplusplus
 extern "C" {
@@ -35,6 +36,8 @@ shr *shr_open(char *file, int flags);
 int shr_get_selectable_fd(shr *s);
 ssize_t shr_read(shr *s, char *buf, size_t len);
 ssize_t shr_write(shr *s, char *buf, size_t len);
+ssize_t shr_readv(shr *s, char *buf, size_t len, struct iovec *iov, int iovcnt);
+ssize_t shr_writev(shr *s, struct iovec *iov, int iovcnt);
 void shr_close(shr *s);
 int shr_unlink(shr *s);
 int shr_stat(shr *s, struct shr_stat *stat, struct timeval *reset);

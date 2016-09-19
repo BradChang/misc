@@ -17,6 +17,7 @@
  *
  * prefault/mlockall
  * assert gflags and open flags unmixed in open/init
+ * FIXME refuse iovec w any 0 len
  *
  *
  */
@@ -701,85 +702,8 @@ static void reclaim(struct shr *s, size_t delta) {
  *
  */
 ssize_t shr_write(struct shr *s, char *buf, size_t len) {
-  int rc = -1;
-  shr_ctrl *r = s->r;
-  size_t hdr = (s->r->gflags & SHR_MESSAGES) ? sizeof(len) : 0;
-
-  /* since this function returns signed, cap len */
-  if (len > SSIZE_MAX) goto done;
-  /* does the buffer exceed total ring capacity */
-  if (len + hdr > s->r->n) goto done;
-  /* zero length writes/messages are an error */
-  if (len == 0) goto done;
-
- again:
-  rc = -1;
-  if (lock(s->ring_fd) < 0) goto done;
-  
-  size_t a,b,c;
-  if (r->i < r->o) {  
-    // available space is a contiguous buffer (and there is pending data) */
-    a = r->o - r->i; 
-    assert(a == r->n - r->u);
-    if (len + hdr > a) { /* insufficient space in ring to write len bytes */
-      if (s->r->gflags & SHR_LRU_STOMP) { reclaim(s, len+hdr - a); goto again; }
-      if (s->flags & SHR_NONBLOCK) { rc = 0; len = 0; goto done; }
-      goto block;
-    }
-    if (hdr) memcpy(&r->d[r->i], &len, hdr);
-    memcpy(&r->d[r->i] + hdr, buf, len);
-    r->i = (r->i + len + hdr) % r->n;
-    r->u += (len + hdr);
-  } else {            
-    // available space wraps; it's two buffers (or its empty or full)
-    b = r->n - r->i;  // in-head to eob (receives leading input)
-    c = r->o;         // out-head to in-head (receives trailing input)
-    a = b + c;        // available space
-    // the only ambiguous case is i==o, that's why u is needed
-    if (r->i == r->o) a = r->n - r->u; 
-    assert(a == r->n - r->u);
-    if (len + hdr > a) { /* insufficient space in ring to write len bytes */
-      if (s->flags & SHR_NONBLOCK) { rc = 0; len = 0; goto done; }
-      if (s->r->gflags & SHR_LRU_STOMP) { reclaim(s, len+hdr - a); goto again; }
-      goto block;
-    }
-    if (hdr) {
-      char *l = (char*)&len;
-      memcpy(&r->d[r->i], l, MIN(b, hdr));
-      if (hdr > b) memcpy(r->d, l + b, hdr-b);
-      r->i = (r->i + hdr) % r->n;
-      r->u += hdr;
-      b = r->n - r->i;
-      if (b > 0) memcpy(&r->d[r->i], buf, MIN(b, len));
-      if (len > b) memcpy(r->d, &buf[b], len-b);
-      r->i = (r->i + len) % r->n;
-      r->u += len;
-    } else {
-      memcpy(&r->d[r->i], buf, MIN(b, len));
-      if (len > b) memcpy(r->d, &buf[b], len-b);
-      r->i = (r->i + len) % r->n;
-      r->u += len;
-    }
-  }
-  s->r->gflags &= ~(W_WANT_SPACE);
-
-  ring_bell(s);
-  rc = 0;
-
- done:
-
-  //debug_ring(s);
-  s->r->stat.bw += (rc == 0) ? (len + hdr) : 0;
-  s->r->stat.mw += ((rc == 0) && hdr) ? 1 : 0;
-  s->r->m += ((rc == 0) && hdr) ? 1 : 0;
-  unlock(s->ring_fd);
-  return (rc == 0) ? (ssize_t)len : -1;
-
- block:
-  s->r->gflags |= W_WANT_SPACE;
-  unlock(s->ring_fd);
-  block(s,W_WANT_SPACE);
-  goto again;
+  struct iovec io = {.iov_base = buf, .iov_len = len };
+  return shr_writev(s, &io, 1);
 }
 
 /*
@@ -934,6 +858,127 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   }
   unlock(s->ring_fd);
   return (rc == 0) ? (ssize_t)nr : rc;
+}
+
+/*
+ssize_t shr_readv(shr *s, char *buf, size_t len, struct iovec *iov, int iovcnt) {
+}
+*/
+
+/*
+ * write sequential io buffers into ring
+ *
+ * if there is sufficient space in the ring - copy the whole iovec in.
+ * if there is insufficient free space in the ring- wait for space, or
+ * return 0 immediately in non-blocking mode. only writes all or nothing.
+ * in message mode (SHR_MESSAGES) each iovec element becomes one message.
+ *
+ * returns:
+ *   > 0 (number of bytes copied into ring, always the full iovec)
+ *   0   (insufficient space in ring, in non-blocking mode)
+ *  -1   (error, such as the iovec exceeds the total ring capacity)
+ *  -2   (signal arrived while blocked waiting for ring)
+ *
+ */
+ssize_t shr_writev(shr *s, struct iovec *iov, int iovcnt) {
+  int rc = -1, i;
+  shr_ctrl *r = s->r;
+  char *buf;
+  size_t bsz;
+  size_t hdr = (s->r->gflags & SHR_MESSAGES) ? (sizeof(bsz) * iovcnt): 0;
+
+  /* total len is the sum of all iov lengths */
+  size_t len = 0;
+  for(i = 0; i < iovcnt; i++) {
+    if (iov[i].iov_len == 0) goto done; // disallow zero length messages
+    len += iov[i].iov_len;
+  }
+
+  /* since this function returns signed, cap len */
+  if (len > SSIZE_MAX) goto done;
+  /* does the buffer exceed total ring capacity */
+  if (len + hdr > s->r->n) goto done;
+  /* zero length writes/messages are an error */
+  if (len == 0) goto done;
+
+  i = 0;
+
+ again:
+  rc = -1;
+  if (lock(s->ring_fd) < 0) goto done;
+  
+  size_t a,b,c;
+  if (r->i < r->o) {  
+    // available space is a contiguous buffer (and there is pending data) */
+    a = r->o - r->i; 
+    assert(a == r->n - r->u);
+    if (len + hdr > a) { /* insufficient space in ring to write len bytes */
+      if (s->r->gflags & SHR_LRU_STOMP) { reclaim(s, len+hdr - a); goto again; }
+      if (s->flags & SHR_NONBLOCK) { rc = 0; len = 0; goto done; }
+      goto block;
+    }
+    for(i=0; i < iovcnt; i++) {
+      buf = iov[i].iov_base;
+      bsz = iov[i].iov_len;
+      if (hdr) memcpy(&r->d[r->i], &bsz, sizeof(bsz));
+      memcpy(&r->d[r->i] + sizeof(bsz), buf, bsz);
+      r->i = (r->i + bsz + (hdr ? sizeof(bsz) : 0)) % r->n;
+      r->u += (bsz + (hdr ? sizeof(bsz) : 0));
+    }
+  } else {            
+    // available space wraps; it's two buffers (or its empty or full)
+    b = r->n - r->i;  // in-head to eob (receives leading input)
+    c = r->o;         // out-head to in-head (receives trailing input)
+    a = b + c;        // available space
+    // the only ambiguous case is i==o, that's why u is needed
+    if (r->i == r->o) a = r->n - r->u; 
+    assert(a == r->n - r->u);
+    if (len + hdr > a) { /* insufficient space in ring to write len bytes */
+      if (s->flags & SHR_NONBLOCK) { rc = 0; len = 0; goto done; }
+      if (s->r->gflags & SHR_LRU_STOMP) { reclaim(s, len+hdr - a); goto again; }
+      goto block;
+    }
+    for(i=0; i < iovcnt; i++) {
+      buf = iov[i].iov_base;
+      bsz = iov[i].iov_len;
+      if (hdr) {
+        char *l = (char*)&bsz;
+        memcpy(&r->d[r->i], l, MIN(b, sizeof(bsz)));
+        if (sizeof(bsz) > b) memcpy(r->d, l + b, sizeof(bsz)-b);
+        r->i = (r->i + sizeof(bsz)) % r->n;
+        r->u += sizeof(bsz);
+        b = r->n - r->i;
+        if (b > 0) memcpy(&r->d[r->i], buf, MIN(b, bsz));
+        if (bsz > b) memcpy(r->d, &buf[b], bsz-b);
+        r->i = (r->i + bsz) % r->n;
+        r->u += bsz;
+      } else {
+        memcpy(&r->d[r->i], buf, MIN(b, bsz));
+        if (bsz > b) memcpy(r->d, &buf[b], bsz-b);
+        r->i = (r->i + bsz) % r->n;
+        r->u += bsz;
+      }
+    }
+  }
+  s->r->gflags &= ~(W_WANT_SPACE);
+
+  ring_bell(s);
+  rc = 0;
+
+ done:
+
+  //debug_ring(s);
+  s->r->stat.bw += (rc == 0) ? (len + hdr) : 0;
+  s->r->stat.mw += ((rc == 0) && hdr) ? iovcnt : 0;
+  s->r->m += ((rc == 0) && hdr) ? iovcnt : 0;
+  unlock(s->ring_fd);
+  return (rc == 0) ? (ssize_t)len : -1;
+
+ block:
+  s->r->gflags |= W_WANT_SPACE;
+  unlock(s->ring_fd);
+  block(s,W_WANT_SPACE);
+  goto again;
 }
 
 void shr_close(struct shr *s) {

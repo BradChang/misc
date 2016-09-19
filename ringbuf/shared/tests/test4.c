@@ -2,8 +2,8 @@
 #include <unistd.h>
 #include "shr_ring.h"
 
-char *ring = "test.ring";
 char *data = "abcdefghi";
+char *ring = __FILE__ ".ring";
 
 char out[10];
 

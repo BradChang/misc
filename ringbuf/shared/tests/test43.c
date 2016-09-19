@@ -8,31 +8,22 @@
 #include <unistd.h>
 #include "shr_ring.h"
 
-/* this test is special. it doubles as a performance test.
-   this one does read and write with simultaneous contention and blocking */
+/* this test is only valid on platforms where sizeof(size_t) == 8 */
 
-/* test message is 36*10 + 1 bytes. 361 bytes just for realism */
-char msg[]  =      "1234567890abcdefghijklmnopqrstuvwxyz"
-                   "!@#$%^&*()ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                   "1234567890abcdefghijklmnopqrstuvwxyz"
-                   "!@#$%^&*()ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                   "1234567890abcdefghijklmnopqrstuvwxyz"
-                   "!@#$%^&*()ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                   "1234567890abcdefghijklmnopqrstuvwxyz"
-                   "!@#$%^&*()ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                   "1234567890abcdefghijklmnopqrstuvwxyz"
-                   "!@#$%^&*()ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+char msg[]  = "abcdef";
 
-int nmsg = 1000000;
-#define ring_sz (sizeof(msg) * nmsg)
+int nmsg = 2;
+#define ring_sz (((sizeof(msg) + sizeof(size_t)) * nmsg) + 1)
 
 char *ring = __FILE__ ".ring";
 
-void delay() { usleep(1000000); }
+void delay() { usleep(50000); }
 
 #define do_open   'o'
+#define do_stat   't'
 #define do_close  'c'
 #define do_write  'w'
+#define do_writev 'v'
 #define do_read   'r'
 #define do_unlink 'u'
 #define do_select 's'
@@ -49,9 +40,28 @@ void print_elapsed(char *name, struct timeval *start, struct timeval *end, int n
   fprintf(stderr,"%s: %f msgs/sec\n", name, msgs_per_sec);
 }
 
+__attribute__ ((__unused__)) static void hexdump(char *buf, size_t len) {
+  size_t i,n=0;
+  char c;
+  while(n < len) {
+    for(i=0; i < 16; i++) {
+      c = (n+i < len) ? buf[n+i] : 0;
+      if (n+i < len) fprintf(stderr,"%.2x ", c);
+      else fprintf(stderr, "   ");
+    }
+    for(i=0; i < 16; i++) {
+      c = (n+i < len) ? buf[n+i] : ' ';
+      if (c < 0x20 || c > 0x7e) c = '.';
+      fprintf(stderr,"%c",c);
+    }
+    fprintf(stderr,"\n");
+    n += 16;
+  }
+}
+
 void r(int fd) {
   shr *s = NULL;
-  char op, c, buf[sizeof(msg)];
+  char op, buf[sizeof(msg)];
   int rc, selectable_fd=-1, n;
   struct timeval tv_start, tv_end;
 
@@ -70,7 +80,7 @@ void r(int fd) {
     assert(rc == sizeof(op));
     switch(op) {
       case do_open:
-        s = shr_open(ring, SHR_RDONLY|SHR_NONBLOCK|SHR_SELECTFD);
+        s = shr_open(ring, SHR_RDONLY|SHR_NONBLOCK);
         if (s == NULL) goto done;
         printf("r: open\n");
         break;
@@ -80,48 +90,35 @@ void r(int fd) {
         if (selectable_fd < 0) goto done;
         break;
       case do_select:
-        //printf("r: select\n");
-        gettimeofday(&tv_start,NULL);
-        n = 0;
-        while (n < nmsg) {
-          fd_set fds;
-          FD_ZERO(&fds);
-          FD_SET(selectable_fd, &fds);
-          struct timeval tv = {.tv_sec = 1, .tv_usec =0};
-          rc = select(selectable_fd+1, &fds, NULL, NULL, &tv);
-          if (rc < 0) printf("r: select %s\n", strerror(errno));
-          else if (rc == 0) printf("r: timeout\n");
-          else if (rc == 1) {
-            //printf("r: ready. draining...\n");
-            do {
-              rc = shr_read(s, buf, sizeof(buf));
-              //printf("r: msg\n");
-              n++;
-            } while (rc > 0);
-          }
-          else assert(0);
-        }
-        gettimeofday(&tv_end,NULL);
-        print_elapsed("r", &tv_start,&tv_end,nmsg);
+        printf("r: select\n");
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(selectable_fd, &fds);
+        struct timeval tv = {.tv_sec = 1, .tv_usec =0};
+        rc = select(selectable_fd+1, &fds, NULL, NULL, &tv);
+        if (rc < 0) printf("r: select %s\n", strerror(errno));
+        else if (rc == 0) printf("r: timeout\n");
+        else if (rc == 1) printf("r: ready\n");
+        else assert(0);
         break;
       case do_read:
-        do {
-          printf("r: read\n");
-          rc = shr_read(s, &c, sizeof(c)); // byte read
-          if (rc > 0) printf("r: [%c]\n", c);
-          if (rc == 0) printf("r: wouldblock\n");
-        } while (rc > 0);
+        printf("r: read\n");
+        rc = shr_read(s, buf, sizeof(buf)); // msg read
+        printf("r: rc = %d\n", rc);
+        //hexdump(buf,rc);
+        if (rc > 0) printf("r: [%.*s]\n", rc, buf);
+        if (rc == 0) printf("r: wouldblock\n");
         break;
       case do_empty:
         // printf("r: empty\n");
         gettimeofday(&tv_start,NULL);
         for(n=0; n < nmsg; n++) {
           rc = shr_read(s, buf, sizeof(buf));
-          //fprintf(stderr,"r\n");
+          //fprintf(stderr,"%.*s\n",rc,buf);
           if (rc != sizeof(buf)) printf("r: %d != %d\n", (int)rc, (int)sizeof(buf));
         }
         gettimeofday(&tv_end,NULL);
-        print_elapsed("r", &tv_start,&tv_end,nmsg);
+        //print_elapsed("r", &tv_start,&tv_end,nmsg);
         break;
       case do_close:
         assert(s);
@@ -140,8 +137,10 @@ void r(int fd) {
 void w(int fd) {
   shr *s = NULL;
   char op;
-  int rc, n;
+  int rc, n, j=0;
   struct timeval tv_start, tv_end;
+  struct shr_stat stat;
+  struct iovec io[nmsg];
 
   printf("w: ready\n");
 
@@ -167,6 +166,15 @@ void w(int fd) {
         rc = shr_write(s, msg, sizeof(msg));
         if (rc != sizeof(msg)) printf("w: rc %d\n", rc);
         break;
+      case do_writev:
+        printf("w: writev\n");
+        for(j=0; j < nmsg; j++) {
+          io[j].iov_base = msg;
+          io[j].iov_len = sizeof(msg);
+        }
+        rc = shr_writev(s, io, nmsg);
+        if (rc != (int)(nmsg*sizeof(msg))) printf("w: rc %d\n", rc);
+        break;
       case do_fill:
         gettimeofday(&tv_start,NULL);
         // printf("w: fill\n");
@@ -181,6 +189,14 @@ void w(int fd) {
       case do_unlink:
         printf("w: unlink\n");
         shr_unlink(s);
+        break;
+      case do_stat:
+        tv_start.tv_sec = 10*++j;
+        tv_start.tv_usec = 0;
+        rc = shr_stat(s, &stat, &tv_start);
+        printf("w: stat: %d\n", rc);
+        printf("w: bw %ld, br %ld, mw %ld, mr %ld, md %ld, bd %ld, bn %ld, bu %ld, mu %ld\n",
+              stat.bw, stat.br, stat.mw, stat.mr, stat.md, stat.bd, stat.bn, stat.bu, stat.mu);
         break;
       case do_close:
         assert(s);
@@ -202,11 +218,13 @@ void w(int fd) {
     fprintf(stderr,"write: %s\n", strerror(errno)); \
     goto done;                                      \
   }                                                 \
+  delay();                                          \
 } while(0)
 
 int main() {
   int rc = 0;
   pid_t rpid,wpid;
+  assert(sizeof(size_t) == 8); // this TEST only (shr_ring does not make this assumption)
 
   setbuf(stdout,NULL);
   unlink(ring);
@@ -214,7 +232,7 @@ int main() {
   int pipe_to_r[2];
   int pipe_to_w[2];
 
-  shr_init(ring, ring_sz, 0);
+  shr_init(ring, ring_sz, SHR_MESSAGES);
 
   if (pipe(pipe_to_r) < 0) goto done;
 
@@ -247,14 +265,13 @@ int main() {
   int W = pipe_to_w[1];
 
   issue(W, do_open); delay();
+  issue(R, do_open); delay();
 
-  issue(R, do_open);
-  issue(R, do_get_fd);
-  delay();
+  issue(W, do_writev); delay();
+  issue(W, do_stat); delay();
 
-  /* contention begins here */
-  issue(R, do_select);
-  issue(W, do_fill);
+  issue(R, do_empty); delay();
+  issue(W, do_stat); delay();
 
   issue(W, do_close); delay();
   issue(R, do_close); delay();

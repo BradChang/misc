@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include "shr_ring.h"
 
-char *ring = "test.ring";
+char *ring = __FILE__ ".ring";
 
 int main() {
  struct shr *s=NULL;

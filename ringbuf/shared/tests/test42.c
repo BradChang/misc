@@ -7,7 +7,12 @@ char *data = "abcdefghi";
 
 int main() {
  struct shr *s=NULL;
- int rc = -1;
+ int rc = -1, i;
+ struct iovec io[3];
+ for(i = 0; i < 3; i++) {
+   io[i].iov_base = data; 
+   io[i].iov_len = 3;
+ }
 
  unlink(ring);
  if (shr_init(ring, 6, 0) < 0) goto done;
@@ -15,17 +20,13 @@ int main() {
  s = shr_open(ring, SHR_WRONLY|SHR_NONBLOCK);
  if (s == NULL) goto done;
 
- printf("writing ...");
- if (shr_write(s, &data[0], 3) < 0) goto done;
- printf("ok\n");
-
- printf("writing ...");
- if (shr_write(s, &data[3], 3) < 0) goto done;
+ printf("writing 2 iovec...");
+ if (shr_writev(s, io, 2) < 0) goto done;
  printf("ok\n");
 
  /* this should fail */
- printf("writing ...");
- int nr = shr_write(s, &data[6], 1);
+ printf("writing 1 iovec...");
+ int nr = shr_writev(s, io, 1);
  if (nr < 0) goto done;
  if (nr == 0) printf("non-blocking shr_write: would block\n");
  else printf("ok\n");

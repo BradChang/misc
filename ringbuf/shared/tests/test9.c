@@ -4,7 +4,7 @@
 
 /* this test shows that partial writes are rejected; always full or error */
 
-char *ring = "test.ring";
+char *ring = __FILE__ ".ring";
 char *data = "abcdefghi";
 
 char out[10];
