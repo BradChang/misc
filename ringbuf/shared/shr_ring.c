@@ -860,10 +860,8 @@ ssize_t shr_read(struct shr *s, char *buf, size_t len) {
   return (rc == 0) ? (ssize_t)nr : rc;
 }
 
-/*
 ssize_t shr_readv(shr *s, char *buf, size_t len, struct iovec *iov, int iovcnt) {
 }
-*/
 
 /*
  * write sequential io buffers into ring
@@ -968,9 +966,9 @@ ssize_t shr_writev(shr *s, struct iovec *iov, int iovcnt) {
  done:
 
   //debug_ring(s);
-  s->r->stat.bw += (rc == 0) ? (len + hdr) : 0;
-  s->r->stat.mw += ((rc == 0) && hdr) ? iovcnt : 0;
-  s->r->m += ((rc == 0) && hdr) ? iovcnt : 0;
+  s->r->stat.bw += ((rc == 0) && len) ? (len + hdr) : 0;
+  s->r->stat.mw += ((rc == 0) && len && hdr) ? iovcnt : 0;
+  s->r->m += ((rc == 0) && len && hdr) ? iovcnt : 0;
   unlock(s->ring_fd);
   return (rc == 0) ? (ssize_t)len : -1;
 
