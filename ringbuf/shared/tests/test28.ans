@@ -1,9 +1,0 @@
-r: ready
-w: ready
-w: open
-r: open
-w: close
-w: eof
-r: close
-r: eof
-end
